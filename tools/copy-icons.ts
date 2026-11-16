@@ -43,13 +43,12 @@ export function iconSprite(): Plugin {
           .replace(/^[\s\S]*?<svg[^>]*>/u, '')
           .replace(/<\/svg>\s*$/u, '')
           .trim()
-        views.push(
-          `<view id="${name}" viewBox="0 ${index * 24} 24 24"/><g transform="translate(0 ${index * 24})">${body}</g>`,
-        )
-        rules.push(`.ri-${name}{mask-image:url("/static/app/remixicon.svg#${name}")}`)
+        views.push(`<g transform="translate(0 ${index * 24})">${body}</g>`)
+        const position = names.size > 1 ? (index * 100) / (names.size - 1) : 0
+        rules.push(`.ri-${name}{mask-position:0 ${position}%}`)
       }
       sprite = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="${names.size * 24}" viewBox="0 0 24 ${names.size * 24}">${views.join('')}</svg>`
-      return `[class^="ri-"],[class*=" ri-"]{display:inline-block;width:1em;height:1em;background-color:currentColor;mask-repeat:no-repeat;mask-size:100% 100%;vertical-align:-.125em}${rules.join('')}`
+      return `[class^="ri-"],[class*=" ri-"]{display:inline-block;width:1em;height:1em;background-color:currentColor;mask-image:url("/static/app/remixicon.svg");mask-repeat:no-repeat;mask-size:100% ${names.size * 100}%;vertical-align:-.125em}${rules.join('')}`
     },
     generateBundle() {
       this.emitFile({ type: 'asset', fileName: 'remixicon.svg', source: sprite })
