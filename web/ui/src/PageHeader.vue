@@ -18,10 +18,15 @@ const props = defineProps({
 
 const emit = defineEmits(['toggle-theme'])
 const themeLabel = computed(() => msg(props.theme === 'dark' ? 'theme.toLight' : 'theme.toDark'))
-const themeIcon = computed(() => (props.theme === 'dark' ? 'ri-sun-line' : 'ri-moon-line'))
+const themeIcon = computed(() => (props.theme === 'dark' ? 'ri-moon-line' : 'ri-sun-line'))
 
 const data = /** @type {PageData} */ (props.data)
 const msg = /** @type {(id: string, vars?: Record<string, string>) => string} */ (props.msg)
+const avatarInitial = computed(() => {
+  const name = data.me?.name.trim() || data.me?.email || ''
+  return Array.from(name)[0]?.toLocaleUpperCase() ?? ''
+})
+const identityLabel = computed(() => `${data.me?.name ?? ''} ${roleLabel.value}`)
 const roleLabel = computed(() => (data.me === null ? '' : msg(`role.${data.me.role}`)))
 /** @returns {Promise<void>} */
 async function logout() {
@@ -43,14 +48,15 @@ async function logout() {
       <a v-if="data.isAdmin" class="btn-ghost" href="/users">{{ msg('nav.users') }}</a>
     </nav>
     <button
-      class="btn-ghost gap-1"
+      class="btn-ghost btn-icon"
       type="button"
       :aria-label="themeLabel"
       @click="emit('toggle-theme')"
     >
-      <i :class="themeIcon" aria-hidden="true"></i><span>{{ themeLabel }}</span>
+      <i :class="themeIcon" aria-hidden="true"></i>
     </button>
-    <DropdownMenu :label="data.languageLabel">
+    <DropdownMenu :label="data.languageLabel" compact>
+      <template #trigger><i class="ri-global-line" aria-hidden="true"></i></template>
       <a
         v-for="language in data.languages"
         :key="language.tag"
@@ -61,9 +67,11 @@ async function logout() {
       >
     </DropdownMenu>
     <template v-if="data.loggedIn && data.me">
-      <p class="text-sm text-muted-foreground">
-        {{ data.me.name }} <span class="badge">{{ roleLabel }}</span>
-      </p>
+      <div class="user-avatar" role="img" :aria-label="identityLabel">
+        <span v-if="avatarInitial" aria-hidden="true">{{ avatarInitial }}</span>
+        <i v-else class="ri-user-line" aria-hidden="true"></i>
+        <span class="badge avatar-role" aria-hidden="true">{{ roleLabel }}</span>
+      </div>
       <form @submit.prevent="logout">
         <button class="btn-outline" type="submit">
           <i class="ri-logout-box-r-line mr-1" aria-hidden="true"></i>{{ msg('nav.signOut') }}

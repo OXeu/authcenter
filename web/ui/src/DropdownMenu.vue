@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, ref, useId } from 'vue'
-const props = defineProps<{ label: string; disabled?: boolean }>()
+const props = defineProps<{ label: string; disabled?: boolean; compact?: boolean }>()
 const open = ref(false)
 const trigger = ref<HTMLButtonElement | null>(null)
 const id = useId()
@@ -26,12 +26,14 @@ function blur(event: FocusEvent) {
       ref="trigger"
       type="button"
       class="btn-ghost"
+      :class="{ 'btn-icon': props.compact }"
+      :aria-label="props.label"
       :disabled="props.disabled"
       :aria-expanded="open"
       :aria-controls="id"
       @click="open = !open"
     >
-      {{ props.label }}
+      <slot name="trigger">{{ props.label }}</slot>
     </button>
     <div v-if="open" :id="id" class="dropdown-content" @click="select">
       <slot />

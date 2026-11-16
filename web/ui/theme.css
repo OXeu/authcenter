@@ -3,7 +3,7 @@
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 @theme {
-  --color-background: oklch(0.985 0 0);
+  --color-background: #fff;
   --color-foreground: oklch(0.21 0.006 285.885);
   --color-card: oklch(1 0 0);
   --color-muted: oklch(0.967 0.001 286.375);
@@ -59,6 +59,15 @@
   }
   .btn-ghost {
     @apply inline-flex h-8 items-center justify-center rounded-md px-3 text-sm font-medium transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-icon {
+    @apply h-9 w-9 shrink-0 p-0 text-lg;
+  }
+  .user-avatar {
+    @apply relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground;
+  }
+  .user-avatar .avatar-role {
+    @apply absolute -bottom-1 -right-2 h-4 bg-card px-1 text-[9px] leading-none ring-2 ring-background;
   }
   .btn-danger {
     @apply inline-flex h-9 items-center justify-center rounded-md px-3 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-destructive;
