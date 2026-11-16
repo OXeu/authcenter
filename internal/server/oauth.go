@@ -122,12 +122,13 @@ func (s *Server) identityFromClaims(claims auth.Claims) (store.Identity, error) 
 		name = strings.SplitN(email, "@", 2)[0]
 	}
 	return store.Identity{
-		Issuer: issuer,
-		Sub:    claims.Sub,
-		Email:  email,
-		Name:   name,
-		Role:   role,
-		Now:    time.Now().UTC(),
+		Issuer:    issuer,
+		Sub:       claims.Sub,
+		Email:     email,
+		Name:      name,
+		AvatarURL: claims.Picture,
+		Role:      role,
+		Now:       time.Now().UTC(),
 	}, nil
 }
 

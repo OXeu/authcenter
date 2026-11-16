@@ -156,7 +156,7 @@ func (s *Server) render(c *gin.Context, status int, data gin.H) {
 		}
 	}
 	if loggedIn && id.User != nil {
-		payload["me"] = userJSON{ID: id.User.ID, Name: id.User.Name, Email: id.User.Email, Role: id.User.Role, LastLoginAt: id.User.LastLoginAt}
+		payload["me"] = userJSON{ID: id.User.ID, Name: id.User.Name, AvatarURL: id.User.AvatarURL, Email: id.User.Email, Role: id.User.Role, LastLoginAt: id.User.LastLoginAt}
 	}
 	if project, ok := withCommon["Project"].(*store.Project); ok {
 		payload["project"] = toProjectJSON(*project)
@@ -237,7 +237,7 @@ func securityHeaders() gin.HandlerFunc {
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "same-origin")
-		h.Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'nonce-"+nonce+"'; script-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'")
+		h.Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'nonce-"+nonce+"'; script-src 'self'; img-src 'self' data: https:; connect-src 'self'; form-action 'self'")
 		c.Next()
 	}
 }

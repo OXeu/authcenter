@@ -80,11 +80,12 @@ var ErrNoIDToken = errors.New("id_token not issued")
 
 // Claims is the verified identity of a logged-in user.
 type Claims struct {
-	Issuer string
-	Sub    string
-	Email  string
-	Name   string
-	Groups []string
+	Issuer  string
+	Sub     string
+	Email   string
+	Name    string
+	Picture string
+	Groups  []string
 }
 
 // Name returns the host of the issuer, used on the login page.
@@ -186,6 +187,12 @@ func (c *Client) exchange(ctx context.Context, code, state, stateBlob string) (C
 	claims, err := verifyIDToken(raw, c.cfg.IssuerURL, c.cfg.ClientID, sc.Nonce, c.cfg.GroupsClaim, sets, c.now())
 	if err != nil {
 		return Claims{}, err
+	}
+	if claims.Picture == "" && accessToken != "" && meta.UserinfoEndpoint != "" {
+		info, infoErr := c.userinfo(ctx, accessToken)
+		if infoErr == nil && info.Sub == claims.Sub {
+			claims.Picture = info.Picture
+		}
 	}
 	return claims, nil
 }

@@ -69,10 +69,14 @@ func normalizeUserinfo(body map[string]json.RawMessage, groupsClaim string) (Cla
 		return ""
 	}
 	claims := Claims{
-		Sub:    str("sub"),
-		Email:  str("email"),
-		Name:   str("name"),
-		Issuer: "",
+		Sub:     str("sub"),
+		Email:   str("email"),
+		Name:    str("name"),
+		Picture: pictureURL(str("picture")),
+		Issuer:  "",
+	}
+	if claims.Picture == "" {
+		claims.Picture = pictureURL(str("avatar_url"))
 	}
 	if claims.Sub == "" {
 		if raw, ok := body["id"]; ok {
@@ -134,4 +138,12 @@ func (c *Client) githubEmail(ctx context.Context, accessToken string) (string, e
 		}
 	}
 	return "", nil
+}
+
+func pictureURL(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil {
+		return ""
+	}
+	return u.String()
 }

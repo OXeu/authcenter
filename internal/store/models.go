@@ -28,11 +28,12 @@ func (r Role) CanWrite() bool {
 
 // User is a human account, optionally linked to an OAuth subject.
 type User struct {
-	ID          uint       `gorm:"primaryKey"`
-	Email       string     `gorm:"uniqueIndex;not null"`
-	Name        string     `gorm:"not null"`
-	Role        Role       `gorm:"not null"`
-	OAuthIssuer string     `gorm:"column:oauth_issuer;index"`
+	ID          uint   `gorm:"primaryKey"`
+	Email       string `gorm:"uniqueIndex;not null"`
+	Name        string `gorm:"not null"`
+	Role        Role   `gorm:"not null"`
+	OAuthIssuer string `gorm:"column:oauth_issuer;index"`
+	AvatarURL   string
 	OAuthSub    string     `gorm:"column:oauth_sub;index"`
 	CreatedAt   time.Time  `gorm:"not null"`
 	LastLoginAt *time.Time `gorm:""`
@@ -125,10 +126,11 @@ const (
 
 // Identity is the normalized OAuth profile of a logging-in user.
 type Identity struct {
-	Issuer string
-	Sub    string
-	Email  string
-	Name   string
-	Role   Role
-	Now    any
+	Issuer    string
+	Sub       string
+	Email     string
+	Name      string
+	AvatarURL string
+	Role      Role
+	Now       any
 }

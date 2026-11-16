@@ -23,14 +23,18 @@ import (
 
 	"github.com/xeu/configcenter/internal/auth"
 	"github.com/xeu/configcenter/internal/config"
+	"github.com/xeu/configcenter/internal/store"
 )
 
 type fakeIdP struct {
 	key    *rsa.PrivateKey
 	server *httptest.Server
 	// lastNonce is captured from the authorize request and echoed in the id token.
-	lastNonce string
-	bindNonce bool
+	lastNonce       string
+	bindNonce       bool
+	picture         string
+	userinfoPicture string
+	userinfoSubject string
 }
 
 func newFakeIdP(t *testing.T) *fakeIdP {
@@ -39,7 +43,7 @@ func newFakeIdP(t *testing.T) *fakeIdP {
 	if err != nil {
 		t.Fatalf("generate key: %v", err)
 	}
-	idp := &fakeIdP{key: key, bindNonce: true}
+	idp := &fakeIdP{key: key, bindNonce: true, picture: "https://images.example.com/dana.png", userinfoSubject: "u-1"}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
 		base := idp.server.URL
@@ -48,7 +52,15 @@ func newFakeIdP(t *testing.T) *fakeIdP {
 			"authorization_endpoint": base + "/authorize",
 			"token_endpoint":         base + "/token",
 			"jwks_uri":               base + "/jwks",
+			"userinfo_endpoint":      base + "/userinfo",
 		})
+	})
+	mux.HandleFunc("/userinfo", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer access" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"sub": idp.userinfoSubject, "picture": idp.userinfoPicture})
 	})
 	mux.HandleFunc("/jwks", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]any{{
@@ -74,6 +86,7 @@ func newFakeIdP(t *testing.T) *fakeIdP {
 			"email":          "dana@example.com",
 			"email_verified": true,
 			"name":           "Dana",
+			"picture":        idp.picture,
 			"nonce":          idp.lastNonce,
 			"iat":            time.Now().Unix(),
 			"exp":            time.Now().Add(5 * time.Minute).Unix(),
@@ -150,7 +163,7 @@ func (j *jar) header() string {
 }
 
 func TestOAuthLoginCreatesAdminSession(t *testing.T) {
-	_, router, idp := testServer(t, true)
+	srv, router, idp := testServer(t, true)
 	cookies := &jar{cookies: map[string]*http.Cookie{}}
 
 	start := httptest.NewRecorder()
@@ -186,14 +199,24 @@ func TestOAuthLoginCreatesAdminSession(t *testing.T) {
 		t.Fatalf("me status = %d body=%s", me.Code, me.Body.String())
 	}
 	var body struct {
-		Email string `json:"email"`
-		Role  string `json:"role"`
+		Email     string `json:"email"`
+		Role      string `json:"role"`
+		AvatarURL string `json:"avatar_url"`
 	}
 	if err := json.Unmarshal(me.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode me: %v", err)
 	}
-	if body.Email != "dana@example.com" || body.Role != "admin" {
+	if body.Email != "dana@example.com" || body.Role != "admin" || body.AvatarURL != idp.picture {
 		t.Fatalf("me = %+v", body)
+	}
+	for _, avatar := range []string{"https://images.example.com/updated.png", ""} {
+		updated, updateErr := srv.store.LinkOAuthUser(context.Background(), store.Identity{Issuer: idp.server.URL, Sub: "u-1", Email: body.Email, Name: "Dana", AvatarURL: avatar, Role: store.RoleViewer, Now: time.Now().UTC()})
+		if updateErr != nil {
+			t.Fatal(updateErr)
+		}
+		if updated.AvatarURL != avatar || updated.Role != store.RoleAdmin {
+			t.Fatalf("updated profile = %+v", updated)
+		}
 	}
 }
 
@@ -224,5 +247,43 @@ func TestSessionCookieRequiredForAPI(t *testing.T) {
 	router.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/projects", http.NoBody))
 	if page.Code != http.StatusFound || page.Header().Get("Location") != "/login" {
 		t.Fatalf("page = %d %q", page.Code, page.Header().Get("Location"))
+	}
+}
+
+func TestOAuthUserinfoPictureMatchesSubject(t *testing.T) {
+	for _, subject := range []string{"u-1", "someone-else"} {
+		t.Run(subject, func(t *testing.T) {
+			srv, router, idp := testServer(t, true)
+			idp.picture = ""
+			idp.userinfoPicture = "https://images.example.com/userinfo.png"
+			idp.userinfoSubject = subject
+			start := httptest.NewRecorder()
+			router.ServeHTTP(start, httptest.NewRequest(http.MethodGet, "/auth/login", http.NoBody))
+			authURL, err := url.Parse(start.Header().Get("Location"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			idp.lastNonce = authURL.Query().Get("nonce")
+			cookies := &jar{cookies: map[string]*http.Cookie{}}
+			cookies.add(start.Result())
+			req := httptest.NewRequest(http.MethodGet, "/oauth/callback?code=good&state="+url.QueryEscape(authURL.Query().Get("state")), http.NoBody)
+			req.Header.Set("Cookie", cookies.header())
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, req)
+			if response.Header().Get("Location") != "/projects" {
+				t.Fatalf("login = %d %s", response.Code, response.Header().Get("Location"))
+			}
+			user, err := srv.store.UserBySubject(context.Background(), idp.server.URL, "u-1")
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := ""
+			if subject == "u-1" {
+				want = idp.userinfoPicture
+			}
+			if user.AvatarURL != want {
+				t.Fatalf("picture = %q, want %q", user.AvatarURL, want)
+			}
+		})
 	}
 }

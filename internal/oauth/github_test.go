@@ -59,7 +59,7 @@ func TestGitHubDiscoveryFallbackAndUserinfo(t *testing.T) {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"id": 42, "login": "octo", "name": "Octo Cat"})
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": 42, "login": "octo", "name": "Octo Cat", "avatar_url": "https://avatars.githubusercontent.com/u/42"})
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
@@ -84,7 +84,7 @@ func TestGitHubDiscoveryFallbackAndUserinfo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("userinfo: %v", err)
 	}
-	if claims.Sub != "42" || claims.Name != "Octo Cat" {
+	if claims.Sub != "42" || claims.Name != "Octo Cat" || claims.Picture != "https://avatars.githubusercontent.com/u/42" {
 		t.Fatalf("claims = %+v", claims)
 	}
 	if !sawCredentials {

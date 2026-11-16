@@ -133,7 +133,7 @@ func (s *Server) apiMe(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"email": id.User.Email, "name": id.User.Name, "role": id.Role, "csrf": auth.CSRF(c)})
+	c.JSON(http.StatusOK, gin.H{"email": id.User.Email, "name": id.User.Name, "avatar_url": id.User.AvatarURL, "role": id.Role, "csrf": auth.CSRF(c)})
 }
 
 func (s *Server) apiListProjects(c *gin.Context) {
@@ -451,6 +451,7 @@ func (s *Server) apiProgrammaticItems(c *gin.Context) {
 }
 
 type userJSON struct {
+	AvatarURL   string     `json:"avatar_url"`
 	ID          uint       `json:"id"`
 	Name        string     `json:"name"`
 	Email       string     `json:"email"`
@@ -467,7 +468,7 @@ func (s *Server) apiListUsers(c *gin.Context) {
 	}
 	out := make([]userJSON, 0, len(users))
 	for _, u := range users {
-		out = append(out, userJSON{ID: u.ID, Name: u.Name, Email: u.Email, Role: u.Role, CreatedAt: u.CreatedAt, LastLoginAt: u.LastLoginAt})
+		out = append(out, userJSON{ID: u.ID, Name: u.Name, AvatarURL: u.AvatarURL, Email: u.Email, Role: u.Role, CreatedAt: u.CreatedAt, LastLoginAt: u.LastLoginAt})
 	}
 	c.JSON(http.StatusOK, gin.H{"users": out})
 }

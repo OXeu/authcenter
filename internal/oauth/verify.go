@@ -130,6 +130,7 @@ func verifyIDToken(raw, issuer, clientID, nonce, groupsClaim string, keys map[st
 		Email         string          `json:"email"`
 		EmailVerified *bool           `json:"email_verified"`
 		Name          string          `json:"name"`
+		Picture       string          `json:"picture"`
 		PreferredName string          `json:"preferred_username"`
 		Groups        json.RawMessage `json:"-"`
 	}
@@ -140,7 +141,7 @@ func verifyIDToken(raw, issuer, clientID, nonce, groupsClaim string, keys map[st
 		return Claims{}, err
 	}
 
-	out := Claims{Issuer: claims.Iss, Sub: claims.Sub, Email: claims.Email, Name: claims.Name}
+	out := Claims{Issuer: claims.Iss, Sub: claims.Sub, Email: claims.Email, Name: claims.Name, Picture: pictureURL(claims.Picture)}
 	if out.Name == "" {
 		out.Name = claims.PreferredName
 	}
