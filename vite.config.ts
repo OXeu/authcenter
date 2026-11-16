@@ -1,10 +1,11 @@
+import { iconSprite } from './tools/copy-icons.ts'
 import { devPages } from './tools/dev-pages.ts'
 import tailwind from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite-plus'
 
 export default defineConfig(({ command }) => ({
-  plugins: [vue(), tailwind(), devPages()],
+  plugins: [iconSprite(), vue(), tailwind(), devPages()],
   base: command === 'build' ? '/static/app/' : '/',
   cacheDir: '.tmp/vite',
   server: {

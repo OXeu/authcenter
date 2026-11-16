@@ -29,9 +29,6 @@ import (
 //go:embed templates/shell/vue.html
 var templateFS embed.FS
 
-//go:embed static
-var staticFS embed.FS
-
 // Server wires storage, authentication and HTTP handlers together.
 type Server struct {
 	cfg           config.Config
@@ -228,10 +225,6 @@ func (s *Server) router() *gin.Engine {
 	r.Use(s.authenticator.BrowserMiddleware())
 	r.Use(s.languageMiddleware())
 
-	assets, err := fs.Sub(staticFS, "static")
-	if err != nil {
-		s.log.Error("mount static assets", "error", err)
-	}
 	frontend, frontendErr := fs.Sub(configcenter.Frontend, ".tmp/ui")
 	if frontendErr != nil {
 		s.log.Error("mount frontend", "error", frontendErr)
@@ -258,11 +251,13 @@ func (s *Server) router() *gin.Engine {
 				c.Status(http.StatusNotFound)
 				return
 			}
-			c.Header("Cache-Control", "public, max-age=31536000, immutable")
-			http.StripPrefix("/static/app/", http.FileServer(http.FS(frontend))).ServeHTTP(c.Writer, c.Request)
+			if name != "remixicon.svg" {
+				c.Header("Cache-Control", "public, max-age=31536000, immutable")
+			}
+			serveStaticFile(c, frontend, name)
 			return
 		}
-		http.StripPrefix("/static/", http.FileServer(http.FS(assets))).ServeHTTP(c.Writer, c.Request)
+		c.Status(http.StatusNotFound)
 	})
 
 	s.mountDocs(r)

@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { pages } from './data.ts'
 import App from './App.vue'
 import '../theme.css'
+import 'virtual:remixicon.css'
 
 const source = document.querySelector('#page-data')
 if (!source?.textContent) throw new Error('Missing page data')
