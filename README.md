@@ -88,7 +88,7 @@ Tools: `list_environments`, `list_config`, `get_config`, `delete_config`, `set_c
 
 ## Go SDK
 
-`sdk/configcenter` is a separate module (`github.com/xeu/configcenter/sdk/configcenter`), dependency-free:
+`sdk/configcenter` is a separate module (`github.com/OXeu/configcenter/sdk/configcenter`), dependency-free:
 
 ```go
 client, err := configcenter.New(configcenter.Config{

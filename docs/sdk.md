@@ -7,10 +7,10 @@
 SDK 是独立、无第三方依赖的 Go 模块，需要 Go 1.26 或更高版本。在调用方 Go 模块目录执行：
 
 ```sh
-go get github.com/xeu/configcenter/sdk/configcenter
+go get github.com/OXeu/configcenter/sdk/configcenter
 ```
 
-生产项目在 go.mod 中固定并审查实际解析的版本。若使用尚未发布的本地修改，可在调用方模块中增加 `replace github.com/xeu/configcenter/sdk/configcenter => /absolute/path/to/configcenter/sdk/configcenter`。
+生产项目在 go.mod 中固定并审查实际解析的版本。若使用尚未发布的本地修改，可在调用方模块中增加 `replace github.com/OXeu/configcenter/sdk/configcenter => /absolute/path/to/configcenter/sdk/configcenter`。
 
 ## 初始化和首次读取
 
@@ -24,7 +24,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/xeu/configcenter/sdk/configcenter"
+    "github.com/OXeu/configcenter/sdk/configcenter"
 )
 
 func LoadPool(ctx context.Context, baseURL, apiKey string) (int, error) {
