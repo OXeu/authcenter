@@ -42,9 +42,11 @@ All settings come from the environment (read once in `internal/config`). The bin
 
 First login creates the user: linked by OAuth subject, adopted by verified email, otherwise new. Roles are managed afterwards in **Users** (admin only); group membership decides the role only when an account is created.
 
+The header theme button switches between light and dark modes. Before a manual choice, the UI follows the system setting; the choice is saved in browser storage and shared across tabs.
+
 ## Languages
 
-The UI ships in English and Simplified Chinese (`internal/i18n/locales`). The header dropdown lists `CC_LANGUAGES`, `/language?lang=<tag>` stores the choice in the `cc_lang` cookie and redirects back to the page; without a choice the server negotiates `Accept-Language`. Go supplies translated messages in the page JSON. Vue uses `web/ui/src/i18n.js` and the same locale catalogs for dialogs, role badges and errors. Add a language by dropping `<tag>.json` into the locales directory and listing the tag in `CC_LANGUAGES`.
+The UI ships in English and Simplified Chinese (`internal/i18n/locales`). The header dropdown lists `CC_LANGUAGES`, `/language?lang=<tag>` stores the choice in the `cc_lang` cookie and redirects back to the page; without a choice the server negotiates `Accept-Language`. Go supplies translated messages in the page JSON. Vue uses `web/ui/src/i18n.ts` and the same locale catalogs for dialogs, role badges and errors. Add a language by dropping `<tag>.json` into the locales directory and listing the tag in `CC_LANGUAGES`.
 
 ## Isolation model
 
@@ -54,21 +56,21 @@ The UI ships in English and Simplified Chinese (`internal/i18n/locales`). The he
 
 ## REST API (session, CSRF token in `X-CSRF-Token`)
 
-| Method       | Path                                                                              |
-| ------------ | --------------------------------------------------------------------------------- |
-| GET          | `/api/v1/me`                                                                      |
-| GET/POST     | `/api/v1/projects`                                                                |
-| PATCH/DELETE | `/api/v1/projects/:project`                                                       |
-| GET/POST     | `/api/v1/projects/:project/environments`                                          |
-| DELETE       | `/api/v1/projects/:project/environments/:env`                                     |
-| GET          | `/api/v1/projects/:project/environments/:env/items?prefix=`                       |
-| PUT/DELETE   | `/api/v1/projects/:project/environments/:env/items/:key`                          |
-| GET/POST     | `/api/v1/projects/:project/keys`, DELETE `…/keys/:id`                             |
-| GET          | `/api/v1/projects/:project/proposals?status=pending`                              |
-| POST         | `/api/v1/projects/:project/proposals/:id/review` (`{"approve": true}`)            |
-| GET          | `/api/v1/agent/project` (API key)                                       |
-| GET          | `/api/v1/agent/environments/:env/values?prefix=` (API key, read-only) |
-| GET          | `/api/v1/users`, PATCH `/api/v1/users/:id` (admin)                                |
+| Method       | Path                                                                   |
+| ------------ | ---------------------------------------------------------------------- |
+| GET          | `/api/v1/me`                                                           |
+| GET/POST     | `/api/v1/projects`                                                     |
+| PATCH/DELETE | `/api/v1/projects/:project`                                            |
+| GET/POST     | `/api/v1/projects/:project/environments`                               |
+| DELETE       | `/api/v1/projects/:project/environments/:env`                          |
+| GET          | `/api/v1/projects/:project/environments/:env/items?prefix=`            |
+| PUT/DELETE   | `/api/v1/projects/:project/environments/:env/items/:key`               |
+| GET/POST     | `/api/v1/projects/:project/keys`, DELETE `…/keys/:id`                  |
+| GET          | `/api/v1/projects/:project/proposals?status=pending`                   |
+| POST         | `/api/v1/projects/:project/proposals/:id/review` (`{"approve": true}`) |
+| GET          | `/api/v1/agent/project` (API key)                                      |
+| GET          | `/api/v1/agent/environments/:env/values?prefix=` (API key, read-only)  |
+| GET          | `/api/v1/users`, PATCH `/api/v1/users/:id` (admin)                     |
 
 ## MCP
 
@@ -109,3 +111,5 @@ The Vite development server gets authenticated page JSON from Go at `127.0.0.1:8
 Vite Plus provides the build, Oxlint, Oxfmt and Vitest. `vue-tsc` checks both scripts and templates. Oxlint custom plugins inspect script ASTs; separate compiler-based Vitest checks enforce template constraints. See [AGENTS.md](AGENTS.md).
 
 Build output stays in ignored `.tmp/ui` and is embedded by `assets.go`. Run `make assets` before direct Go commands on a fresh checkout; Make targets do this automatically. Go scratch files use `.tmp`, and binaries use `.tmp/bin`. The live SDK test is opt-in through `CC_TEST_URL` and `CC_TEST_KEY`.
+
+Type checking uses TypeScript 7 (`typescript-native`) for modules, tools and non-component tests. Vue template and component tests use `vue-tsc` with TypeScript 6 because Volar requires its JavaScript compiler API. Run both with `npm run typecheck`.

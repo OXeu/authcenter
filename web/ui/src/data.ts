@@ -1,0 +1,30 @@
+export type User = {
+  id: number
+  name: string
+  email: string
+  role: string
+  last_login_at?: string | null
+}
+
+export type PageData = {
+  page: 'login' | 'projects' | 'project' | 'users'
+  lang: string
+  title: string
+  publicUrl: string
+  providerName: string
+  nonce: string
+  csrf: string
+  loggedIn: boolean
+  isAdmin: boolean
+  oauthEnabled: boolean
+  me: User | null
+  project: { slug: string; name: string } | null
+  env: string
+  canWrite: boolean
+  languageLabel: string
+  languages: { tag: string; label: string }[]
+  messages: Record<string, string>
+  flash: { message: string; level: 'error' | 'success' } | null
+}
+
+export const pages = ['login', 'projects', 'project', 'users']

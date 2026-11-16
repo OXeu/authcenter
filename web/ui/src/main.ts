@@ -1,5 +1,5 @@
 import { createApp } from 'vue'
-import { pages } from './data.js'
+import { pages } from './data.ts'
 import App from './App.vue'
 import '../theme.css'
 

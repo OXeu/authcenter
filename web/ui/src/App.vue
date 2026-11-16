@@ -2,13 +2,13 @@
 import { computed, onMounted, watch } from 'vue'
 import PageHeader from './PageHeader.vue'
 import DialogPanel from './DialogPanel.vue'
-import { createPage } from './page.js'
-import { createWorkspace } from './workspace.js'
-import { useTheme } from './theme.js'
-import { mountToasts, notify, setToastTheme } from './toast.js'
+import { createPage } from './page.ts'
+import { createWorkspace } from './workspace.ts'
+import { useTheme } from './theme.ts'
+import { mountToasts, notify, setToastTheme } from './toast.ts'
 
 const props = defineProps({ data: { type: Object, required: true } })
-const data = /** @type {import('./data.js').PageData} */ (props.data)
+const data = /** @type {import('./data.ts').PageData} */ (props.data)
 const { theme, toggleTheme } = useTheme()
 watch(theme, (value) => setToastTheme(value))
 const page = createPage(data)

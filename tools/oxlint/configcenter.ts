@@ -8,7 +8,7 @@ const NON_TOAST_MESSAGE =
 const EMOJI = /\p{Extended_Pictographic}|[\u{FE0F}\u{20E3}]|[\u{2600}-\u{27BF}]/u
 
 /** @param {any} node @returns {string} */
-function literalTitle(node) {
+function literalTitle(node: any): string {
   const title = node.property ?? node.key
   if (title?.type === 'Identifier') return title.name
   if (title?.type === 'Literal' || title?.type === 'StringLiteral') return String(title.value)
@@ -39,7 +39,7 @@ const noPageDomAccess = defineRule({
           callee.object?.type === 'Identifier' &&
           callee.object.name === 'document' &&
           !(
-            context.filename.endsWith('/web/ui/src/main.js') &&
+            context.filename.endsWith('/web/ui/src/main.ts') &&
             literalTitle(callee) === 'querySelector'
           )
         ) {
@@ -47,8 +47,7 @@ const noPageDomAccess = defineRule({
           return
         }
         const arg = node.arguments?.[0]
-        const source =
-          arg?.type === 'Literal' || arg?.type === 'StringLiteral' ? String(arg.value) : ''
+        const source = arg?.type === 'Literal' ? String(arg.value) : ''
         if (literalTitle(callee) === 'resolve' && /^\s*notify\(/u.test(source)) {
           context.report({ node, messageId: 'nonToast' })
         }
@@ -61,7 +60,7 @@ const noPageDomAccess = defineRule({
  * @param {any} node
  * @returns {string}
  */
-function textOf(node) {
+function textOf(node: any): string {
   if (node.type === 'TemplateElement') return node.value?.cooked ?? node.value?.raw ?? ''
   return typeof node.value === 'string' ? node.value : ''
 }
@@ -73,7 +72,10 @@ const noInlineIcons = defineRule({
   create(context) {
     return {
       JSXElement(node) {
-        if (node.openingElement?.name?.name?.toLowerCase() === 'svg') {
+        if (
+          node.openingElement.name.type === 'JSXIdentifier' &&
+          node.openingElement.name.name.toLowerCase() === 'svg'
+        ) {
           context.report({ node, messageId: 'svg' })
         }
       },

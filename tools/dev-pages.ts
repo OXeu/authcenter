@@ -1,5 +1,9 @@
 /** @param {import("node:http").IncomingMessage} req @param {import("node:http").ServerResponse} res @param {(error?: unknown) => void} next */
-async function serve(req, res, next) {
+async function serve(
+  req: import('node:http').IncomingMessage,
+  res: import('node:http').ServerResponse,
+  next: (error?: unknown) => void,
+) {
   if (req.url === '/') {
     res.statusCode = 302
     res.setHeader('Location', '/projects')
@@ -35,7 +39,7 @@ async function serve(req, res, next) {
     res.end(
       html
         .replace('<link rel="stylesheet" href="/static/app/main.css">', '')
-        .replace('/static/app/main.js', '/web/ui/src/main.js')
+        .replace('/static/app/main.js', '/web/ui/src/main.ts')
         .replace('</head>', '<script type="module" src="/@vite/client"></script></head>'),
     )
   } catch (error) {
@@ -47,7 +51,7 @@ async function serve(req, res, next) {
 export function devPages() {
   return {
     name: 'configcenter-pages',
-    configureServer(server) {
+    configureServer(server: import('vite-plus').ViteDevServer) {
       server.middlewares.use((req, res, next) => {
         void serve(req, res, next)
       })

@@ -1,4 +1,4 @@
-import { devPages } from './tools/dev-pages.js'
+import { devPages } from './tools/dev-pages.ts'
 import tailwind from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite-plus'
@@ -18,13 +18,13 @@ export default defineConfig({
     manifest: false,
     sourcemap: false,
     rollupOptions: {
-      input: 'web/ui/src/main.js',
+      input: 'web/ui/src/main.ts',
       output: { entryFileNames: 'main.js', assetFileNames: '[name][extname]' },
     },
   },
   test: {
     environment: 'jsdom',
-    include: ['web/ui/__tests__/**/*.test.mjs', 'tools/oxlint/**/*.test.mjs'],
+    include: ['web/ui/__tests__/**/*.test.ts', 'tools/oxlint/**/*.test.ts'],
     testTimeout: 15000,
   },
   lint: {
@@ -36,7 +36,7 @@ export default defineConfig({
     },
     env: { browser: true, es2024: true },
     ignorePatterns: ['internal/server/static/**', 'sdk/**', 'node_modules/**'],
-    jsPlugins: ['vite-plus/oxlint-plugin', './tools/oxlint/configcenter.js'],
+    jsPlugins: ['vite-plus/oxlint-plugin', './tools/oxlint/configcenter.ts'],
 
     rules: {
       'configcenter/no-page-dom-access': 'error',

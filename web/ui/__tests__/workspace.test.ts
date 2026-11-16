@@ -1,11 +1,24 @@
+import type { PageData } from '../src/data.ts'
 import { describe, it, expect, vi, beforeEach } from 'vite-plus/test'
-import { createWorkspace } from '../src/workspace.js'
-import { createPage } from '../src/page.js'
-import { api } from '../src/core.js'
-vi.mock('../src/toast.js', () => ({ notify: vi.fn() }))
-const data = {
+import { createWorkspace } from '../src/workspace.ts'
+import { createPage } from '../src/page.ts'
+import { api } from '../src/core.ts'
+vi.mock('../src/toast.ts', () => ({ notify: vi.fn() }))
+const data: PageData = {
+  publicUrl: '',
+  providerName: '',
+  nonce: '',
+  oauthEnabled: false,
+  flash: null,
+  title: '',
+  loggedIn: false,
+  isAdmin: false,
+  canWrite: false,
+  me: null,
+  languages: [],
+  languageLabel: '',
   page: 'project',
-  project: { slug: 'billing' },
+  project: { slug: 'billing', name: 'Billing' },
   env: 'production',
   csrf: 'csrf',
   lang: 'en',

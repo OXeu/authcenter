@@ -1,9 +1,4 @@
-/**
- * @typedef {object} ApiInit
- * @property {string} [method]
- * @property {unknown} [body]
- * @property {string} [csrf]
- */
+export type ApiInit = { method?: string; body?: unknown; csrf?: string }
 
 /**
  * Calls the JSON API and turns `{ error }` failures into an Error whose cause
@@ -12,10 +7,13 @@
  * @param {ApiInit} [init]
  * @returns {Promise<any>}
  */
-export async function api(path, init = {}) {
+export async function api(path: string, init: ApiInit = {}): Promise<any> {
   const method = init.method ?? 'GET'
   /** @type {Record<string, string>} */
-  const headers = { Accept: 'application/json', 'X-CSRF-Token': init.csrf ?? '' }
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'X-CSRF-Token': init.csrf ?? '',
+  }
   if (init.body !== undefined) headers['Content-Type'] = 'application/json'
   const resp = await fetch(path, {
     method,
@@ -25,7 +23,7 @@ export async function api(path, init = {}) {
   })
   if (resp.status === 204) return null
   /** @type {any} */
-  const data = await resp.json().catch(() => ({}))
+  const data: any = await resp.json().catch(() => ({}))
   if (!resp.ok)
     throw new Error(typeof data.error === 'string' ? data.error : `HTTP ${resp.status}`, {
       cause: resp.status,
@@ -37,7 +35,7 @@ export async function api(path, init = {}) {
  * @param {string | null | undefined} iso
  * @returns {string}
  */
-export function timeOnly(iso) {
+export function timeOnly(iso: string | null | undefined): string {
   if (!iso || iso.startsWith('0001-')) return ''
   return new Date(iso).toLocaleString()
 }

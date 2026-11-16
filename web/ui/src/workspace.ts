@@ -1,19 +1,22 @@
 import { reactive } from 'vue'
-import { api } from './core.js'
-import { createForm } from './forms.js'
-import { notify } from './toast.js'
+import { api } from './core.ts'
+import { createForm } from './forms.ts'
+import { notify } from './toast.ts'
 
 /** @param {string} value */
-const enc = (value) => encodeURIComponent(value)
+const enc = (value: string) => encodeURIComponent(value)
 /** @param {string} key @param {string} label @param {boolean} [required] */
-const field = (key, label, required = true) => ({ key, label, required })
+const field = (key: string, label: string, required: boolean = true) => ({ key, label, required })
 
-/** @param {import('./data.js').PageData} data @param {import('./page.js').PageContext} page */
-export function createWorkspace(data, page) {
+/** @param {import('./data.ts').PageData} data @param {import('./page.ts').PageContext} page */
+export function createWorkspace(
+  data: import('./data.ts').PageData,
+  page: import('./page.ts').PageContext,
+) {
   const form = createForm(page)
   const state = reactive({
-    rows: /** @type {any[]} */ ([]),
-    environments: /** @type {any[]} */ ([]),
+    rows: /** @type {any[]} */ ([]) as any[],
+    environments: /** @type {any[]} */ ([]) as any[],
     tab: 'items',
     env: data.env,
     busy: false,
@@ -28,7 +31,7 @@ export function createWorkspace(data, page) {
           ? `${base}/environments/${enc(state.env)}/items`
           : `${base}/${state.tab}`
   /** @returns {Promise<void>} */
-  async function load() {
+  async function load(): Promise<void> {
     state.busy = true
     try {
       if (data.page === 'project')
@@ -40,7 +43,7 @@ export function createWorkspace(data, page) {
     }
   }
   /** @returns {Promise<void>} */
-  async function refresh() {
+  async function refresh(): Promise<void> {
     try {
       await load()
     } catch (err) {
@@ -48,7 +51,7 @@ export function createWorkspace(data, page) {
     }
   }
   /** @param {string} tab */
-  async function select(tab) {
+  async function select(tab: string) {
     if (state.busy) return
     state.tab = tab
     state.rows = []
@@ -63,14 +66,14 @@ export function createWorkspace(data, page) {
     })),
   })
   /** @param {string} url @param {string} method @param {unknown} [body] */
-  async function mutate(url, method, body) {
+  async function mutate(url: string, method: string, body?: unknown) {
     const result = await api(url, { method, body, csrf: page.csrf })
     notify('success', page.msg('toast.saved'))
     await refresh()
     return result
   }
   /** @param {any} [row] */
-  function edit(row) {
+  function edit(row?: any) {
     const editing = Boolean(row)
     let fields,
       values,
@@ -111,7 +114,7 @@ export function createWorkspace(data, page) {
     })
   }
   /** @param {any} row */
-  function remove(row) {
+  function remove(row: any) {
     const url = path() + '/' + enc(row.slug ?? row.key ?? String(row.id))
     form.show(
       page.msg('common.delete') + ': ' + (row.name ?? row.key ?? row.slug),
@@ -123,7 +126,7 @@ export function createWorkspace(data, page) {
     )
   }
   /** @param {any} row @param {boolean} approve */
-  function review(row, approve) {
+  function review(row: any, approve: boolean) {
     form.show(
       page.msg(approve ? 'projects.approve' : 'projects.reject') + ': ' + row.key,
       [],
@@ -134,7 +137,7 @@ export function createWorkspace(data, page) {
     )
   }
   /** @returns {void} */
-  function environment() {
+  function environment(): void {
     form.show(
       page.msg('projects.environment'),
       [
@@ -153,7 +156,7 @@ export function createWorkspace(data, page) {
     )
   }
   /** @returns {void} */
-  function newEnvironment() {
+  function newEnvironment(): void {
     form.show(
       page.msg('common.newEnvironment'),
       [field('slug', 'common.slug'), field('name', 'common.name')],

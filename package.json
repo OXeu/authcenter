@@ -9,7 +9,7 @@
     "fmt": "vp fmt",
     "test": "vp test",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
-    "typecheck": "vue-tsc -p tsconfig.json"
+    "typecheck": "node node_modules/typescript-native/bin/tsc -p tsconfig.native.json && vue-tsc -p tsconfig.json"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.5",
@@ -21,6 +21,7 @@
     "remixicon": "^4.9.1",
     "tailwindcss": "^4.3.5",
     "typescript": "^6.0.3",
+    "typescript-native": "npm:typescript@^7.0.2",
     "vite-plus": "1.6.0",
     "vue": "^3.5.45",
     "vue-tsc": "^3.3.14"

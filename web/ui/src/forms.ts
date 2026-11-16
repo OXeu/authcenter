@@ -1,18 +1,23 @@
 import { reactive } from 'vue'
 
-/** @param {import('./page.js').PageContext} page */
-export function createForm(page) {
+/** @param {import('./page.ts').PageContext} page */
+export function createForm(page: import('./page.ts').PageContext) {
   return reactive({
     open: false,
     title: '',
     busy: false,
     error: '',
     token: '',
-    fields: /** @type {any[]} */ ([]),
-    values: /** @type {Record<string, string>} */ ({}),
-    action: /** @type {() => Promise<void>} */ (async () => {}),
+    fields: /** @type {any[]} */ ([]) as any[],
+    values: /** @type {Record<string, string>} */ ({}) as Record<string, string>,
+    action: /** @type {() => Promise<void>} */ (async () => {}) as () => Promise<void>,
     /** @param {string} title @param {any[]} fields @param {Record<string,string>} values @param {() => Promise<void>} action */
-    show(title, fields, values, action) {
+    show(
+      title: string,
+      fields: any[],
+      values: Record<string, string>,
+      action: () => Promise<void>,
+    ) {
       this.title = title
       this.fields = fields
       this.values = { ...values }

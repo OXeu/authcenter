@@ -1,5 +1,5 @@
 /** @type {Record<string, string>} */
-const statusMessages = {
+const statusMessages: Record<string, string> = {
   400: 'error.badRequest',
   401: 'error.unauthorized',
   403: 'error.forbidden',
@@ -13,7 +13,7 @@ const statusMessages = {
  * @param {unknown} err
  * @returns {string}
  */
-export function messageOf(err) {
+export function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
@@ -21,7 +21,7 @@ export function messageOf(err) {
  * @param {unknown} err
  * @returns {number}
  */
-function codeOf(err) {
+function codeOf(err: unknown): number {
   const code = err instanceof Error ? err.cause : undefined
   return typeof code === 'number' ? code : 0
 }
@@ -33,7 +33,7 @@ function codeOf(err) {
  * @param {unknown} err
  * @returns {string}
  */
-export function describeError(msg, err) {
+export function describeError(msg: (id: string) => string, err: unknown): string {
   const code = codeOf(err)
   const key = code === 0 ? 'error.network' : statusMessages[code]
   if (key === undefined) return messageOf(err)

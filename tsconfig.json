@@ -10,7 +10,8 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM"],
-    "types": ["node", "vite-plus/client"]
+    "types": ["node", "vite-plus/client"],
+    "allowImportingTsExtensions": true
   },
-  "include": ["web/ui/src/**/*.js", "web/ui/src/**/*.vue"]
+  "include": ["web/ui/src/**/*.ts", "web/ui/src/**/*.vue", "web/ui/__tests__/**/*.ts"]
 }

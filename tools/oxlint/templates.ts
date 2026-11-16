@@ -1,15 +1,17 @@
 import { parse } from '@vue/compiler-dom'
 
 /** @param {string} source @returns {string[]} */
-export function checkTemplate(source) {
-  const errors = []
+export function checkTemplate(source: string): string[] {
+  const errors: string[] = []
   const emoji = /\p{Extended_Pictographic}/u
   /** @param {any} node @param {boolean} dialog */
-  function walk(node, dialog = false) {
+  function walk(node: any, dialog: boolean = false) {
     if (node.type === 2 && emoji.test(node.content)) errors.push('inline-icon')
     if (node.type === 1) {
       const attrs = Object.fromEntries(
-        node.props.filter((p) => p.type === 6).map((p) => [p.name, p.value?.content ?? '']),
+        node.props
+          .filter((p: any) => p.type === 6)
+          .map((p: any) => [p.name, p.value?.content ?? '']),
       )
       dialog ||=
         node.tag === 'dialog' ||
@@ -30,7 +32,7 @@ export function checkTemplate(source) {
       if (attrs.href?.startsWith('javascript:')) errors.push('unsafe-url')
       if (attrs.target === '_blank' && !attrs.rel?.split(' ').includes('noopener'))
         errors.push('unsafe-link')
-      for (const prop of node.props.filter((p) => p.type === 7)) {
+      for (const prop of node.props.filter((p: any) => p.type === 7)) {
         if ((prop.exp?.content.length ?? 0) > 50) errors.push('long-expression')
         if (prop.name === 'html') errors.push('unsafe-html')
         if (/document\.|innerHTML|outerHTML|insertAdjacentHTML/u.test(prop.exp?.content ?? ''))
@@ -40,7 +42,7 @@ export function checkTemplate(source) {
         ['button', 'a'].includes(node.tag) &&
         !node.children.length &&
         !attrs['aria-label'] &&
-        !node.props.some((p) => p.arg?.content === 'aria-label')
+        !node.props.some((p: any) => p.arg?.content === 'aria-label')
       )
         errors.push('unnamed-control')
     }

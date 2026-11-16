@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vite-plus/test'
 import { readFileSync, readdirSync } from 'node:fs'
 import { parse } from '@vue/compiler-sfc'
-import { checkTemplate } from '../../../tools/oxlint/templates.js'
-import { fallbackMessages } from '../src/i18n.js'
+import { checkTemplate } from '../../../tools/oxlint/templates.ts'
+import { fallbackMessages } from '../src/i18n.ts'
 const locales = ['en', 'zh-CN'].map((lang) =>
   JSON.parse(readFileSync(`internal/i18n/locales/${lang}.json`, 'utf8')),
 )
@@ -22,7 +22,7 @@ describe('Vue template rules', () => {
     it(`validates ${file}`, () => {
       const source = readFileSync(`web/ui/src/${file}`, 'utf8')
       const { descriptor } = parse(source)
-      expect(checkTemplate(descriptor.template.content)).toEqual([])
+      expect(checkTemplate(descriptor.template!.content)).toEqual([])
       expect(source.split('\n').filter((line) => line.trim()).length).toBeLessThanOrEqual(400)
       for (const match of source.matchAll(/msg\('([^']+)'/gu)) {
         for (const [index, locale] of locales.entries())
