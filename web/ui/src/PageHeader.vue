@@ -86,26 +86,54 @@ async function logout() {
       >
     </DropdownMenu>
     <template v-if="data.loggedIn && data.me">
-      <div class="user-avatar" role="img" :aria-label="identityLabel">
-        <img
-          v-if="showAvatar"
-          :src="avatarSource"
-          class="avatar-image"
-          alt=""
-          referrerpolicy="no-referrer"
-          @error="avatarFailed = true"
-        />
-        <span v-else-if="avatarInitial" aria-hidden="true">{{ avatarInitial }}</span>
-        <i v-else class="ri-user-line" aria-hidden="true"></i>
-        <span class="badge avatar-role" :data-role="data.me.role" aria-hidden="true">
-          <i :class="roleIcon" aria-hidden="true"></i>
-        </span>
-      </div>
-      <form @submit.prevent="logout">
-        <button class="btn-outline" type="submit">
-          <i class="ri-logout-box-r-line mr-1" aria-hidden="true"></i>{{ msg('nav.signOut') }}
-        </button>
-      </form>
+      <DropdownMenu :label="identityLabel" compact>
+        <template #trigger>
+          <div class="user-avatar" role="img" :aria-label="identityLabel">
+            <img
+              v-if="showAvatar"
+              :src="avatarSource"
+              class="avatar-image"
+              alt=""
+              referrerpolicy="no-referrer"
+              @error="avatarFailed = true"
+            />
+            <span v-else-if="avatarInitial" aria-hidden="true">{{ avatarInitial }}</span>
+            <i v-else class="ri-user-line" aria-hidden="true"></i>
+            <span class="badge avatar-role" :data-role="data.me.role" aria-hidden="true">
+              <i :class="roleIcon" aria-hidden="true"></i>
+            </span>
+          </div>
+        </template>
+        <div class="flex min-w-64 items-center gap-3 p-3">
+          <div class="user-avatar" role="img" :aria-label="identityLabel">
+            <img
+              v-if="showAvatar"
+              :src="avatarSource"
+              class="avatar-image"
+              alt=""
+              referrerpolicy="no-referrer"
+              @error="avatarFailed = true"
+            />
+            <span v-else-if="avatarInitial" aria-hidden="true">{{ avatarInitial }}</span>
+            <i v-else class="ri-user-line" aria-hidden="true"></i>
+            <span class="badge avatar-role" :data-role="data.me.role" aria-hidden="true">
+              <i :class="roleIcon" aria-hidden="true"></i>
+            </span>
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-semibold">{{ data.me.name }}</p>
+            <p class="text-sm text-muted-foreground">{{ roleLabel }}</p>
+          </div>
+          <button
+            class="btn-ghost btn-icon"
+            type="button"
+            :aria-label="msg('nav.signOut')"
+            @click="logout"
+          >
+            <i class="ri-logout-box-r-line" aria-hidden="true"></i>
+          </button>
+        </div>
+      </DropdownMenu>
     </template>
   </header>
   <main v-if="!headerOnly" id="main" class="mx-auto max-w-6xl px-6 py-8">
