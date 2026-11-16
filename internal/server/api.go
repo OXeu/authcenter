@@ -19,6 +19,8 @@ import (
 // MountAPI registers the JSON API used by the web UI and by operators.
 func (s *Server) MountAPI(r *gin.Engine) {
 	ui := r.Group("/api/v1", s.authenticator.BrowserMiddleware(), auth.RequireUser())
+	ui.GET("/settings", auth.RequireAdmin(), s.apiSettings)
+	ui.PUT("/settings", auth.RequireAdmin(), s.apiSaveSettings)
 	ui.GET("/me", s.apiMe)
 	ui.GET("/projects", s.apiListProjects)
 	ui.POST("/projects", auth.RequireWriter(), s.apiCreateProject)

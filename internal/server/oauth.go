@@ -94,6 +94,7 @@ func (s *Server) oauthCallback(c *gin.Context) {
 		return
 	}
 	user, err := s.store.LinkOAuthUser(c.Request.Context(), identity)
+	if errors.Is(err, store.ErrRegistrationClosed) { s.redirectWithError(c, "registration_closed"); return }
 	if err != nil {
 		s.redirectWithError(c, "no_account")
 		return

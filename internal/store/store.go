@@ -133,6 +133,9 @@ func (s *Store) adoptByEmail(ctx context.Context, identity Identity) (User, erro
 	case err == nil:
 		return u, nil
 	case errors.Is(err, ErrNotFound):
+		allowed, policyErr := s.RegistrationAllowed(ctx)
+		if policyErr != nil { return User{}, policyErr }
+		if !allowed { return User{}, ErrRegistrationClosed }
 		u = User{Email: identity.Email, Name: identity.Name, Role: identity.Role}
 		if u.Role != RoleAdmin {
 			u.Role = RoleUser
