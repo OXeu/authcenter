@@ -31,7 +31,7 @@ function blur(event: FocusEvent) {
       :aria-controls="id"
       @click="open = !open"
     >
-      {{ props.label }}<i class="ri-arrow-down-s-line" aria-hidden="true"></i>
+      {{ props.label }}
     </button>
     <div v-if="open" :id="id" class="dropdown-content" @click="select">
       <slot />

@@ -76,3 +76,5 @@ Commit messages follow [`docs/commits.md`](docs/commits.md): Conventional Commit
 ## Dangerous UI actions
 
 Register dangerous operations in `web/ui/src/danger.ts`. Construct actions with `dangerAction()` so execution is deferred to the shared confirmation dialog. Render them only through `DangerActions` with the translated More label; it uses `DropdownMenu` and `.btn-danger`. All secondary menus use `DropdownMenu`. `npm run lint` checks every Vue template for dangerous labels/markers, custom secondary menus, shared styles and the confirmation request handler. New operations must add an explicit registry ID; arbitrary handler aliases cannot be inferred from text alone.
+
+Icon buttons (icon children, `IconButton`, `icon` props or `data-icon-button`) may show at most 4 Unicode characters when the text contains Han characters, otherwise 10. Whitespace and punctuation count after whitespace normalization and trimming. Every translation and statically resolvable computed branch is checked by `npm run lint`; unresolved dynamic labels fail. Accessible names for icon-only buttons are exempt from this visible-text limit.

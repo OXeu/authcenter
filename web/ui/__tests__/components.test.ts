@@ -131,7 +131,7 @@ describe('Vue pages', () => {
     await flushPromises()
     expect(wrapper.attributes('data-theme')).toBe('dark')
     expect(mountToasts).toHaveBeenLastCalledWith('en', '', 'dark')
-    await wrapper.get('button[aria-label="Switch to light mode"]').trigger('click')
+    await wrapper.get('button[aria-label="Light mode"]').trigger('click')
     expect(wrapper.attributes('data-theme')).toBe('light')
     expect(setToastTheme).toHaveBeenLastCalledWith('light')
     expect(localStorage.getItem('cc_theme')).toBe('light')
@@ -143,7 +143,7 @@ describe('Vue pages', () => {
     expect(wrapper.get('dialog').element.closest('[data-theme]')!.getAttribute('data-theme')).toBe(
       'light',
     )
-    expect(wrapper.find('button[aria-label="Switch to dark mode"]').exists()).toBe(true)
+    expect(wrapper.find('button[aria-label="Dark mode"]').exists()).toBe(true)
     wrapper.unmount()
     const restored = mount(App, { props: { data } })
     expect(restored.attributes('data-theme')).toBe('light')

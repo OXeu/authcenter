@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vite-plus/test'
 import { readFileSync, readdirSync } from 'node:fs'
 import { parse } from '@vue/compiler-sfc'
 import { checkDangerTemplate } from '../../../tools/oxlint/danger.ts'
+import { checkIconLabels } from '../../../tools/oxlint/icon-labels.ts'
 import { checkTemplate } from '../../../tools/oxlint/templates.ts'
 import { fallbackMessages } from '../src/i18n.ts'
 const locales = ['en', 'zh-CN'].map((lang) =>
@@ -24,6 +25,13 @@ describe('Vue template rules', () => {
       const source = readFileSync(`web/ui/src/${file}`, 'utf8')
       const { descriptor } = parse(source)
       expect(checkTemplate(descriptor.template!.content)).toEqual([])
+      expect(
+        checkIconLabels(
+          descriptor.template!.content,
+          descriptor.scriptSetup?.content ?? '',
+          fallbackMessages,
+        ),
+      ).toEqual([])
       expect(checkDangerTemplate(descriptor.template!.content, `web/ui/src/${file}`)).toEqual([])
       expect(source.split('\n').filter((line) => line.trim()).length).toBeLessThanOrEqual(400)
       for (const match of source.matchAll(/msg\('([^']+)'/gu)) {
@@ -59,4 +67,55 @@ it('checks style, dropdown and confirmation in the shared implementation', () =>
   expect(errors).toContain('danger-requires-dropdown')
   expect(errors).toContain('danger-requires-style')
   expect(errors).toContain('danger-requires-confirmation')
+})
+
+describe('icon button label lengths', () => {
+  const catalogs = {
+    en: { short: '1234567890', long: '12345678901' },
+    'zh-CN': { short: '一二三四', long: '一二三四五' },
+  }
+  it.each(['一二三四', '1234567890', 'Light mode', ''])('accepts boundary text %s', (label) => {
+    expect(checkIconLabels(`<button><i />${label}</button>`, '', catalogs)).toEqual([])
+  })
+  it.each(['一二三四五', '12345678901', '中abcd', 'Save changes'])(
+    'rejects long text %s',
+    (label) => {
+      expect(
+        checkIconLabels(`<button><i />${label}</button>`, '', catalogs).some((error) =>
+          error.startsWith('icon-button-label-too-long'),
+        ),
+      ).toBe(true)
+    },
+  )
+  it('checks all translations and computed branches', () => {
+    const script = "const label = computed(() => msg(dark ? 'short' : 'long'))"
+    expect(checkIconLabels('<button><i />{{ label }}</button>', script, catalogs)).toHaveLength(2)
+    expect(checkIconLabels('<button><i />{{ msg("short") }}</button>', '', catalogs)).toEqual([])
+  })
+  it('counts combined nested text, whitespace and punctuation', () => {
+    expect(
+      checkIconLabels('<button><i /><span>Save</span> changes!</button>', '', catalogs),
+    ).toHaveLength(2)
+  })
+  it('checks explicit icon buttons and rejects unresolved text', () => {
+    expect(checkIconLabels('<IconButton label="12345678901" />', '', catalogs)).toHaveLength(2)
+    expect(checkIconLabels('<Button icon="add" :label="unknown" />', '', catalogs)).toContain(
+      'icon-button-label-unresolved:en',
+    )
+    expect(
+      checkIconLabels('<button data-icon-button>{{ unknown }}</button>', '', catalogs),
+    ).toContain('icon-button-label-unresolved:zh-CN')
+  })
+  it('allows icon-only accessibility labels and ordinary text buttons', () => {
+    expect(
+      checkIconLabels(
+        '<button aria-label="A long accessible description"><i /></button>',
+        '',
+        catalogs,
+      ),
+    ).toEqual([])
+    expect(checkIconLabels('<button>A long ordinary text button</button>', '', catalogs)).toEqual(
+      [],
+    )
+  })
 })
