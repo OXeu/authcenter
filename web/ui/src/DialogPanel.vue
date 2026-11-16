@@ -12,6 +12,7 @@ watch(
     if (open) dialog.value?.showModal()
     else dialog.value?.close()
   },
+  { immediate: true },
 )
 /** @param {Event} event */
 function cancel(event) {

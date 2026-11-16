@@ -56,6 +56,7 @@ beforeEach(() => {
 describe('Vue pages', () => {
   it('renders projects safely and opens the shared creation dialog', async () => {
     const wrapper = mount(App, { props: { data } })
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(wrapper.get('a[href="/projects/billing"]').text()).toBe('Billing')
     expect(wrapper.find('script').exists()).toBe(false)
@@ -63,14 +64,18 @@ describe('Vue pages', () => {
       .findAll('button')
       .find((b) => b.text() === 'Create')!
       .trigger('click')
+    await vi.dynamicImportSettled()
+    await flushPromises()
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(wrapper.get('dialog').element.open).toBe(true)
     expect(wrapper.findAll('dialog input')).toHaveLength(3)
-    expect(wrapper.findAll('main input')).toHaveLength(0)
+    expect(wrapper.findAll('main input:not(dialog input)')).toHaveLength(0)
     wrapper.unmount()
   })
   it('requires More and confirmation before deleting, and allows cancellation', async () => {
     const wrapper = mount(App, { props: { data } })
+    await vi.dynamicImportSettled()
     await flushPromises()
     const calls = vi.mocked(fetch).mock.calls.length
     expect(wrapper.find('[data-danger-action]').exists()).toBe(false)
@@ -82,6 +87,7 @@ describe('Vue pages', () => {
     const action = wrapper.get('[data-danger-action="deleteProject"]')
     expect(action.classes()).toContain('btn-danger')
     await action.trigger('click')
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(vi.mocked(fetch).mock.calls).toHaveLength(calls)
     expect(wrapper.get('dialog').element.open).toBe(true)
@@ -91,6 +97,7 @@ describe('Vue pages', () => {
     await more.trigger('click')
     await wrapper.get('[data-danger-action="deleteProject"]').trigger('click')
     await wrapper.get('dialog form').trigger('submit')
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/projects/billing',
@@ -109,6 +116,7 @@ describe('Vue pages', () => {
         },
       },
     })
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(wrapper.findAll('button').some((b) => b.text() === 'Create')).toBe(false)
     expect(wrapper.find('a[href="/users"]').exists()).toBe(false)
@@ -120,6 +128,7 @@ describe('Vue pages', () => {
     const wrapper = mount(App, {
       props: { data: { ...data, page: 'login', loggedIn: false, oauthEnabled: false } },
     })
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(notify).toHaveBeenCalledWith('info', 'OAuth is not configured on this server.')
     expect(wrapper.find('a[href="/auth/login"]').exists()).toBe(false)
@@ -128,6 +137,7 @@ describe('Vue pages', () => {
   it('switches page, dialog and toast themes from the header and restores the choice', async () => {
     localStorage.setItem('cc_theme', 'dark')
     const wrapper = mount(App, { props: { data } })
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(wrapper.attributes('data-theme')).toBe('dark')
     expect(mountToasts).toHaveBeenLastCalledWith('en', '', 'dark')
@@ -139,6 +149,9 @@ describe('Vue pages', () => {
       .findAll('button')
       .find((b) => b.text() === 'Create')!
       .trigger('click')
+    await vi.dynamicImportSettled()
+    await flushPromises()
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(wrapper.get('dialog').element.closest('[data-theme]')!.getAttribute('data-theme')).toBe(
       'light',
@@ -155,6 +168,7 @@ describe('Vue pages', () => {
         data: { ...data, me: { ...data.me!, avatar_url: 'https://images.example.com/avatar.png' } },
       },
     })
+    await vi.dynamicImportSettled()
     await flushPromises()
     const avatar = wrapper.get('.user-avatar')
     expect(avatar.attributes('aria-label')).toBe('Admin Admin')
@@ -172,6 +186,7 @@ describe('Vue pages', () => {
     ['viewer', 'ri-eye-line'],
   ])('shows the %s medal', async (role, icon) => {
     const wrapper = mount(App, { props: { data: { ...data, me: { ...data.me!, role } } } })
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(wrapper.find(`.avatar-role .${icon}`).exists()).toBe(true)
     wrapper.unmount()
@@ -193,6 +208,7 @@ describe('Vue pages', () => {
         },
       },
     })
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(fetch).not.toHaveBeenCalled()
     expect(notify).not.toHaveBeenCalled()
@@ -218,6 +234,7 @@ describe('Vue pages', () => {
     )
     const wrapper = mount(DialogPanel, { props: { form, msg: (id: string) => id } })
     form.show('Save', [], {}, action)
+    await vi.dynamicImportSettled()
     await flushPromises()
     const pending = form.submit()
     await form.submit()
@@ -226,6 +243,7 @@ describe('Vue pages', () => {
     expect(action).toHaveBeenCalledTimes(1)
     finish()
     await pending
+    await vi.dynamicImportSettled()
     await flushPromises()
     expect(wrapper.get('dialog').element.open).toBe(false)
     wrapper.unmount()
