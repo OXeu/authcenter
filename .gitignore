@@ -7,3 +7,4 @@ node_modules/
 internal/server/e2e-*
 .env.local
 .tmp/
+.env
