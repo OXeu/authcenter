@@ -17,7 +17,7 @@ inputs:
     subnetId: ${env:SCF_SUBNET_ID}
   environment:
     variables:
-      CC_ADDR: "0.0.0.0:9000"
+      CC_ADDR: '0.0.0.0:9000'
       CC_DB_DRIVER: mysql
       CC_ENV: production
       CC_ENV_FILE: /var/user/.env.local

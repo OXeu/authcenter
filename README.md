@@ -34,8 +34,8 @@ All settings come from the environment (read once in `internal/config`). The bin
 | Variable                                        | Default                       | Meaning                                                                  |
 | ----------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------ |
 | `CC_ADDR`                                       | `127.0.0.1:8080`              | Listen address                                                           |
-| `CC_DB_DRIVER` | `sqlite` | Database backend: `sqlite` or `mysql` |
-| `CC_DB`                                         | `file:configcenter.db`        | SQLite or MySQL DSN                                                               |
+| `CC_DB_DRIVER`                                  | `sqlite`                      | Database backend: `sqlite` or `mysql`                                    |
+| `CC_DB`                                         | `file:configcenter.db`        | SQLite or MySQL DSN                                                      |
 | `CC_PUBLIC_URL`                                 | `http://127.0.0.1:8080`       | Public base URL                                                          |
 | `CC_OAUTH_ISSUER`                               |                               | OIDC issuer (discovery at `/.well-known/openid-configuration`)           |
 | `CC_OAUTH_CLIENT_ID` / `CC_OAUTH_CLIENT_SECRET` |                               | OAuth client; redirect URI is `CC_PUBLIC_URL/oauth/callback`             |
