@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vite-plus/test'
 import { readFileSync, readdirSync } from 'node:fs'
 import { parse } from '@vue/compiler-sfc'
+import { checkDangerTemplate } from '../../../tools/oxlint/danger.ts'
 import { checkTemplate } from '../../../tools/oxlint/templates.ts'
 import { fallbackMessages } from '../src/i18n.ts'
 const locales = ['en', 'zh-CN'].map((lang) =>
@@ -23,6 +24,7 @@ describe('Vue template rules', () => {
       const source = readFileSync(`web/ui/src/${file}`, 'utf8')
       const { descriptor } = parse(source)
       expect(checkTemplate(descriptor.template!.content)).toEqual([])
+      expect(checkDangerTemplate(descriptor.template!.content, `web/ui/src/${file}`)).toEqual([])
       expect(source.split('\n').filter((line) => line.trim()).length).toBeLessThanOrEqual(400)
       for (const match of source.matchAll(/msg\('([^']+)'/gu)) {
         for (const [index, locale] of locales.entries())
@@ -33,4 +35,28 @@ describe('Vue template rules', () => {
       }
     })
   }
+})
+
+it.each([
+  '<button>删除</button>',
+  '<a @click="remove(row)">操作</a>',
+  '<button>{{ msg("projects.revoke") }}</button>',
+  '<button data-danger-action="deleteItem">操作</button>',
+  '<DropdownMenu><button>Delete</button></DropdownMenu>',
+])('rejects dangerous controls outside the shared component: %s', (source) => {
+  expect(checkDangerTemplate(source)).toContain('danger-use-shared-actions')
+})
+it('rejects custom secondary menus', () => {
+  expect(checkDangerTemplate('<ul role="menu"><li>Action</li></ul>')).toContain(
+    'secondary-menu-requires-dropdown',
+  )
+})
+it('checks style, dropdown and confirmation in the shared implementation', () => {
+  const errors = checkDangerTemplate(
+    '<button data-danger-action="deleteItem">Delete</button>',
+    'web/ui/src/DangerActions.vue',
+  )
+  expect(errors).toContain('danger-requires-dropdown')
+  expect(errors).toContain('danger-requires-style')
+  expect(errors).toContain('danger-requires-confirmation')
 })

@@ -4,6 +4,7 @@ import { reactive } from 'vue'
 export function createForm(page: import('./page.ts').PageContext) {
   return reactive({
     open: false,
+    danger: false,
     title: '',
     busy: false,
     error: '',
@@ -18,6 +19,7 @@ export function createForm(page: import('./page.ts').PageContext) {
       values: Record<string, string>,
       action: () => Promise<void>,
     ) {
+      this.danger = false
       this.title = title
       this.fields = fields
       this.values = { ...values }

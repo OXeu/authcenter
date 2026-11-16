@@ -1,3 +1,4 @@
+import { dangerAction, dangerOperations } from './danger.ts'
 import { reactive } from 'vue'
 import { api } from './core.ts'
 import { createForm } from './forms.ts'
@@ -113,28 +114,35 @@ export function createWorkspace(
       if (result?.token) form.token = result.token
     })
   }
-  /** @param {any} row */
-  function remove(row: any) {
+  function removal(row: any) {
+    const id =
+      data.page === 'projects' ? 'deleteProject' : state.tab === 'keys' ? 'revokeKey' : 'deleteItem'
     const url = path() + '/' + enc(row.slug ?? row.key ?? String(row.id))
-    form.show(
-      page.msg('common.delete') + ': ' + (row.name ?? row.key ?? row.slug),
-      [],
-      {},
+    return dangerAction(
+      form,
+      id,
+      page.msg(dangerOperations[id]),
+      row.name ?? row.key ?? row.slug,
       async () => {
         await mutate(url, 'DELETE')
       },
     )
   }
-  /** @param {any} row @param {boolean} approve */
+  function proposal(row: any, approve: boolean) {
+    const id = approve ? 'approveProposal' : 'rejectProposal'
+    return dangerAction(form, id, page.msg(dangerOperations[id]), row.key, async () => {
+      await mutate(`${base}/proposals/${row.id}/review`, 'POST', { approve })
+    })
+  }
+  function remove(row: any) {
+    removal(row).request()
+  }
   function review(row: any, approve: boolean) {
-    form.show(
-      page.msg(approve ? 'projects.approve' : 'projects.reject') + ': ' + row.key,
-      [],
-      {},
-      async () => {
-        await mutate(`${base}/proposals/${row.id}/review`, 'POST', { approve })
-      },
-    )
+    proposal(row, approve).request()
+  }
+  function actionsFor(row: any) {
+    if (state.tab === 'proposals') return [proposal(row, true), proposal(row, false)]
+    return data.page === 'users' ? [] : [removal(row)]
   }
   /** @returns {void} */
   function environment(): void {
@@ -166,5 +174,16 @@ export function createWorkspace(
       },
     )
   }
-  return { state, form, refresh, select, edit, remove, review, environment, newEnvironment }
+  return {
+    actionsFor,
+    state,
+    form,
+    refresh,
+    select,
+    edit,
+    remove,
+    review,
+    environment,
+    newEnvironment,
+  }
 }

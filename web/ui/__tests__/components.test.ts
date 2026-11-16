@@ -69,6 +69,35 @@ describe('Vue pages', () => {
     expect(wrapper.findAll('main input')).toHaveLength(0)
     wrapper.unmount()
   })
+  it('requires More and confirmation before deleting, and allows cancellation', async () => {
+    const wrapper = mount(App, { props: { data } })
+    await flushPromises()
+    const calls = vi.mocked(fetch).mock.calls.length
+    expect(wrapper.find('[data-danger-action]').exists()).toBe(false)
+    const more = wrapper.findAll('button').find((button) => button.text().startsWith('More'))!
+    await more.trigger('click')
+    await more.trigger('keydown', { key: 'Escape' })
+    expect(wrapper.find('[data-danger-action]').exists()).toBe(false)
+    await more.trigger('click')
+    const action = wrapper.get('[data-danger-action="deleteProject"]')
+    expect(action.classes()).toContain('btn-danger')
+    await action.trigger('click')
+    await flushPromises()
+    expect(vi.mocked(fetch).mock.calls).toHaveLength(calls)
+    expect(wrapper.get('dialog').element.open).toBe(true)
+    expect(wrapper.get('dialog button[type="submit"]').classes()).toContain('btn-danger')
+    await wrapper.get('dialog button[type="button"]').trigger('click')
+    expect(vi.mocked(fetch).mock.calls).toHaveLength(calls)
+    await more.trigger('click')
+    await wrapper.get('[data-danger-action="deleteProject"]').trigger('click')
+    await wrapper.get('dialog form').trigger('submit')
+    await flushPromises()
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/projects/billing',
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+    wrapper.unmount()
+  })
   it('hides writer actions for viewers and preserves language links', async () => {
     const wrapper = mount(App, {
       props: {
@@ -83,6 +112,7 @@ describe('Vue pages', () => {
     await flushPromises()
     expect(wrapper.findAll('button').some((b) => b.text() === 'Create')).toBe(false)
     expect(wrapper.find('a[href="/users"]').exists()).toBe(false)
+    await wrapper.get('button[aria-controls]').trigger('click')
     expect(wrapper.find('a[href="/language?lang=zh-CN"]').exists()).toBe(true)
     wrapper.unmount()
   })

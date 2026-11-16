@@ -60,6 +60,24 @@
   .btn-ghost {
     @apply inline-flex h-8 items-center justify-center rounded-md px-3 text-sm font-medium transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50;
   }
+  .btn-danger {
+    @apply inline-flex h-9 items-center justify-center rounded-md px-3 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-destructive;
+  }
+  .table-scroll {
+    @apply overflow-x-auto;
+  }
+  .table-scroll:has(.dropdown-content) {
+    overflow: visible;
+  }
+  .dropdown {
+    @apply relative inline-block;
+  }
+  .dropdown-content {
+    @apply absolute right-0 z-30 mt-1 min-w-40 rounded-md border bg-card p-1 shadow-lg;
+  }
+  .dropdown-content .btn-danger {
+    @apply w-full justify-start;
+  }
   .card {
     @apply rounded-lg border bg-card p-4 shadow-sm;
   }

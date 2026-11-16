@@ -72,3 +72,7 @@ Commit messages follow [`docs/commits.md`](docs/commits.md): Conventional Commit
 ## Definition of done
 
 `make check` passes: Vite Plus production build, Go lint and tests, Oxlint, strict Vue type checks, Vitest, and SDK lint and tests. `make build` produces `.tmp/bin/configcenter`. Commit working changes according to `docs/commits.md` and finish with a clean `git status`. Build artifacts remain ignored under `.tmp/`.
+
+## Dangerous UI actions
+
+Register dangerous operations in `web/ui/src/danger.ts`. Construct actions with `dangerAction()` so execution is deferred to the shared confirmation dialog. Render them only through `DangerActions` with the translated More label; it uses `DropdownMenu` and `.btn-danger`. All secondary menus use `DropdownMenu`. `npm run lint` checks every Vue template for dangerous labels/markers, custom secondary menus, shared styles and the confirmation request handler. New operations must add an explicit registry ID; arbitrary handler aliases cannot be inferred from text alone.

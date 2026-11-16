@@ -97,5 +97,6 @@
   "common.refresh": "刷新",
   "toast.saved": "已保存",
   "theme.toLight": "切换到浅色模式",
-  "theme.toDark": "切换到深色模式"
+  "theme.toDark": "切换到深色模式",
+  "common.more": "更多"
 }

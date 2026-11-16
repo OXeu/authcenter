@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, watch } from 'vue'
 import PageHeader from './PageHeader.vue'
+import DangerActions from './DangerActions.vue'
 import DialogPanel from './DialogPanel.vue'
 import { createPage } from './page.ts'
 import { createWorkspace } from './workspace.ts'
@@ -13,7 +14,7 @@ const { theme, toggleTheme } = useTheme()
 watch(theme, (value) => setToastTheme(value))
 const page = createPage(data)
 const { msg } = page
-const { state, form, refresh, select, edit, remove, review, environment, newEnvironment } =
+const { state, form, refresh, select, edit, actionsFor, environment, newEnvironment } =
   createWorkspace(data, page)
 const title = computed(
   () => data.project?.name ?? msg(data.page === 'login' ? 'login.title' : data.title),
@@ -105,7 +106,7 @@ onMounted(() => {
             {{ msg('common.create') }}
           </button>
         </div>
-        <div class="overflow-x-auto">
+        <div class="table-scroll">
           <table class="table" :aria-label="title" :aria-busy="state.busy">
             <thead>
               <tr>
@@ -128,32 +129,19 @@ onMounted(() => {
                   <span v-else class="whitespace-pre-wrap break-all">{{ cell(row, column) }}</span>
                 </td>
                 <td v-if="data.canWrite || data.isAdmin">
-                  <template v-if="reviewing">
-                    <button class="btn-ghost" :disabled="state.busy" @click="review(row, true)">
-                      {{ msg('projects.approve') }}
-                    </button>
-                    <button class="btn-ghost" :disabled="state.busy" @click="review(row, false)">
-                      {{ msg('projects.reject') }}
-                    </button>
-                  </template>
-                  <template v-else>
-                    <button
-                      v-if="state.tab !== 'keys'"
-                      class="btn-ghost"
-                      :disabled="state.busy"
-                      @click="edit(row)"
-                    >
-                      {{ msg('common.edit') }}
-                    </button>
-                    <button
-                      v-if="data.page !== 'users'"
-                      class="btn-ghost"
-                      :disabled="state.busy"
-                      @click="remove(row)"
-                    >
-                      {{ msg(state.tab === 'keys' ? 'projects.revoke' : 'common.delete') }}
-                    </button>
-                  </template>
+                  <button
+                    v-if="!reviewing && state.tab !== 'keys'"
+                    class="btn-ghost"
+                    :disabled="state.busy"
+                    @click="edit(row)"
+                  >
+                    {{ msg('common.edit') }}
+                  </button>
+                  <DangerActions
+                    :actions="actionsFor(row)"
+                    :label="msg('common.more')"
+                    :disabled="state.busy"
+                  />
                 </td>
               </tr>
             </tbody>

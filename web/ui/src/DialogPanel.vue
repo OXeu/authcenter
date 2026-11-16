@@ -63,7 +63,12 @@ function cancel(event) {
         <button class="btn-ghost" type="button" :disabled="form.busy" @click="form.open = false">
           {{ msg('common.cancel') }}
         </button>
-        <button v-if="!form.token" class="btn" type="submit" :disabled="form.busy">
+        <button
+          v-if="!form.token"
+          :class="form.danger ? 'btn-danger' : 'btn'"
+          type="submit"
+          :disabled="form.busy"
+        >
           {{ msg('confirm.ok') }}
         </button>
       </div>
