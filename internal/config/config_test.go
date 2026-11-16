@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -43,5 +44,35 @@ func TestLoadToleratesMissingEnvFile(t *testing.T) {
 	}
 	if cfg.Addr == "" {
 		t.Fatal("defaults were not applied")
+	}
+}
+
+func TestDatabaseDrivers(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		driver string
+		dsn    string
+		valid  bool
+	}{
+		{"default", "", "", true},
+		{"mysql", "mysql", "user:password@tcp(localhost:3306)/configcenter", true},
+		{"mysql missing dsn", "mysql", "", false},
+		{"mysql missing database", "mysql", "user:password@tcp(localhost:3306)/", false},
+		{"unknown", "postgres", "", false},
+		{"sqlite invalid", "sqlite", "invalid", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			values := map[string]string{"CC_DB_DRIVER": tc.driver, "CC_DB": tc.dsn, "CC_ENV_FILE": "missing-test-env"}
+			cfg, err := Load(func(key string) (string, bool) { value, ok := values[key]; return value, ok })
+			if (err == nil) != tc.valid {
+				t.Fatalf("valid=%v, error=%v", tc.valid, err)
+			}
+			if tc.name == "default" && cfg.DatabaseDriver != "sqlite" {
+				t.Fatal("default must remain sqlite")
+			}
+			if tc.name == "mysql" && !strings.Contains(cfg.DatabaseDSN, "parseTime=true") {
+				t.Fatal("mysql must parse timestamps")
+			}
+		})
 	}
 }

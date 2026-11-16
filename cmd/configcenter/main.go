@@ -28,7 +28,7 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-	logger.Info("configuration loaded", "addr", cfg.Addr, "public_url", cfg.PublicURL, "oauth", cfg.OAuth.Enabled(), "database", cfg.DatabaseDSN)
+	logger.Info("configuration loaded", "addr", cfg.Addr, "public_url", cfg.PublicURL, "oauth", cfg.OAuth.Enabled(), "database_driver", cfg.DatabaseDriver)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

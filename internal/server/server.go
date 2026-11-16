@@ -16,6 +16,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 
 	"github.com/xeu/configcenter"
 	"github.com/xeu/configcenter/internal/auth"
@@ -52,11 +54,11 @@ func Engine(ctx context.Context, cfg config.Config, log *slog.Logger) (*gin.Engi
 }
 
 func newServer(ctx context.Context, cfg config.Config, log *slog.Logger) (*Server, error) {
-	dsn, err := sqliteDSN(cfg.DatabaseDSN)
+	dialector, err := databaseDialector(cfg)
 	if err != nil {
 		return nil, err
 	}
-	st, err := store.Open(ctx, sqlite.Open(dsn), cfg.Bootstrap.AdminEmail, cfg.Bootstrap.AdminName)
+	st, err := store.Open(ctx, dialector, cfg.Bootstrap.AdminEmail, cfg.Bootstrap.AdminName)
 	if err != nil {
 		return nil, fmt.Errorf("open store: %w", err)
 	}
@@ -84,6 +86,21 @@ func newServer(ctx context.Context, cfg config.Config, log *slog.Logger) (*Serve
 		return nil, err
 	}
 	return s, nil
+}
+
+func databaseDialector(cfg config.Config) (gorm.Dialector, error) {
+	switch cfg.DatabaseDriver {
+	case "", "sqlite":
+		dsn, err := sqliteDSN(cfg.DatabaseDSN)
+		if err != nil {
+			return nil, err
+		}
+		return sqlite.Open(dsn), nil
+	case "mysql":
+		return mysql.Open(cfg.DatabaseDSN), nil
+	default:
+		return nil, errors.New("unsupported database driver")
+	}
 }
 
 func sqliteDSN(dsn string) (string, error) {

@@ -306,10 +306,10 @@ func (s *Store) DeleteEnvironment(ctx context.Context, projectID, id uint) error
 func (s *Store) ListItems(ctx context.Context, projectID, envID uint, keyPrefix string) ([]ConfigItem, error) {
 	q := s.db.WithContext(ctx).Where("project_id = ? AND environment_id = ?", projectID, envID)
 	if keyPrefix != "" {
-		q = q.Where("key LIKE ?", escapeLike(keyPrefix)+"%")
+		q = q.Where("`key` LIKE ?", escapeLike(keyPrefix)+"%")
 	}
 	var items []ConfigItem
-	if err := q.Order("key").Find(&items).Error; err != nil {
+	if err := q.Order(clause.OrderByColumn{Column: clause.Column{Name: "key"}}).Find(&items).Error; err != nil {
 		return nil, fmt.Errorf("list items: %w", err)
 	}
 	return items, nil
@@ -319,7 +319,7 @@ func (s *Store) ListItems(ctx context.Context, projectID, envID uint, keyPrefix 
 func (s *Store) GetItem(ctx context.Context, projectID, envID uint, key string) (ConfigItem, error) {
 	var item ConfigItem
 	err := s.db.WithContext(ctx).
-		Where("project_id = ? AND environment_id = ? AND key = ?", projectID, envID, key).
+		Where("project_id = ? AND environment_id = ? AND `key` = ?", projectID, envID, key).
 		First(&item).Error
 	return item, queryErr("load item", err)
 }
@@ -338,14 +338,14 @@ func (s *Store) PutItem(ctx context.Context, item ConfigItem) (ConfigItem, error
 
 // DeleteItem removes an item by key.
 func (s *Store) DeleteItem(ctx context.Context, projectID, envID uint, key string) error {
-	res := s.db.WithContext(ctx).Where("project_id = ? AND environment_id = ? AND key = ?", projectID, envID, key).Delete(&ConfigItem{})
+	res := s.db.WithContext(ctx).Where("project_id = ? AND environment_id = ? AND `key` = ?", projectID, envID, key).Delete(&ConfigItem{})
 	return s.mustAffect(ctx, res, "delete item")
 }
 
 // RenameItem changes the key of an existing item.
 func (s *Store) RenameItem(ctx context.Context, projectID, envID uint, oldKey, newKey string) error {
 	res := s.db.WithContext(ctx).Model(&ConfigItem{}).
-		Where("project_id = ? AND environment_id = ? AND key = ?", projectID, envID, oldKey).
+		Where("project_id = ? AND environment_id = ? AND `key` = ?", projectID, envID, oldKey).
 		Update("key", newKey)
 	return s.mustAffect(ctx, res, "rename item")
 }
@@ -488,7 +488,7 @@ func (s *Store) applyProposal(p MCPProposal, reviewer uint) error {
 			return fmt.Errorf("apply proposal set: %w", err)
 		}
 	case ActionDelete:
-		if err := s.db.Where("project_id = ? AND environment_id = ? AND key = ?", p.ProjectID, p.EnvironmentID, p.Key).
+		if err := s.db.Where("project_id = ? AND environment_id = ? AND `key` = ?", p.ProjectID, p.EnvironmentID, p.Key).
 			Delete(&ConfigItem{}).Error; err != nil {
 			return fmt.Errorf("apply proposal delete: %w", err)
 		}

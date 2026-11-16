@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 
 	"github.com/xeu/configcenter/internal/auth"
@@ -15,11 +16,12 @@ import (
 
 // Config holds every runtime setting of the server.
 type Config struct {
-	Addr          string
-	DatabaseDSN   string
-	PublicURL     string
-	SessionSecret string
-	SessionTTL    time.Duration
+	Addr           string
+	DatabaseDriver string
+	DatabaseDSN    string
+	PublicURL      string
+	SessionSecret  string
+	SessionTTL     time.Duration
 	// Languages lists the enabled UI languages; the first supported one is
 	// the default. Tags must match the locale files in internal/i18n.
 	Languages []string
@@ -51,12 +53,13 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	}
 
 	cfg := Config{
-		Addr:          env("CC_ADDR", "127.0.0.1:8080"),
-		DatabaseDSN:   env("CC_DB", "file:configcenter.db"),
-		PublicURL:     strings.TrimRight(env("CC_PUBLIC_URL", "http://127.0.0.1:8080"), "/"),
-		SessionSecret: env("CC_SESSION_SECRET", ""),
-		SessionTTL:    24 * time.Hour,
-		Languages:     splitList(env("CC_LANGUAGES", "en,zh-CN")),
+		Addr:           env("CC_ADDR", "127.0.0.1:8080"),
+		DatabaseDriver: env("CC_DB_DRIVER", "sqlite"),
+		DatabaseDSN:    env("CC_DB", "file:configcenter.db"),
+		PublicURL:      strings.TrimRight(env("CC_PUBLIC_URL", "http://127.0.0.1:8080"), "/"),
+		SessionSecret:  env("CC_SESSION_SECRET", ""),
+		SessionTTL:     24 * time.Hour,
+		Languages:      splitList(env("CC_LANGUAGES", "en,zh-CN")),
 		OAuth: auth.Config{
 			IssuerURL:    strings.TrimRight(env("CC_OAUTH_ISSUER", ""), "/"),
 			ClientID:     env("CC_OAUTH_CLIENT_ID", ""),
@@ -83,7 +86,22 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	if _, port, err := net.SplitHostPort(cfg.Addr); err != nil || port == "" {
 		errs = append(errs, fmt.Errorf("cc addr %q is not host:port", cfg.Addr))
 	}
-	if !strings.HasPrefix(cfg.DatabaseDSN, "file:") {
+	if cfg.DatabaseDriver != "sqlite" && cfg.DatabaseDriver != "mysql" {
+		errs = append(errs, errors.New("cc db driver must be sqlite or mysql"))
+	}
+	if cfg.DatabaseDriver == "mysql" && (cfg.DatabaseDSN == "" || strings.HasPrefix(cfg.DatabaseDSN, "file:")) {
+		errs = append(errs, errors.New("cc db requires a MySQL DSN when using mysql"))
+	}
+	if cfg.DatabaseDriver == "mysql" {
+		parsed, err := mysql.ParseDSN(cfg.DatabaseDSN)
+		if err != nil || parsed.DBName == "" {
+			errs = append(errs, errors.New("cc db must be a valid MySQL DSN with a database name"))
+		} else {
+			parsed.ParseTime = true
+			cfg.DatabaseDSN = parsed.FormatDSN()
+		}
+	}
+	if cfg.DatabaseDriver == "sqlite" && !strings.HasPrefix(cfg.DatabaseDSN, "file:") {
 		errs = append(errs, errors.New("cc db must be a sqlite dsn starting with file"))
 	}
 	if cfg.SessionSecret == "" && env("CC_ENV", "") == "production" {

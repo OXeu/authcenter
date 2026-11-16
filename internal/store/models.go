@@ -30,7 +30,7 @@ func (r Role) CanWrite() bool {
 // User is a human account, optionally linked to an OAuth subject.
 type User struct {
 	ID          uint   `gorm:"primaryKey"`
-	Email       string `gorm:"uniqueIndex;not null"`
+	Email       string `gorm:"uniqueIndex;size:254;not null"`
 	Name        string `gorm:"not null"`
 	Role        Role   `gorm:"not null"`
 	OAuthIssuer string `gorm:"column:oauth_issuer;index"`
@@ -75,7 +75,7 @@ type ConfigItem struct {
 	ProjectID     uint   `gorm:"uniqueIndex:item_scope;not null"`
 	EnvironmentID uint   `gorm:"uniqueIndex:item_scope;not null"`
 	Key           string `gorm:"uniqueIndex:item_scope;size:191;not null"`
-	Value         string `gorm:"not null"`
+	Value         string `gorm:"type:longtext;not null"`
 	Description   string
 	UpdatedBy     uint      `gorm:"not null"`
 	CreatedAt     time.Time `gorm:"not null"`
