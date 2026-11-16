@@ -1,6 +1,6 @@
 <script setup>
 import DropdownMenu from './DropdownMenu.vue'
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { api } from './core.ts'
 import { createPage } from './page.ts'
 
@@ -22,6 +22,17 @@ const themeIcon = computed(() => (props.theme === 'dark' ? 'ri-moon-line' : 'ri-
 
 const data = /** @type {PageData} */ (props.data)
 const msg = /** @type {(id: string, vars?: Record<string, string>) => string} */ (props.msg)
+const avatarFailed = ref(false)
+const avatarSource = computed(() => data.me?.avatar_url ?? '')
+const showAvatar = computed(() => Boolean(avatarSource.value) && !avatarFailed.value)
+watch(avatarSource, () => {
+  avatarFailed.value = false
+})
+const roleIcon = computed(() => {
+  if (data.me?.role === 'admin') return 'ri-vip-crown-line'
+  if (data.me?.role === 'editor') return 'ri-edit-line'
+  return 'ri-eye-line'
+})
 const avatarInitial = computed(() => {
   const name = data.me?.name.trim() || data.me?.email || ''
   return Array.from(name)[0]?.toLocaleUpperCase() ?? ''
@@ -68,9 +79,19 @@ async function logout() {
     </DropdownMenu>
     <template v-if="data.loggedIn && data.me">
       <div class="user-avatar" role="img" :aria-label="identityLabel">
-        <span v-if="avatarInitial" aria-hidden="true">{{ avatarInitial }}</span>
+        <img
+          v-if="showAvatar"
+          :src="avatarSource"
+          class="avatar-image"
+          alt=""
+          referrerpolicy="no-referrer"
+          @error="avatarFailed = true"
+        />
+        <span v-else-if="avatarInitial" aria-hidden="true">{{ avatarInitial }}</span>
         <i v-else class="ri-user-line" aria-hidden="true"></i>
-        <span class="badge avatar-role" aria-hidden="true">{{ roleLabel }}</span>
+        <span class="badge avatar-role" :data-role="data.me.role" aria-hidden="true">
+          <i :class="roleIcon" aria-hidden="true"></i>
+        </span>
       </div>
       <form @submit.prevent="logout">
         <button class="btn-outline" type="submit">

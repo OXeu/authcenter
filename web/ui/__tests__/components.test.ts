@@ -149,6 +149,33 @@ describe('Vue pages', () => {
     expect(restored.attributes('data-theme')).toBe('light')
     restored.unmount()
   })
+  it('renders the OAuth avatar with an icon medal and falls back after an image error', async () => {
+    const wrapper = mount(App, {
+      props: {
+        data: { ...data, me: { ...data.me!, avatar_url: 'https://images.example.com/avatar.png' } },
+      },
+    })
+    await flushPromises()
+    const avatar = wrapper.get('.user-avatar')
+    expect(avatar.attributes('aria-label')).toBe('Admin Admin')
+    expect(avatar.get('img').attributes('src')).toBe('https://images.example.com/avatar.png')
+    expect(avatar.get('img').attributes('referrerpolicy')).toBe('no-referrer')
+    expect(avatar.get('.avatar-role').text()).toBe('')
+    expect(avatar.find('.avatar-role .ri-vip-crown-line').exists()).toBe(true)
+    await avatar.get('img').trigger('error')
+    expect(avatar.find('img').exists()).toBe(false)
+    expect(avatar.text()).toBe('A')
+    wrapper.unmount()
+  })
+  it.each([
+    ['editor', 'ri-edit-line'],
+    ['viewer', 'ri-eye-line'],
+  ])('shows the %s medal', async (role, icon) => {
+    const wrapper = mount(App, { props: { data: { ...data, me: { ...data.me!, role } } } })
+    await flushPromises()
+    expect(wrapper.find(`.avatar-role .${icon}`).exists()).toBe(true)
+    wrapper.unmount()
+  })
   it('blocks repeated submit and escape while saving', async () => {
     const form = createForm(createPage(data))
     let finish!: () => void
