@@ -108,5 +108,10 @@
   "role.user": "用户",
   "projects.rotate": "轮换",
   "projects.mine": "我的项目",
-  "projects.all": "所有项目"
+  "projects.all": "所有项目",
+  "title.settings": "设置",
+  "settings.registration": "允许新用户注册",
+  "settings.allowed": "允许",
+  "settings.closed": "关闭",
+  "login.error.registration_closed": "新用户注册已关闭，请联系管理员。"
 }

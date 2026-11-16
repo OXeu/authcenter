@@ -108,5 +108,10 @@
   "role.user": "User",
   "projects.rotate": "Rotate",
   "projects.mine": "My projects",
-  "projects.all": "All projects"
+  "projects.all": "All projects",
+  "title.settings": "Settings",
+  "settings.registration": "Allow new user registration",
+  "settings.allowed": "Allowed",
+  "settings.closed": "Closed",
+  "login.error.registration_closed": "New user registration is closed. Contact an administrator."
 }

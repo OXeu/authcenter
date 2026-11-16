@@ -13,7 +13,7 @@ const data = /** @type {import('./data.ts').PageData} */ (props.data)
 const { theme, toggleTheme } = useTheme()
 watch(theme, (value) => setToastTheme(value))
 const isDocs = computed(() => data.page === 'docs')
-const isWorkspace = computed(() => ['projects', 'project', 'users'].includes(data.page))
+const isWorkspace = computed(() => ['projects', 'project', 'users', 'settings'].includes(data.page))
 const docsLinks = [
   { page: 'index', href: '/docs/', label: 'docs.overview' },
   { page: 'api', href: '/docs/api', label: 'docs.api' },
@@ -28,12 +28,14 @@ const title = computed(
   () => data.project?.name ?? msg(data.page === 'login' ? 'login.title' : data.title),
 )
 const canCreate = computed(
-  () => data.canWrite && data.page !== 'users' && state.tab !== 'proposals',
+  () =>
+    data.canWrite && data.page !== 'users' && data.page !== 'settings' && state.tab !== 'proposals',
 )
 const showViewSwitch = computed(() => data.isAdmin && data.page === 'projects')
 const viewLabel = computed(() => msg(state.view === 'all' ? 'projects.mine' : 'projects.all'))
 const reviewing = computed(() => data.page === 'project' && state.tab === 'proposals')
 const columns = computed(() => {
+  if (data.page === 'settings') return ['key', 'value']
   if (data.page === 'projects') return ['name', 'slug', 'description']
   if (data.page === 'users') return ['name', 'email', 'role', 'last_login_at']
   if (state.tab === 'keys') return ['name', 'prefix', 'role', 'last_used_at']
@@ -59,6 +61,14 @@ const labels = {
 }
 /** @param {any} row @param {string} column */
 function cell(row, column) {
+  if (data.page === 'settings')
+    return msg(
+      column === 'key'
+        ? 'settings.registration'
+        : row.value
+          ? 'settings.allowed'
+          : 'settings.closed',
+    )
   if (column === 'role') return msg(`role.${row[column]}`)
   if (column.endsWith('_at'))
     return row[column] ? new Date(row[column]).toLocaleString(data.lang) : ''
@@ -161,6 +171,7 @@ onMounted(() => {
                     {{ msg('common.edit') }}
                   </button>
                   <DangerActions
+                    v-if="data.page !== 'settings'"
                     :actions="actionsFor(row)"
                     :label="msg('common.more')"
                     :disabled="state.busy"

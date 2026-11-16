@@ -25,13 +25,15 @@ export function createWorkspace(
   })
   const base = '/api/v1/projects/' + encodeURIComponent(data.project?.slug ?? '')
   const path = () =>
-    data.page === 'projects'
-      ? '/api/v1/projects'
-      : data.page === 'users'
-        ? '/api/v1/users'
-        : state.tab === 'items'
-          ? `${base}/environments/${enc(state.env)}/items`
-          : `${base}/${state.tab}`
+    data.page === 'settings'
+      ? '/api/v1/settings'
+      : data.page === 'projects'
+        ? '/api/v1/projects'
+        : data.page === 'users'
+          ? '/api/v1/users'
+          : state.tab === 'items'
+            ? `${base}/environments/${enc(state.env)}/items`
+            : `${base}/${state.tab}`
   /** @returns {Promise<void>} */
   async function load(): Promise<void> {
     state.busy = true
@@ -82,6 +84,26 @@ export function createWorkspace(
   }
   /** @param {any} [row] */
   function edit(row?: any) {
+    if (data.page === 'settings') {
+      form.show(
+        page.msg('common.edit'),
+        [
+          {
+            key: 'allowed',
+            label: 'settings.registration',
+            options: [
+              { value: 'true', label: page.msg('settings.allowed') },
+              { value: 'false', label: page.msg('settings.closed') },
+            ],
+          },
+        ],
+        { allowed: String(row.value) },
+        async () => {
+          await mutate(path(), 'PUT', { allow_registration: form.values.allowed === 'true' })
+        },
+      )
+      return
+    }
     const editing = Boolean(row)
     let fields,
       values,

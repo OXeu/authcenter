@@ -8,7 +8,7 @@ export type User = {
 }
 
 export type PageData = {
-  page: 'login' | 'projects' | 'project' | 'users' | 'docs'
+  page: 'login' | 'projects' | 'project' | 'users' | 'settings' | 'docs'
   docPage?: string
   lang: string
   title: string
@@ -29,4 +29,4 @@ export type PageData = {
   flash: { message: string; level: 'error' | 'success' } | null
 }
 
-export const pages = ['login', 'projects', 'project', 'users', 'docs']
+export const pages = ['login', 'projects', 'project', 'users', 'settings', 'docs']
