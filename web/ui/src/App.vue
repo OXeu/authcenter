@@ -12,6 +12,14 @@ const props = defineProps({ data: { type: Object, required: true } })
 const data = /** @type {import('./data.ts').PageData} */ (props.data)
 const { theme, toggleTheme } = useTheme()
 watch(theme, (value) => setToastTheme(value))
+const isDocs = computed(() => data.page === 'docs')
+const isWorkspace = computed(() => ['projects', 'project', 'users'].includes(data.page))
+const docsLinks = [
+  { page: 'index', href: '/docs/', label: 'docs.overview' },
+  { page: 'api', href: '/docs/api', label: 'docs.api' },
+  { page: 'sdk', href: '/docs/sdk', label: 'docs.sdk' },
+]
+const rawDocument = computed(() => `/docs/${data.docPage ?? 'index'}.md`)
 const page = createPage(data)
 const { msg } = page
 const { state, form, refresh, select, edit, actionsFor, environment, newEnvironment } =
@@ -57,24 +65,29 @@ function cell(row, column) {
 onMounted(() => {
   mountToasts(data.lang, data.nonce, theme.value)
   if (data.flash) notify(data.flash.level, data.flash.message)
-  if (data.page !== 'login') refresh()
-  else if (!data.oauthEnabled) notify('info', msg('login.notConfigured'))
+  if (isWorkspace.value) refresh()
+  else if (data.page === 'login' && !data.oauthEnabled) notify('info', msg('login.notConfigured'))
 })
 </script>
 <template>
-  <div :data-theme="theme" class="min-h-screen bg-background text-foreground">
+  <div
+    :data-theme="theme"
+    class="bg-background text-foreground"
+    :class="{ 'min-h-screen': !isDocs }"
+  >
     <PageHeader
       :data="data"
       :msg="msg"
       :title="title"
       :theme="theme"
+      :header-only="isDocs"
       subtitle=""
       @toggle-theme="toggleTheme"
     >
       <a v-if="data.page === 'login' && data.oauthEnabled" class="btn mt-4" href="/auth/login">{{
         msg('login.continue', { ProviderName: data.providerName })
       }}</a>
-      <template v-if="data.page !== 'login'">
+      <template v-if="isWorkspace">
         <div class="flex flex-wrap gap-2 my-4">
           <template v-if="data.page === 'project'">
             <button
@@ -149,6 +162,22 @@ onMounted(() => {
         </div>
       </template>
     </PageHeader>
-    <DialogPanel :form="form" :msg="msg" />
+    <nav
+      v-if="isDocs"
+      class="mx-auto flex max-w-6xl flex-wrap gap-2 px-6 py-6"
+      :aria-label="msg('docs.navigation')"
+    >
+      <a
+        v-for="link in docsLinks"
+        :key="link.page"
+        :href="link.href"
+        class="tabs-trigger inline-flex items-center"
+        :data-active="data.docPage === link.page"
+        :aria-current="data.docPage === link.page ? 'page' : undefined"
+        >{{ msg(link.label) }}</a
+      >
+      <a class="btn-ghost ml-auto" :href="rawDocument">{{ msg('docs.raw') }}</a>
+    </nav>
+    <DialogPanel v-if="isWorkspace" :form="form" :msg="msg" />
   </div>
 </template>

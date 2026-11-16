@@ -14,6 +14,7 @@ const props = defineProps({
   title: { type: String, required: true },
   subtitle: { type: String, required: true },
   theme: { type: String, required: true },
+  headerOnly: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['toggle-theme'])
@@ -107,7 +108,7 @@ async function logout() {
       </form>
     </template>
   </header>
-  <main id="main" class="mx-auto max-w-6xl px-6 py-8">
+  <main v-if="!headerOnly" id="main" class="mx-auto max-w-6xl px-6 py-8">
     <h1 class="text-xl font-semibold">{{ title }}</h1>
     <p v-if="subtitle" class="text-sm text-muted-foreground">{{ subtitle }}</p>
     <slot />

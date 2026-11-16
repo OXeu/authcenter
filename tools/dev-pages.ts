@@ -12,7 +12,7 @@ async function serve(
   }
   if (
     req.method !== 'GET' ||
-    !/^\/(?:projects(?:\/[^?]*)?|users|login)(?:\?|$)/u.test(req.url ?? '')
+    !/^\/(?:projects(?:\/[^?]*)?|users|login|docs(?:\/[^?]*)?)(?:\?|$)/u.test(req.url ?? '')
   )
     return next()
   try {
@@ -34,6 +34,10 @@ async function serve(
         ].includes(key)
       )
         res.setHeader(key, value)
+    }
+    if (!response.headers.get('content-type')?.includes('text/html')) {
+      res.end(await response.text())
+      return
     }
     const html = await response.text()
     res.end(

@@ -7,7 +7,7 @@ Self-hosted configuration service: projects as isolation boundaries, environment
 
 ## Integration documentation
 
-Open `/docs/` on your running server for the integration documentation. Public Markdown endpoints `/docs/index.md`, `/docs/api.md` and `/docs/sdk.md` support agents without JavaScript or login. Sources: [overview](docs/index.md), [HTTP API](docs/api.md), [Go SDK](docs/sdk.md). The guides are embedded in the Go binary.
+Open `/docs/` on your running server for the integration documentation. Public Markdown endpoints `/docs/index.md`, `/docs/api.md` and `/docs/sdk.md` support agents without JavaScript or login. Sources: [overview](docs/index.md), [HTTP API](docs/api.md), [Go SDK](docs/sdk.md). The guides are embedded in the Go binary. Documentation pages share the application header, design tokens and saved light/dark theme; their content remains server-rendered and Markdown endpoints remain public.
 
 ## Stack
 

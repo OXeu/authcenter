@@ -1,17 +1,18 @@
 package server
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/gin-gonic/gin"
+	"github.com/xeu/configcenter"
 )
 
 func TestDocumentation(t *testing.T) {
-	r := gin.New()
-	mountDocs(r)
+	_, r, _ := testServer(t, false)
 	for _, name := range []string{"index", "api", "sdk"} {
 		for _, suffix := range []string{"", ".md"} {
 			path := "/docs/" + name + suffix
@@ -26,6 +27,38 @@ func TestDocumentation(t *testing.T) {
 				}
 				if rec.Code != http.StatusOK || !strings.Contains(rec.Header().Get("Content-Type"), contentType) || !strings.Contains(rec.Body.String(), marker) {
 					t.Fatalf("unexpected documentation response: %d %s", rec.Code, rec.Header().Get("Content-Type"))
+				}
+				if suffix == ".md" {
+					source, err := configcenter.Documentation.ReadFile("docs/" + name + ".md")
+					if err != nil {
+						t.Fatal(err)
+					}
+					if !bytes.Equal(source, rec.Body.Bytes()) {
+						t.Fatal("Markdown source was modified")
+					}
+					return
+				}
+				if !strings.Contains(rec.Body.String(), `/static/app/main.css`) || strings.Contains(rec.Body.String(), `/static/docs.css`) {
+					t.Fatal("documentation must use the shared stylesheet")
+				}
+				if !strings.Contains(rec.Body.String(), `class="document-content"`) {
+					t.Fatal("missing server rendered document")
+				}
+				_, tail, ok := strings.Cut(rec.Body.String(), `<script id="page-data" type="application/json">`)
+				if !ok {
+					t.Fatal("missing shared bootstrap")
+				}
+				raw, _, _ := strings.Cut(tail, "</script>")
+				var data struct {
+					Page     string `json:"page"`
+					DocPage  string `json:"docPage"`
+					LoggedIn bool   `json:"loggedIn"`
+				}
+				if err := json.Unmarshal([]byte(raw), &data); err != nil {
+					t.Fatal(err)
+				}
+				if data.Page != "docs" || data.DocPage != name || data.LoggedIn {
+					t.Fatalf("invalid public page data: %+v", data)
 				}
 			})
 		}

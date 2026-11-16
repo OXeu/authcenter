@@ -99,5 +99,10 @@
   "toast.saved": "Saved",
   "theme.toLight": "Light mode",
   "theme.toDark": "Dark mode",
-  "common.more": "More"
+  "common.more": "More",
+  "docs.overview": "Overview",
+  "docs.api": "HTTP API",
+  "docs.sdk": "Go SDK",
+  "docs.raw": "Markdown source",
+  "docs.navigation": "Documentation navigation"
 }

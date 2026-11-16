@@ -99,5 +99,10 @@
   "toast.saved": "已保存",
   "theme.toLight": "浅色模式",
   "theme.toDark": "深色模式",
-  "common.more": "更多"
+  "common.more": "更多",
+  "docs.overview": "概览",
+  "docs.api": "HTTP API",
+  "docs.sdk": "Go SDK",
+  "docs.raw": "Markdown 原文",
+  "docs.navigation": "文档导航"
 }

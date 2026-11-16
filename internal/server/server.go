@@ -150,7 +150,7 @@ func (s *Server) render(c *gin.Context, status int, data gin.H) {
 		"canWrite": loggedIn && id.User != nil && id.User.Role.CanWrite(), "languageLabel": label,
 		"messages": s.catalog.Messages(s.translator(c).Lang()), "flash": nil,
 	}
-	for _, key := range []string{"Page", "Env", "CanWrite"} {
+	for _, key := range []string{"Page", "Env", "CanWrite", "DocPage"} {
 		if value, ok := withCommon[key]; ok {
 			payload[strings.ToLower(key[:1])+key[1:]] = value
 		}
@@ -219,7 +219,7 @@ func (s *Server) router() *gin.Engine {
 		http.StripPrefix("/static/", http.FileServer(http.FS(assets))).ServeHTTP(c.Writer, c.Request)
 	})
 
-	mountDocs(r)
+	s.mountDocs(r)
 	s.MountOAuth(r)
 	s.MountLanguage(r)
 	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusFound, "/projects") })
