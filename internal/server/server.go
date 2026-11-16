@@ -210,6 +210,7 @@ func (s *Server) router() *gin.Engine {
 		http.StripPrefix("/static/", http.FileServer(http.FS(assets))).ServeHTTP(c.Writer, c.Request)
 	})
 
+	mountDocs(r)
 	s.MountOAuth(r)
 	s.MountLanguage(r)
 	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusFound, "/projects") })

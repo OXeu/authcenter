@@ -2,6 +2,10 @@
 
 Self-hosted configuration service: projects as isolation boundaries, environments, OAuth single sign-on, project-scoped API keys, a Vue web UI and an MCP endpoint for agents.
 
+## Integration documentation
+
+Open `/docs/` on your running server for the integration documentation. Public Markdown endpoints `/docs/index.md`, `/docs/api.md` and `/docs/sdk.md` support agents without JavaScript or login. Sources: [overview](docs/index.md), [HTTP API](docs/api.md), [Go SDK](docs/sdk.md). The guides are embedded in the Go binary.
+
 ## Stack
 
 Go 1.26, gin, gorm (SQLite), a Go HTML/JSON shell plus Vue 3 (built with Vite Plus), shadcn/ui-style Tailwind CSS with Remix Icon (font vendored, no inline SVG), transient messages as [ding](https://github.com/YusufCeng1z/ding) toasts instead of inline alert elements, a plain OAuth 2.0 authorization-code + PKCE client that works with any OIDC issuer (or a plain OAuth server with a userinfo endpoint).
