@@ -19,5 +19,5 @@ var Brand embed.FS
 
 // RenderedDocumentation contains build-time HTML and Shiki token styles.
 //
-//go:embed .tmp/docs/*.html .tmp/docs/shiki.css
+//go:embed .tmp/docs/*.html .tmp/docs/shiki.css .tmp/docs/shiki.css.gz
 var RenderedDocumentation embed.FS

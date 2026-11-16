@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp dev",
-    "build": "npm run build:docs && vp build",
+    "build": "npm run build:docs && vp build && node tools/compress-assets.ts",
     "lint": "vp lint && node tools/lint-templates.ts",
     "fmt": "vp fmt",
     "test": "vp test",

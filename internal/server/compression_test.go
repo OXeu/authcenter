@@ -83,3 +83,17 @@ func TestStaticCompression(t *testing.T) {
 		t.Fatal("range response changed")
 	}
 }
+
+func TestStaticSkipsSessionMiddleware(t *testing.T) {
+	_, router, _ := testServer(t, false)
+	for _, url := range []string{"/static/docs/shiki.css", "/static/brand/icon-512.webp", "/login"} {
+		request := httptest.NewRequest(http.MethodGet, url, http.NoBody)
+		request.AddCookie(&http.Cookie{Name: "cc_session", Value: "invalid-session"})
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+		cleared := response.Header().Get("Set-Cookie") != ""
+		if cleared != (url == "/login") {
+			t.Fatalf("%s session cookie cleared = %v", url, cleared)
+		}
+	}
+}

@@ -222,8 +222,6 @@ func (s *Server) router() *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery(), s.requestLogger())
 	r.Use(securityHeaders())
-	r.Use(s.authenticator.BrowserMiddleware())
-	r.Use(s.languageMiddleware())
 
 	frontend, frontendErr := fs.Sub(configcenter.Frontend, ".tmp/ui")
 	if frontendErr != nil {
@@ -246,7 +244,7 @@ func (s *Server) router() *gin.Engine {
 		if strings.HasPrefix(c.Param("filepath"), "/app/") {
 			name := strings.TrimPrefix(c.Param("filepath"), "/app/")
 			info, err := fs.Stat(frontend, name)
-			if err != nil || info.IsDir() || strings.HasPrefix(name, ".") {
+			if err != nil || info.IsDir() || strings.HasPrefix(name, ".") || strings.HasSuffix(name, ".gz") {
 				c.Header("Cache-Control", "no-store")
 				c.Status(http.StatusNotFound)
 				return
@@ -259,6 +257,9 @@ func (s *Server) router() *gin.Engine {
 		}
 		c.Status(http.StatusNotFound)
 	})
+
+	r.Use(s.authenticator.BrowserMiddleware())
+	r.Use(s.languageMiddleware())
 
 	s.mountDocs(r)
 	s.MountOAuth(r)
