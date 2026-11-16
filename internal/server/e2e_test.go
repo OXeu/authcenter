@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -322,11 +323,22 @@ func TestVuePageContractAndEscaping(t *testing.T) {
 	if strings.Contains(raw, "OAuthSub") || strings.Contains(raw, "OAuthIssuer") {
 		t.Fatal("private model fields exposed")
 	}
-	for _, path := range []string{"/static/app/main.js", "/static/app/main.css", "/static/icons/remixicon.css", "/static/brand/icon-32.webp", "/static/brand/icon-512.webp"} {
+	matches := regexp.MustCompile(`/static/app/[^"]+\.(?:js|css)`).FindAllString(w.Body.String(), -1)
+	if len(matches) < 2 {
+		t.Fatal("missing hashed frontend assets")
+	}
+	for _, path := range append(matches, []string{"/static/icons/remixicon.css", "/static/brand/icon-32.webp", "/static/brand/icon-512.webp"}...) {
 		asset := httptest.NewRecorder()
 		f.router.ServeHTTP(asset, httptest.NewRequest(http.MethodGet, path, http.NoBody))
 		if asset.Code != http.StatusOK || asset.Body.Len() == 0 {
 			t.Fatalf("asset %s = %d", path, asset.Code)
+		}
+		expected := "public, max-age=3600"
+		if strings.HasPrefix(path, "/static/app/") {
+			expected = "public, max-age=31536000, immutable"
+		}
+		if asset.Header().Get("Cache-Control") != expected {
+			t.Fatalf("asset %s cache policy = %s", path, asset.Header().Get("Cache-Control"))
 		}
 	}
 }

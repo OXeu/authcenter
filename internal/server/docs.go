@@ -54,6 +54,6 @@ func serveDocStyles(c *gin.Context) {
 		c.Status(http.StatusInternalServerError)
 		return
 	}
-	c.Header("Cache-Control", "no-cache")
+	c.Header("Cache-Control", "public, max-age=3600")
 	c.Data(http.StatusOK, "text/css; charset=utf-8", css)
 }

@@ -14,7 +14,7 @@ it.each(['/projects', '/docs/', '/docs/api', '/docs/sdk'])(
     } as import('vite-plus').ViteDevServer)
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
-        '<head><link rel="stylesheet" href="/static/app/main.css"><script src="/static/app/main.js"></script></head>',
+        '<head><link rel="stylesheet" href="/static/app/main-abc123.css"><script src="/static/app/main-def456.js"></script></head>',
         {
           headers: { 'content-security-policy': "script-src 'self'", 'content-type': 'text/html' },
         },
@@ -44,7 +44,7 @@ it.each(['/projects', '/docs/', '/docs/api', '/docs/sdk'])(
     )
     expect(body).toContain('/web/ui/src/main.ts')
     expect(body).toContain('/@vite/client')
-    expect(body).not.toContain('/static/app/main.css')
+    expect(body).not.toContain('/static/app/main-abc123.css')
     expect(headers.has('content-security-policy')).toBe(false)
   },
 )

@@ -38,7 +38,7 @@ func TestDocumentation(t *testing.T) {
 					}
 					return
 				}
-				if !strings.Contains(rec.Body.String(), `/static/app/main.css`) || strings.Contains(rec.Body.String(), `/static/docs.css`) {
+				if !strings.Contains(rec.Body.String(), `/static/app/main-`) || strings.Contains(rec.Body.String(), `/static/docs.css`) {
 					t.Fatal("documentation must use the shared stylesheet")
 				}
 				if !strings.Contains(rec.Body.String(), `/static/docs/shiki.css`) {

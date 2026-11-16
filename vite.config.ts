@@ -3,9 +3,9 @@ import tailwind from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite-plus'
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [vue(), tailwind(), devPages()],
-  base: '/',
+  base: command === 'build' ? '/static/app/' : '/',
   cacheDir: '.tmp/vite',
   server: {
     proxy: {
@@ -15,11 +15,15 @@ export default defineConfig({
   build: {
     outDir: '.tmp/ui',
     emptyOutDir: true,
-    manifest: false,
+    manifest: true,
     sourcemap: false,
     rollupOptions: {
       input: 'web/ui/src/main.ts',
-      output: { entryFileNames: 'main.js', assetFileNames: '[name][extname]' },
+      output: {
+        entryFileNames: '[name]-[hash].js',
+        chunkFileNames: '[name]-[hash].js',
+        assetFileNames: '[name]-[hash][extname]',
+      },
     },
   },
   test: {
@@ -57,4 +61,4 @@ export default defineConfig({
     semi: false,
     singleQuote: true,
   },
-})
+}))

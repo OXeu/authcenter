@@ -42,8 +42,8 @@ async function serve(
     const html = await response.text()
     res.end(
       html
-        .replace('<link rel="stylesheet" href="/static/app/main.css">', '')
-        .replace('/static/app/main.js', '/web/ui/src/main.ts')
+        .replace(/<link rel="stylesheet" href="\/static\/app\/[^"]+\.css"\s*\/?>/gu, '')
+        .replace(/\/static\/app\/[^"]+\.js/gu, '/web/ui/src/main.ts')
         .replace('</head>', '<script type="module" src="/@vite/client"></script></head>'),
     )
   } catch (error) {

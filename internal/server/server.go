@@ -117,7 +117,25 @@ func sqliteDSN(dsn string) (string, error) {
 var errNoLanguage = errors.New("no enabled language has a locale file")
 
 func (s *Server) loadTemplates() error {
-	tpl, err := template.New("shell").ParseFS(templateFS, "templates/shell/*.html")
+	data, err := configcenter.Frontend.ReadFile(".tmp/ui/.vite/manifest.json")
+	if err != nil {
+		return fmt.Errorf("read frontend manifest: %w", err)
+	}
+	var manifest map[string]struct {
+		File string
+		CSS  []string
+	}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return fmt.Errorf("decode frontend manifest: %w", err)
+	}
+	entry := manifest["web/ui/src/main.ts"]
+	if entry.File == "" || len(entry.CSS) == 0 {
+		return errors.New("frontend manifest is missing entry assets")
+	}
+	tpl, err := template.New("shell").Funcs(template.FuncMap{
+		"frontendScript": func() string { return "/static/app/" + entry.File },
+		"frontendStyles": func() []string { return entry.CSS },
+	}).ParseFS(templateFS, "templates/shell/*.html")
 	if err != nil {
 		return fmt.Errorf("parse Vue shell: %w", err)
 	}
@@ -223,17 +241,24 @@ func (s *Server) router() *gin.Engine {
 		s.log.Error("mount brand assets", "error", brandErr)
 	}
 	r.GET("/static/*filepath", func(c *gin.Context) {
+		c.Header("Cache-Control", "public, max-age=3600")
 		if c.Param("filepath") == "/docs/shiki.css" {
 			serveDocStyles(c)
 			return
 		}
 		if strings.HasPrefix(c.Param("filepath"), "/brand/") {
-			c.Header("Cache-Control", "no-cache")
 			http.StripPrefix("/static/brand/", http.FileServer(http.FS(brand))).ServeHTTP(c.Writer, c.Request)
 			return
 		}
 		if strings.HasPrefix(c.Param("filepath"), "/app/") {
-			c.Header("Cache-Control", "no-cache")
+			name := strings.TrimPrefix(c.Param("filepath"), "/app/")
+			info, err := fs.Stat(frontend, name)
+			if err != nil || info.IsDir() || strings.HasPrefix(name, ".") {
+				c.Header("Cache-Control", "no-store")
+				c.Status(http.StatusNotFound)
+				return
+			}
+			c.Header("Cache-Control", "public, max-age=31536000, immutable")
 			http.StripPrefix("/static/app/", http.FileServer(http.FS(frontend))).ServeHTTP(c.Writer, c.Request)
 			return
 		}
