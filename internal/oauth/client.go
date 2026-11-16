@@ -142,7 +142,7 @@ func (c *Client) begin(ctx context.Context) (redirect, stateBlob string, err err
 	}
 	// GitHub OAuth apps have no nonce and no PKCE; the state cookie still
 	// protects the callback there.
-	if !c.bearerToken() {
+	if !c.isGitHub() {
 		q.Set("nonce", nonce)
 		q.Set("code_challenge", challenge(verifier))
 		q.Set("code_challenge_method", "S256")
@@ -331,13 +331,9 @@ func (c *Client) token(ctx context.Context, meta Discovery, code, verifier strin
 		"code":         {code},
 		"redirect_uri": {c.cfg.RedirectURL},
 	}
-	if c.bearerToken() {
-		// GitHub rejects client_secret_post but confirms the code for the
-		// client that presents its secret as a bearer token.
-		form.Set("client_id", c.cfg.ClientID)
-	} else {
-		form.Set("client_id", c.cfg.ClientID)
-		form.Set("client_secret", c.cfg.ClientSecret)
+	form.Set("client_id", c.cfg.ClientID)
+	form.Set("client_secret", c.cfg.ClientSecret)
+	if !c.isGitHub() {
 		form.Set("code_verifier", verifier)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, meta.TokenEndpoint, strings.NewReader(form.Encode()))
@@ -346,10 +342,6 @@ func (c *Client) token(ctx context.Context, meta Discovery, code, verifier strin
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
-	if c.bearerToken() {
-		req.Header.Set("Authorization", "Bearer "+c.cfg.ClientSecret)
-		req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	}
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return "", "", fmt.Errorf("exchange code: %w", err)
@@ -386,14 +378,12 @@ func (c *Client) token(ctx context.Context, meta Discovery, code, verifier strin
 	return body.IDToken, body.AccessToken, nil
 }
 
-// bearerToken reports whether the issuer wants the client secret in an
-// Authorization header instead of the token request form.
-func (c *Client) bearerToken() bool {
+func (c *Client) isGitHub() bool {
 	return strings.EqualFold(issuerHost(c.cfg.IssuerURL), "github.com")
 }
 
 func (c *Client) scopes() []string {
-	if c.bearerToken() {
+	if c.isGitHub() {
 		// GitHub has no openid scope and fails on unknown ones.
 		seen := map[string]bool{}
 		out := make([]string, 0, len(c.cfg.Scopes))

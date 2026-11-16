@@ -18,7 +18,7 @@ CC_OAUTH_CLIENT_SECRET=... \
 
 Open http://127.0.0.1:8080. Without OAuth configured the server still starts; only the login link is disabled.
 
-GitHub can be used as the identity provider (`CC_OAUTH_ISSUER=https://github.com`, a GitHub OAuth app with the callback `CC_PUBLIC_URL/oauth/callback`): GitHub publishes no OIDC discovery document, so the client falls back to GitHub's documented OAuth endpoints, sends the client secret as a bearer token, skips `openid`/PKCE, reads the profile from `/user` and the primary address from `/user/emails`. Accounts without a public email get `<id>@github.com`.
+GitHub can be used as the identity provider (`CC_OAUTH_ISSUER=https://github.com`, a GitHub OAuth app with the callback `CC_PUBLIC_URL/oauth/callback`): GitHub publishes no OIDC discovery document, so the client falls back to GitHub's documented OAuth endpoints, sends the client ID and secret in the token request form, skips `openid`/PKCE, reads the profile from `/user` and the primary address from `/user/emails`. Accounts without a public email get `<id>@github.com`.
 
 ## Configuration
 

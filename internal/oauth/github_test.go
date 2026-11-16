@@ -26,7 +26,7 @@ func TestIssuerPathsFollowDiscoverySpec(t *testing.T) {
 
 func TestGitHubDiscoveryFallbackAndUserinfo(t *testing.T) {
 	t.Parallel()
-	var sawBearer, sawFormSecret bool
+	var sawCredentials bool
 	mux := http.NewServeMux()
 	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
@@ -36,8 +36,13 @@ func TestGitHubDiscoveryFallbackAndUserinfo(t *testing.T) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		sawBearer = r.Header.Get("Authorization") == "Bearer secret"
-		sawFormSecret = r.PostForm.Get("client_secret") != ""
+		sawCredentials = r.PostForm.Get("client_id") == "id" &&
+			r.PostForm.Get("client_secret") == "secret" &&
+			r.Header.Get("Authorization") == ""
+		if !sawCredentials {
+			http.Error(w, "invalid client credentials", http.StatusUnauthorized)
+			return
+		}
 		if r.PostForm.Get("code_verifier") != "" {
 			http.Error(w, "pkce sent", http.StatusBadRequest)
 			return
@@ -81,8 +86,8 @@ func TestGitHubDiscoveryFallbackAndUserinfo(t *testing.T) {
 	if claims.Sub != "42" || claims.Name != "Octo Cat" {
 		t.Fatalf("claims = %+v", claims)
 	}
-	if !sawBearer || sawFormSecret {
-		t.Fatalf("token request: bearer=%v form-secret=%v", sawBearer, sawFormSecret)
+	if !sawCredentials {
+		t.Fatal("token request must send client credentials in the form")
 	}
 }
 
