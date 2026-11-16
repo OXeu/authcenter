@@ -49,11 +49,6 @@ func (s *Server) serveDocs(c *gin.Context) {
 }
 
 func serveDocStyles(c *gin.Context) {
-	css, err := configcenter.RenderedDocumentation.ReadFile(".tmp/docs/shiki.css")
-	if err != nil {
-		c.Status(http.StatusInternalServerError)
-		return
-	}
 	c.Header("Cache-Control", "public, max-age=3600")
-	c.Data(http.StatusOK, "text/css; charset=utf-8", css)
+	serveStaticFile(c, configcenter.RenderedDocumentation, ".tmp/docs/shiki.css")
 }
