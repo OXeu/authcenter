@@ -7,7 +7,7 @@ Self-hosted configuration service: projects as isolation boundaries, environment
 
 ## Integration documentation
 
-Open `/docs/` on your running server for the integration documentation. Public Markdown endpoints `/docs/index.md`, `/docs/api.md` and `/docs/sdk.md` support agents without JavaScript or login. Sources: [overview](docs/index.md), [HTTP API](docs/api.md), [Go SDK](docs/sdk.md). The guides are embedded in the Go binary. Documentation pages share the application header, design tokens and saved light/dark theme; their content remains server-rendered and Markdown endpoints remain public.
+Open `/docs/` on your running server for the integration documentation. Public Markdown endpoints `/docs/index.md`, `/docs/api.md` and `/docs/sdk.md` support agents without JavaScript or login. Sources: [overview](docs/index.md), [HTTP API](docs/api.md), [Go SDK](docs/sdk.md). The guides are embedded in the Go binary. Documentation pages share the application header, design tokens and saved light/dark theme; their content is pre-rendered with Shiki code highlighting at build time and Markdown endpoints remain public. Shiki generates light/dark token styles in an external stylesheet, keeping the CSP intact and adding no browser-side highlighter.
 
 ## Stack
 
@@ -117,6 +117,6 @@ The Vite development server gets authenticated page JSON from Go at `127.0.0.1:8
 
 Vite Plus provides the build, Oxlint, Oxfmt and Vitest. `vue-tsc` checks both scripts and templates. Oxlint custom plugins inspect script ASTs; separate compiler-based Vitest checks enforce template constraints. See [AGENTS.md](AGENTS.md).
 
-Build output stays in ignored `.tmp/ui` and is embedded by `assets.go`. Run `make assets` before direct Go commands on a fresh checkout; Make targets do this automatically. Go scratch files use `.tmp`, and binaries use `.tmp/bin`. The live SDK test is opt-in through `CC_TEST_URL` and `CC_TEST_KEY`.
+Build output stays in ignored `.tmp/ui` and `.tmp/docs` and is embedded by `assets.go`. `npm run build:docs` renders Markdown and Shiki HTML/CSS; `make assets` runs it before the Vite build. Run `make assets` before direct Go commands on a fresh checkout; Make targets do this automatically. Go scratch files use `.tmp`, and binaries use `.tmp/bin`. The live SDK test is opt-in through `CC_TEST_URL` and `CC_TEST_KEY`.
 
 Type checking uses TypeScript 7 (`typescript-native`) for modules, tools and non-component tests. Vue template and component tests use `vue-tsc` with TypeScript 6 because Volar requires its JavaScript compiler API. Run both with `npm run typecheck`.

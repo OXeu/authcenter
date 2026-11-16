@@ -16,3 +16,8 @@ var Documentation embed.FS
 //
 //go:embed assets/icon-*.webp
 var Brand embed.FS
+
+// RenderedDocumentation contains build-time HTML and Shiki token styles.
+//
+//go:embed .tmp/docs/*.html .tmp/docs/shiki.css
+var RenderedDocumentation embed.FS

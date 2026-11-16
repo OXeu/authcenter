@@ -48,16 +48,16 @@ func LoadPool(ctx context.Context, baseURL, apiKey string) (int, error) {
 
 ## 快照读取
 
-| 方法 | 行为 |
-| --- | --- |
-| `Load(ctx)` | 请求所有配置，成功后替换快照 |
-| `LoadPrefix(ctx, "db.")` | 仅加载匹配前缀的配置，替换整个快照，不合并 |
-| `Get(key)` | 返回字符串和是否存在，不发网络请求 |
-| `GetDefault(key, fallback)` | 缺失时返回默认值；空字符串仍是有效值 |
-| `Int(key, fallback)` | 去除两端空白后解析整数，缺失或解析失败时返回默认值 |
-| `Bool(key, fallback)` | 使用 Go `strconv.ParseBool`，失败时返回默认值 |
-| `All()` | 返回按 key 排序的配置项副本 |
-| `Environment()` | 返回当前客户端环境 slug |
+| 方法                        | 行为                                               |
+| --------------------------- | -------------------------------------------------- |
+| `Load(ctx)`                 | 请求所有配置，成功后替换快照                       |
+| `LoadPrefix(ctx, "db.")`    | 仅加载匹配前缀的配置，替换整个快照，不合并         |
+| `Get(key)`                  | 返回字符串和是否存在，不发网络请求                 |
+| `GetDefault(key, fallback)` | 缺失时返回默认值；空字符串仍是有效值               |
+| `Int(key, fallback)`        | 去除两端空白后解析整数，缺失或解析失败时返回默认值 |
+| `Bool(key, fallback)`       | 使用 Go `strconv.ParseBool`，失败时返回默认值      |
+| `All()`                     | 返回按 key 排序的配置项副本                        |
+| `Environment()`             | 返回当前客户端环境 slug                            |
 
 首次 Load 前快照为空。读取和快照替换受锁保护，可并发调用。加载失败保留已有快照。需要区分缺失和无效值时，使用 `Get` 后自行解析。配置中的 JSON 也需要调用方自行反序列化。
 

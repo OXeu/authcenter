@@ -41,6 +41,15 @@ func TestDocumentation(t *testing.T) {
 				if !strings.Contains(rec.Body.String(), `/static/app/main.css`) || strings.Contains(rec.Body.String(), `/static/docs.css`) {
 					t.Fatal("documentation must use the shared stylesheet")
 				}
+				if !strings.Contains(rec.Body.String(), `/static/docs/shiki.css`) {
+					t.Fatal("missing static token stylesheet")
+				}
+				if name != "index" && (!strings.Contains(rec.Body.String(), `class="shiki `) || !strings.Contains(rec.Body.String(), `shiki-token-`)) {
+					t.Fatal("code blocks were not prerendered")
+				}
+				if strings.Contains(rec.Body.String(), ` style="`) {
+					t.Fatal("inline styles violate the CSP")
+				}
 				if !strings.Contains(rec.Body.String(), `class="document-content"`) {
 					t.Fatal("missing server rendered document")
 				}
@@ -68,6 +77,20 @@ func TestDocumentation(t *testing.T) {
 		r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, http.NoBody))
 		if rec.Code != http.StatusNotFound {
 			t.Fatalf("%s: status %d", path, rec.Code)
+		}
+	}
+}
+
+func TestDocumentationTokenStyles(t *testing.T) {
+	_, router, _ := testServer(t, false)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/static/docs/shiki.css", http.NoBody))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Header().Get("Content-Type"), "text/css") {
+		t.Fatalf("styles = %d", rec.Code)
+	}
+	for _, marker := range []string{".shiki-token-", "--shiki-light:", "--shiki-dark:"} {
+		if !strings.Contains(rec.Body.String(), marker) {
+			t.Fatalf("missing %s", marker)
 		}
 	}
 }

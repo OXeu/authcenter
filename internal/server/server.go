@@ -206,6 +206,10 @@ func (s *Server) router() *gin.Engine {
 		s.log.Error("mount brand assets", "error", brandErr)
 	}
 	r.GET("/static/*filepath", func(c *gin.Context) {
+		if c.Param("filepath") == "/docs/shiki.css" {
+			serveDocStyles(c)
+			return
+		}
 		if strings.HasPrefix(c.Param("filepath"), "/brand/") {
 			c.Header("Cache-Control", "no-cache")
 			http.StripPrefix("/static/brand/", http.FileServer(http.FS(brand))).ServeHTTP(c.Writer, c.Request)

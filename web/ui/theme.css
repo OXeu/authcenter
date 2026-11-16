@@ -191,3 +191,26 @@ dialog.dialog-panel {
     @apply my-8 border-border;
   }
 }
+
+@layer components {
+  .document-content .shiki,
+  .document-content .shiki span {
+    color: var(--shiki-light);
+    font-style: var(--shiki-light-font-style, normal);
+    font-weight: var(--shiki-light-font-weight, normal);
+    text-decoration: var(--shiki-light-text-decoration, none);
+  }
+  .document-content .shiki {
+    background-color: var(--shiki-light-bg);
+  }
+  :root:has([data-theme='dark']) .document-content .shiki,
+  :root:has([data-theme='dark']) .document-content .shiki span {
+    color: var(--shiki-dark);
+    font-style: var(--shiki-dark-font-style, normal);
+    font-weight: var(--shiki-dark-font-weight, normal);
+    text-decoration: var(--shiki-dark-text-decoration, none);
+  }
+  :root:has([data-theme='dark']) .document-content .shiki {
+    background-color: var(--shiki-dark-bg);
+  }
+}

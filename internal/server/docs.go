@@ -1,14 +1,11 @@
 package server
 
 import (
-	"bytes"
 	"html/template"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yuin/goldmark"
-	"github.com/yuin/goldmark/extension"
 
 	"github.com/xeu/configcenter"
 )
@@ -40,13 +37,23 @@ func (s *Server) serveDocs(c *gin.Context) {
 		c.Data(http.StatusOK, "text/markdown; charset=utf-8", source)
 		return
 	}
-	var body bytes.Buffer
-	if err := goldmark.New(goldmark.WithExtensions(extension.Table)).Convert(source, &body); err != nil {
+	body, err := configcenter.RenderedDocumentation.ReadFile(".tmp/docs/" + name + ".html")
+	if err != nil {
 		c.Status(http.StatusInternalServerError)
 		return
 	}
 	s.render(c, http.StatusOK, gin.H{
 		"Page": "docs", "Title": "nav.docs", "DocPage": name,
-		"DocumentHTML": template.HTML(body.String()), //nolint:gosec // Only embedded documentation is rendered; Goldmark disables raw HTML.
+		"DocumentHTML": template.HTML(body), //nolint:gosec // Only build-time rendered documentation is embedded; the Markdown renderer disables raw HTML.
 	})
+}
+
+func serveDocStyles(c *gin.Context) {
+	css, err := configcenter.RenderedDocumentation.ReadFile(".tmp/docs/shiki.css")
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	c.Header("Cache-Control", "no-cache")
+	c.Data(http.StatusOK, "text/css; charset=utf-8", css)
 }

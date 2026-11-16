@@ -59,7 +59,7 @@ Commit messages follow [`docs/commits.md`](docs/commits.md): Conventional Commit
 8. **Translations.** Components use `msg(id, vars)` from `web/ui/src/i18n.ts`. Both English and Chinese catalogs in `internal/i18n/locales` contain every ID; the same catalogs supply frontend fallbacks and Go page messages. Keep `/language?lang=` and the header language menu. Do not retranslate server flash text.
 9. **Icons.** Use Remix Icon classes with `aria-hidden="true"`. No SVG markup or emoji in templates. The favicon and vendored icon font remain static assets.
 10. **Types and formatting.** TypeScript modules use native type annotations. `npm run typecheck` runs TypeScript 7 for modules, tools and non-component tests, and vue-tsc with its TypeScript 6 compatibility dependency for Vue templates and component tests. Cast untyped API payloads explicitly at boundaries. Vite Plus provides Oxlint, Oxfmt, Vitest and the production build. `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` must pass.
-11. **Artifacts.** Vite outputs only `.tmp/ui`; Go embeds that directory. Run `make assets` before direct Go tooling after a clean checkout. `make test`, `make lint`, `make check` and `make build` prepare it automatically. Keep `.tmp/ui` for subsequent builds; binaries belong in `.tmp/bin`. No generated bundles are committed.
+11. **Artifacts.** Vite outputs only `.tmp/ui`; Shiki and Markdown rendering output `.tmp/docs`. Go embeds both directories. Run `make assets` before direct Go tooling after a clean checkout. `make test`, `make lint`, `make check` and `make build` prepare it automatically. Keep `.tmp/ui` and `.tmp/docs` for subsequent builds; binaries belong in `.tmp/bin`. No generated bundles are committed.
 
 ## Testing
 

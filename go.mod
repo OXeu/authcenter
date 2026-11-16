@@ -6,7 +6,6 @@ require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/joho/godotenv v1.5.1
-	github.com/yuin/goldmark v1.7.8
 	golang.org/x/oauth2 v0.38.0
 	gorm.io/gorm v1.31.2
 )

@@ -11,6 +11,9 @@
     <link rel="icon" type="image/webp" sizes="512x512" href="/static/brand/icon-512.webp" />
     <link rel="stylesheet" href="/static/icons/remixicon.css" />
     <link rel="stylesheet" href="/static/app/main.css" />
+    {{if .DocumentHTML}}
+    <link rel="stylesheet" href="/static/docs/shiki.css" />
+    {{end}}
     <script type="module" src="/static/app/main.js"></script>
   </head>
   <body>
