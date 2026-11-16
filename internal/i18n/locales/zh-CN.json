@@ -95,5 +95,7 @@
   "login.error.generic": "登录失败，请重试。",
   "login.notConfigured": "此服务器未配置 OAuth。",
   "common.refresh": "刷新",
-  "toast.saved": "已保存"
+  "toast.saved": "已保存",
+  "theme.toLight": "切换到浅色模式",
+  "theme.toDark": "切换到深色模式"
 }

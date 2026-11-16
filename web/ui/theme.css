@@ -1,23 +1,40 @@
 @import 'tailwindcss';
 
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 @theme {
-  --color-background: oklch(0.141 0.005 285.823);
-  --color-foreground: oklch(0.985 0 0);
-  --color-card: oklch(0.21 0.006 285.885);
-  --color-muted: oklch(0.274 0.006 286.033);
-  --color-muted-foreground: oklch(0.705 0.015 286.067);
-  --color-primary: oklch(0.92 0.004 286.32);
-  --color-primary-foreground: oklch(0.21 0.006 285.885);
-  --color-destructive: oklch(0.704 0.191 22.216);
-  --color-border: oklch(1 0 0 / 10%);
+  --color-background: oklch(0.985 0 0);
+  --color-foreground: oklch(0.21 0.006 285.885);
+  --color-card: oklch(1 0 0);
+  --color-muted: oklch(0.967 0.001 286.375);
+  --color-muted-foreground: oklch(0.442 0.017 285.786);
+  --color-primary: oklch(0.21 0.006 285.885);
+  --color-primary-foreground: oklch(0.985 0 0);
+  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-border: oklch(0.871 0.006 286.286);
   --radius-lg: 0.625rem;
   --radius-md: calc(0.625rem - 2px);
   --radius-sm: calc(0.625rem - 4px);
 }
 
 @layer base {
+  :root,
+  [data-theme='light'] {
+    color-scheme: light;
+  }
+  :root:has([data-theme='dark']),
+  [data-theme='dark'] {
+    color-scheme: dark;
+    --color-background: oklch(0.141 0.005 285.823);
+    --color-foreground: oklch(0.985 0 0);
+    --color-card: oklch(0.21 0.006 285.885);
+    --color-muted: oklch(0.274 0.006 286.033);
+    --color-muted-foreground: oklch(0.705 0.015 286.067);
+    --color-primary: oklch(0.92 0.004 286.32);
+    --color-primary-foreground: oklch(0.21 0.006 285.885);
+    --color-destructive: oklch(0.704 0.191 22.216);
+    --color-border: oklch(1 0 0 / 10%);
+  }
   *,
   ::before,
   ::after {
@@ -50,7 +67,7 @@
     @apply flex flex-col gap-2 text-sm text-muted-foreground;
   }
   .input {
-    @apply h-9 w-full rounded-md border bg-transparent px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-white/40;
+    @apply h-9 w-full rounded-md border bg-transparent px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/50;
   }
   .badge {
     @apply inline-flex h-[1.375rem] items-center rounded-full border px-2 text-xs font-medium;

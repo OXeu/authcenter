@@ -1,10 +1,10 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { api } from './core.js'
-import { createPage } from './page.js'
+import { api } from './core.ts'
+import { createPage } from './page.ts'
 
 /**
- * @typedef {import('./data.js').PageData} PageData
+ * @typedef {import('./data.ts').PageData} PageData
  */
 
 const props = defineProps({
@@ -12,7 +12,12 @@ const props = defineProps({
   msg: { type: Function, required: true },
   title: { type: String, required: true },
   subtitle: { type: String, required: true },
+  theme: { type: String, required: true },
 })
+
+const emit = defineEmits(['toggle-theme'])
+const themeLabel = computed(() => msg(props.theme === 'dark' ? 'theme.toLight' : 'theme.toDark'))
+const themeIcon = computed(() => (props.theme === 'dark' ? 'ri-sun-line' : 'ri-moon-line'))
 
 const data = /** @type {PageData} */ (props.data)
 const msg = /** @type {(id: string, vars?: Record<string, string>) => string} */ (props.msg)
@@ -31,12 +36,20 @@ async function logout() {
 
 <template>
   <a class="sr-only" href="#main">{{ msg('nav.skip') }}</a>
-  <header class="flex items-center gap-4 border-b px-6 py-3">
+  <header class="flex flex-wrap items-center gap-4 border-b px-6 py-3">
     <a class="text-sm font-semibold" href="/projects">{{ msg('app.name') }}</a>
     <nav class="flex flex-1 gap-1" :aria-label="msg('nav.main')">
       <a v-if="data.loggedIn" class="btn-ghost" href="/projects">{{ msg('nav.projects') }}</a>
       <a v-if="data.isAdmin" class="btn-ghost" href="/users">{{ msg('nav.users') }}</a>
     </nav>
+    <button
+      class="btn-ghost gap-1"
+      type="button"
+      :aria-label="themeLabel"
+      @click="emit('toggle-theme')"
+    >
+      <i :class="themeIcon" aria-hidden="true"></i><span>{{ themeLabel }}</span>
+    </button>
     <div class="relative" @keydown.escape="open = false">
       <button
         class="btn-ghost gap-1"
