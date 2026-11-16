@@ -1,19 +1,19 @@
 # configuration center
 
-Self-hosted configuration service: projects as isolation boundaries, environments, OAuth single sign-on, project-scoped API keys, a server-rendered web UI and an MCP endpoint for agents.
+Self-hosted configuration service: projects as isolation boundaries, environments, OAuth single sign-on, project-scoped API keys, a Vue web UI and an MCP endpoint for agents.
 
 ## Stack
 
-Go 1.26, gin, gorm (SQLite), `html/template` templates plus Alpine.js 3 (vendored, bundled with esbuild), shadcn/ui-style Tailwind CSS with Remix Icon (font vendored, no inline SVG), transient messages as [ding](https://github.com/YusufCeng1z/ding) toasts instead of inline alert elements, a plain OAuth 2.0 authorization-code + PKCE client that works with any OIDC issuer (or a plain OAuth server with a userinfo endpoint).
+Go 1.26, gin, gorm (SQLite), a Go HTML/JSON shell plus Vue 3 (built with Vite Plus), shadcn/ui-style Tailwind CSS with Remix Icon (font vendored, no inline SVG), transient messages as [ding](https://github.com/YusufCeng1z/ding) toasts instead of inline alert elements, a plain OAuth 2.0 authorization-code + PKCE client that works with any OIDC issuer (or a plain OAuth server with a userinfo endpoint).
 
 ## Quick start
 
 ```sh
-make build          # bundles the web assets, then builds ./bin/configcenter
+make build          # bundles the web assets, then builds .tmp/bin/configcenter
 CC_OAUTH_ISSUER=https://idp.example.com \
 CC_OAUTH_CLIENT_ID=configcenter \
 CC_OAUTH_CLIENT_SECRET=... \
-./bin/configcenter
+.tmp/bin/configcenter
 ```
 
 Open http://127.0.0.1:8080. Without OAuth configured the server still starts; only the login link is disabled.
@@ -22,7 +22,7 @@ GitHub can be used as the identity provider (`CC_OAUTH_ISSUER=https://github.com
 
 ## Configuration
 
-All settings come from the environment (read once in `internal/config`). The binary loads `.env.local` itself with [godotenv](https://github.com/joho/godotenv) (`CC_ENV_FILE` selects another file); variables already exported win over the file, so `CC_ADDR=127.0.0.1:9000 ./bin/configcenter` and `CC_ADDR=… make run` both work, and a missing file is fine. `CC_OAUTH_ISSUER` and `CC_PUBLIC_URL` are trimmed of trailing slashes, and startup logs the resulting address, public URL and OAuth state.
+All settings come from the environment (read once in `internal/config`). The binary loads `.env.local` itself with [godotenv](https://github.com/joho/godotenv) (`CC_ENV_FILE` selects another file); variables already exported win over the file, so `CC_ADDR=127.0.0.1:9000 .tmp/bin/configcenter` and `CC_ADDR=… make run` both work, and a missing file is fine. `CC_OAUTH_ISSUER` and `CC_PUBLIC_URL` are trimmed of trailing slashes, and startup logs the resulting address, public URL and OAuth state.
 
 | Variable                                        | Default                       | Meaning                                                                  |
 | ----------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------ |
@@ -44,7 +44,7 @@ First login creates the user: linked by OAuth subject, adopted by verified email
 
 ## Languages
 
-The UI ships in English and Simplified Chinese (`internal/i18n/locales`). The header dropdown lists `CC_LANGUAGES`, `/language?lang=<tag>` stores the choice in the `cc_lang` cookie and redirects back to the page; without a choice the server negotiates `Accept-Language`. Server-rendered text is translated in Go templates (`{{t "id" .}}`), text produced by Alpine state (dialog titles, role badges, error messages keyed by HTTP status) comes from `web/ui/i18n.js`. Add a language by dropping `<tag>.json` into the locales directory and listing the tag in `CC_LANGUAGES`.
+The UI ships in English and Simplified Chinese (`internal/i18n/locales`). The header dropdown lists `CC_LANGUAGES`, `/language?lang=<tag>` stores the choice in the `cc_lang` cookie and redirects back to the page; without a choice the server negotiates `Accept-Language`. Go supplies translated messages in the page JSON. Vue uses `web/ui/src/i18n.js` and the same locale catalogs for dialogs, role badges and errors. Add a language by dropping `<tag>.json` into the locales directory and listing the tag in `CC_LANGUAGES`.
 
 ## Isolation model
 
@@ -66,8 +66,8 @@ The UI ships in English and Simplified Chinese (`internal/i18n/locales`). The he
 | GET/POST     | `/api/v1/projects/:project/keys`, DELETE `…/keys/:id`                             |
 | GET          | `/api/v1/projects/:project/proposals?status=pending`                              |
 | POST         | `/api/v1/projects/:project/proposals/:id/review` (`{"approve": true}`)            |
-| GET          | `/api/v1/projects/:project/agent` (API key)                                       |
-| GET          | `/api/v1/projects/:project/environments/:env/values?prefix=` (API key, read-only) |
+| GET          | `/api/v1/agent/project` (API key)                                       |
+| GET          | `/api/v1/agent/environments/:env/values?prefix=` (API key, read-only) |
 | GET          | `/api/v1/users`, PATCH `/api/v1/users/:id` (admin)                                |
 
 ## MCP
@@ -94,9 +94,18 @@ The key decides the project, so the SDK never takes a project name.
 
 ## Development
 
+Use Node 22.18+ or 24.11+ (supported Vite Plus LTS versions), npm and Go 1.26.10, with golangci-lint installed.
+
 ```sh
-make check   # golangci-lint, go test, eslint, markuplint, tsc, jsdom component tests, sdk lint and tests
-make assets  # rebuild internal/server/static from web/ui
+npm ci
+make check   # build, Go lint/tests, Oxlint, Vue type checking, Vitest, SDK lint/tests
+make build   # embed .tmp/ui and produce .tmp/bin/configcenter
+make run     # build and start the Go server
+npm run dev # in a second terminal; open http://localhost:5173/projects
 ```
 
-Templates are single-file Go templates under `internal/server/templates`. Markup rules, Alpine conventions and backend lint expectations are in [AGENTS.md](AGENTS.md).
+The Vite development server gets authenticated page JSON from Go at `127.0.0.1:8080` and serves Vue with hot reload. API, OAuth, language and logout requests are proxied to Go. Set `CC_PUBLIC_URL=http://localhost:5173` and register that origin's `/oauth/callback` with your provider when testing OAuth through Vite. Production serves embedded JavaScript and CSS directly from Go; Node is only needed at build time.
+
+Vite Plus provides the build, Oxlint, Oxfmt and Vitest. `vue-tsc` checks both scripts and templates. Oxlint custom plugins inspect script ASTs; separate compiler-based Vitest checks enforce template constraints. See [AGENTS.md](AGENTS.md).
+
+Build output stays in ignored `.tmp/ui` and is embedded by `assets.go`. Run `make assets` before direct Go commands on a fresh checkout; Make targets do this automatically. Go scratch files use `.tmp`, and binaries use `.tmp/bin`. The live SDK test is opt-in through `CC_TEST_URL` and `CC_TEST_KEY`.
