@@ -157,9 +157,11 @@ CC_BOOTSTRAP_ADMIN_EMAIL=admin@example.com
 
 The workflow packages this file privately with the function code, removes the
 runner copy after deployment, and never uploads the package as a GitHub artifact.
-SCF forces MySQL, production mode and port 9000. Configure an API Gateway custom
-domain with root path mapping and register its /oauth/callback URL at the identity
-provider. The VPC must also permit outbound access to the identity provider.
+SCF forces MySQL, production mode and port 9000. The HTTP trigger exposes a
+function URL with public and private access. Cloud-level authentication is NONE;
+the application enforces OAuth sessions and API keys. Set CC_PUBLIC_URL to the
+function URL or its custom domain and register its /oauth/callback URL at the
+identity provider. The VPC must also permit outbound access to the identity provider.
 The selected Tencent action runs serverless-cloud-framework; its source is pinned,
 but its upstream CLI installation is not version-pinned.
 
