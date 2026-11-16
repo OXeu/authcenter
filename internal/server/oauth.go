@@ -30,7 +30,7 @@ func (s *Server) loginPage(c *gin.Context) {
 		return
 	}
 	s.render(c, http.StatusOK, gin.H{
-		"Title":       "Sign in",
+		"Title":       "login.title",
 		"LoginFailed": s.loginError(c),
 	})
 }

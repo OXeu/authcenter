@@ -75,6 +75,10 @@
   }
 }
 
-[x-cloak] {
-  display: none !important;
+dialog::backdrop {
+  background: rgb(0 0 0 / 60%);
+}
+dialog.dialog-panel {
+  margin: 0;
+  color: inherit;
 }

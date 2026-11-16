@@ -1,29 +1,29 @@
 .PHONY: all build assets lint test check sdk-lint sdk-test run fmt
 
-BIN ?= bin/configcenter
+BIN ?= .tmp/bin/configcenter
 TMP_ROOT := $(CURDIR)/.tmp
 GO_TEST := mkdir -p $(TMP_ROOT) && TMPDIR=$(TMP_ROOT) go test
 
 all: check build
 
 build: assets
-	go build -o $(BIN) ./cmd/configcenter
+	mkdir -p $(TMP_ROOT)/bin
+	TMPDIR=$(TMP_ROOT) go build -o $(BIN) ./cmd/configcenter
 
 assets:
 	npm run --silent build
 
-fmt:
+fmt: assets
 	golangci-lint fmt ./...
-	npx eslint --fix 'internal/server/templates/**/*.html' web/ui
+	npm run fmt
 
-lint:
+lint: assets
 	golangci-lint run ./...
-	npx eslint web/ui 'internal/server/templates/**/*.html'
-	npx markuplint 'internal/server/templates/**/*.html'
-	npx tsc -p jsconfig.json
+	npm run lint
+	npm run typecheck
 	npm test --silent
 
-test:
+test: assets
 	$(GO_TEST) ./...
 
 sdk-lint:
@@ -32,7 +32,7 @@ sdk-lint:
 sdk-test:
 	cd sdk/configcenter && $(GO_TEST) ./...
 
-check: lint sdk-lint test sdk-test
+check: assets lint sdk-lint test sdk-test
 
 # The binary loads .env.local itself (CC_ENV_FILE), without overriding
 # variables exported here, so `CC_ADDR=:9000 make run` still works.

@@ -1,34 +1,72 @@
 <script setup>
-import { computed } from 'vue'
-
-/**
- * @typedef {import('./forms.js').Form} Form
- */
-
+import { ref, watch, nextTick } from 'vue'
 const props = defineProps({
   form: { type: Object, required: true },
   msg: { type: Function, required: true },
 })
-
-const emit = defineEmits(['submit', 'cancel'])
-
-const form = /** @type {Form} */ (props.form)
-const msg = /** @type {(id: string, vars?: Record<string, string>) => string} */ (props.msg)
-const open = computed(() => form.open.value)
+const dialog = ref(/** @type {HTMLDialogElement | null} */ (null))
+watch(
+  () => props.form.open,
+  async (open) => {
+    await nextTick()
+    if (open) dialog.value?.showModal()
+    else dialog.value?.close()
+  },
+)
+/** @param {Event} event */
+function cancel(event) {
+  if (props.form.busy) {
+    event.preventDefault()
+    return
+  }
+  props.form.open = false
+}
 </script>
-
 <template>
-  <div v-if="open" class="dialog-backdrop" role="presentation"></div>
-  <div v-if="open" class="dialog-panel" role="dialog" aria-modal="true" :aria-label="form.title()">
-    <form class="space-y-3" @submit.prevent="emit('submit')">
-      <h2 class="text-base font-semibold">{{ form.title() }}</h2>
-      <slot />
-      <p class="field">{{ msg('projects.tokenIssued') }} <code>{{ form.token.value }}</code></p>
-      <p class="field">{{ form.error.value }}</p>
+  <dialog ref="dialog" class="dialog-panel" :aria-label="form.title" @cancel="cancel">
+    <form class="space-y-3" @submit.prevent="form.submit">
+      <h2 class="text-base font-semibold">{{ form.title }}</h2>
+      <template v-if="!form.token">
+        <label v-for="field in form.fields" :key="field.key" class="field">
+          {{ msg(field.label) }}
+          <select
+            v-if="field.options"
+            v-model="form.values[field.key]"
+            class="input"
+            :disabled="form.busy"
+          >
+            <option v-for="option in field.options" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+          <textarea
+            v-else-if="field.multiline"
+            v-model="form.values[field.key]"
+            class="input"
+            :required="field.required"
+            :disabled="form.busy"
+          ></textarea>
+          <input
+            v-else
+            v-model="form.values[field.key]"
+            class="input"
+            :required="field.required"
+            :disabled="form.busy"
+          />
+        </label>
+      </template>
+      <p v-if="form.token" class="field">
+        {{ msg('projects.tokenIssued') }}<code>{{ form.token }}</code>
+      </p>
+      <p v-if="form.error" class="field">{{ form.error }}</p>
       <div class="flex justify-end gap-2">
-        <button class="btn-ghost" type="button" @click="emit('cancel')"><i class="ri-close-line mr-1" aria-hidden="true"></i>{{ msg('common.cancel') }}</button>
-        <button class="btn" type="submit" :disabled="form.busy.value">{{ form.submitLabel() }}</button>
+        <button class="btn-ghost" type="button" :disabled="form.busy" @click="form.open = false">
+          {{ msg('common.cancel') }}
+        </button>
+        <button v-if="!form.token" class="btn" type="submit" :disabled="form.busy">
+          {{ msg('confirm.ok') }}
+        </button>
       </div>
     </form>
-  </div>
+  </dialog>
 </template>

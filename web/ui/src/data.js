@@ -15,6 +15,7 @@
  * @property {string} title message id
  * @property {string} publicUrl
  * @property {string} providerName
+ * @property {string} nonce
  * @property {string} csrf
  * @property {boolean} loggedIn
  * @property {boolean} isAdmin
@@ -28,3 +29,5 @@
  * @property {Record<string, string>} messages
  * @property {{ message: string, level: 'error' | 'success' } | null} flash
  */
+
+export const pages = ['login', 'projects', 'project', 'users']

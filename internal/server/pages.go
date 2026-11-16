@@ -14,7 +14,7 @@ func (s *Server) MountUI(r *gin.Engine) {
 	ui := r.Group("")
 	ui.GET("/projects", auth.RequireUser(), s.projectsPage)
 	ui.GET("/projects/:project", auth.RequireUser(), s.projectPage)
-	ui.GET("/users", auth.RequireUser(), s.usersPage)
+	ui.GET("/users", auth.RequireAdmin(), s.usersPage)
 }
 
 func (s *Server) me(c *gin.Context) (store.User, bool) {

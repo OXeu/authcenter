@@ -1,20 +1,25 @@
+import { devPages } from './tools/dev-pages.js'
+import tailwind from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite-plus'
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), tailwind(), devPages()],
+  base: '/',
+  cacheDir: '.tmp/vite',
   server: {
     proxy: {
       '^/(api|mcp|auth|oauth|language|login|logout|static)': 'http://127.0.0.1:8080',
     },
   },
   build: {
-    outDir: 'internal/server/static/app',
+    outDir: '.tmp/ui',
     emptyOutDir: true,
-    manifest: true,
+    manifest: false,
     sourcemap: false,
     rollupOptions: {
-      input: 'web/ui/index.html',
+      input: 'web/ui/src/main.js',
+      output: { entryFileNames: 'main.js', assetFileNames: '[name][extname]' },
     },
   },
   test: {
@@ -32,10 +37,7 @@ export default defineConfig({
     env: { browser: true, es2024: true },
     ignorePatterns: ['internal/server/static/**', 'sdk/**', 'node_modules/**'],
     jsPlugins: ['vite-plus/oxlint-plugin', './tools/oxlint/configcenter.js'],
-    options: {
-      typeAware: true,
-      typeCheck: true,
-    },
+
     rules: {
       'configcenter/no-page-dom-access': 'error',
       'configcenter/no-inline-icons': 'error',

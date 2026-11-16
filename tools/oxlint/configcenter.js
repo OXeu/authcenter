@@ -7,16 +7,9 @@ const NON_TOAST_MESSAGE =
   'Messages are toasts: call notify() from the script, never a resolve helper in a template.'
 const EMOJI = /\p{Extended_Pictographic}|[\u{FE0F}\u{20E3}]|[\u{2600}-\u{27BF}]/u
 
-/**
- * Oxlint hands Vue plugin rules the script ESTree and leaves template nodes
- * to its own parser, so the template rules in this plugin are checked by
- * `npm test` over fixture SFCs, and `tools/oxlint/rules.js` mirrors them for
- * whatever walker the linter exposes.
- * @param {any} node
- * @returns {string}
- */
+/** @param {any} node @returns {string} */
 function literalTitle(node) {
-  const title = node.key
+  const title = node.property ?? node.key
   if (title?.type === 'Identifier') return title.name
   if (title?.type === 'Literal' || title?.type === 'StringLiteral') return String(title.value)
   return ''
@@ -45,7 +38,10 @@ const noPageDomAccess = defineRule({
         if (
           callee.object?.type === 'Identifier' &&
           callee.object.name === 'document' &&
-          literalTitle(callee) !== 'querySelector'
+          !(
+            context.filename.endsWith('/web/ui/src/main.js') &&
+            literalTitle(callee) === 'querySelector'
+          )
         ) {
           context.report({ node, messageId: 'rawDom' })
           return

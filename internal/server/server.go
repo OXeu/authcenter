@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 
+	"github.com/xeu/configcenter"
 	"github.com/xeu/configcenter/internal/auth"
 	"github.com/xeu/configcenter/internal/config"
 	"github.com/xeu/configcenter/internal/i18n"
@@ -37,8 +39,7 @@ type Server struct {
 	groupPolicy   auth.GroupPolicy
 	catalog       *i18n.Catalog
 	log           *slog.Logger
-	funcs         template.FuncMap
-	templates     map[string]*template.Template
+	template      *template.Template
 }
 
 // Engine builds the gin engine for the given configuration.
@@ -78,10 +79,6 @@ func newServer(ctx context.Context, cfg config.Config, log *slog.Logger) (*Serve
 		groupPolicy:   cfg.Groups,
 		catalog:       catalog,
 		log:           log,
-		funcs: template.FuncMap{
-			"derefTime": derefTime,
-			"shortTime": func(t time.Time) string { return t.UTC().Format("2006-01-02 15:04") },
-		},
 	}
 	if err := s.loadTemplates(); err != nil {
 		return nil, err
@@ -102,55 +99,12 @@ func sqliteDSN(dsn string) (string, error) {
 
 var errNoLanguage = errors.New("no enabled language has a locale file")
 
-// message is the plain translation of an id.
-func message(tr *i18n.Translator, id string) string {
-	return tr.T(id)
-}
-
-// renderMessage substitutes {{.Value}} in a message with one string.
-func renderMessage(msg string, value any) (string, bool) {
-	tpl, err := template.New("msg").Parse(msg)
-	if err != nil {
-		return "", false
-	}
-	var out strings.Builder
-	if err := tpl.Execute(&out, map[string]any{"Value": fmt.Sprint(value)}); err != nil {
-		return "", false
-	}
-	return out.String(), true
-}
-
-// loadTemplates parses the shell once per enabled language, binding `t` to
-// that language's translator, so rendering never clones or re-parses.
 func (s *Server) loadTemplates() error {
-	s.templates = make(map[string]*template.Template, len(s.cfg.Languages))
-	for _, language := range s.catalog.Languages(s.cfg.Languages) {
-		tr := s.catalog.Translator(language.Tag)
-		funcs := template.FuncMap{}
-		for name, fn := range s.funcs {
-			funcs[name] = fn
-		}
-		funcs["roleLabel"] = func(role string) template.HTML {
-			return template.HTML(template.HTMLEscapeString(tr.T("role." + role))) //nolint:gosec // escaped above
-		}
-		funcs["msg"] = func(id string) string { return tr.T(id) }
-		funcs["t"] = func(id string, data ...any) template.HTML {
-			msg := message(tr, id)
-			if len(data) > 1 {
-				// `{{t "id" . extra}}` passes the trailing value explicitly.
-				msg = strings.ReplaceAll(msg, "{{.ProviderName}}", "{{.Value}}")
-				if rendered, ok := renderMessage(msg, data[1]); ok {
-					return template.HTML(template.HTMLEscapeString(rendered)) //nolint:gosec // escaped above
-				}
-			}
-			return template.HTML(template.HTMLEscapeString(msg)) //nolint:gosec // escaped above
-		}
-		tpl, err := template.New("shell").Funcs(funcs).ParseFS(templateFS, "templates/shell/*.html")
-		if err != nil {
-			return fmt.Errorf("parse templates for %s: %w", language.Tag, err)
-		}
-		s.templates[language.Tag] = tpl
+	tpl, err := template.New("shell").ParseFS(templateFS, "templates/shell/*.html")
+	if err != nil {
+		return fmt.Errorf("parse Vue shell: %w", err)
 	}
+	s.template = tpl
 	return nil
 }
 
@@ -179,7 +133,6 @@ func (s *Server) render(c *gin.Context, status int, data gin.H) {
 		"OAuthEnabled":  s.oauth != nil,
 		"LoggedIn":      loggedIn && id.User != nil,
 		"IsAdmin":       loggedIn && id.User != nil && id.User.Role == store.RoleAdmin,
-		"RoleLabel":     roleKey(id.Role),
 		"CSRF":          auth.CSRF(c),
 		"Lang":          s.translator(c).Lang(),
 		"LanguageLabel": label,
@@ -189,12 +142,12 @@ func (s *Server) render(c *gin.Context, status int, data gin.H) {
 		withCommon[key] = value
 	}
 	payload := gin.H{
-		"page": "login", "lang": withCommon["Lang"], "title": withCommon["Title"],
+		"nonce": c.GetString("cspNonce"), "page": "login", "lang": withCommon["Lang"], "title": withCommon["Title"],
 		"publicUrl": withCommon["PublicURL"], "providerName": withCommon["ProviderName"],
 		"csrf": withCommon["CSRF"], "loggedIn": withCommon["LoggedIn"],
 		"isAdmin": withCommon["IsAdmin"], "oauthEnabled": withCommon["OAuthEnabled"],
 		"me": withCommon["Me"], "project": withCommon["Project"], "env": "",
-		"canWrite": false, "languageLabel": label,
+		"canWrite": loggedIn && id.User != nil && id.User.Role.CanWrite(), "languageLabel": label,
 		"messages": s.catalog.Messages(s.translator(c).Lang()), "flash": nil,
 	}
 	for _, key := range []string{"Page", "Env", "CanWrite"} {
@@ -202,6 +155,13 @@ func (s *Server) render(c *gin.Context, status int, data gin.H) {
 			payload[strings.ToLower(key[:1])+key[1:]] = value
 		}
 	}
+	if loggedIn && id.User != nil {
+		payload["me"] = userJSON{ID: id.User.ID, Name: id.User.Name, Email: id.User.Email, Role: id.User.Role, LastLoginAt: id.User.LastLoginAt}
+	}
+	if project, ok := withCommon["Project"].(*store.Project); ok {
+		payload["project"] = toProjectJSON(*project)
+	}
+	withCommon["Title"] = s.translator(c).T(fmt.Sprint(withCommon["Title"]))
 	languages := make([]gin.H, 0, len(language))
 	for _, item := range language {
 		languages = append(languages, gin.H{"tag": item.Tag, "label": item.Label})
@@ -217,7 +177,7 @@ func (s *Server) render(c *gin.Context, status int, data gin.H) {
 		return
 	}
 	withCommon["PageJSON"] = template.JS(encoded) //nolint:gosec // json.Marshal escapes HTML delimiters before insertion into the inert script.
-	tpl := s.templates[s.translator(c).Lang()]
+	tpl := s.template
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Status(status)
 	if err := tpl.ExecuteTemplate(c.Writer, "vue.html", withCommon); err != nil {
@@ -237,7 +197,18 @@ func (s *Server) router() *gin.Engine {
 	if err != nil {
 		s.log.Error("mount static assets", "error", err)
 	}
-	r.StaticFS("/static", http.FS(assets))
+	frontend, frontendErr := fs.Sub(configcenter.Frontend, ".tmp/ui")
+	if frontendErr != nil {
+		s.log.Error("mount frontend", "error", frontendErr)
+	}
+	r.GET("/static/*filepath", func(c *gin.Context) {
+		if strings.HasPrefix(c.Param("filepath"), "/app/") {
+			c.Header("Cache-Control", "no-cache")
+			http.StripPrefix("/static/app/", http.FileServer(http.FS(frontend))).ServeHTTP(c.Writer, c.Request)
+			return
+		}
+		http.StripPrefix("/static/", http.FileServer(http.FS(assets))).ServeHTTP(c.Writer, c.Request)
+	})
 
 	s.MountOAuth(r)
 	s.MountLanguage(r)
@@ -260,28 +231,13 @@ func (s *Server) requestLogger() gin.HandlerFunc {
 
 func securityHeaders() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		nonce := rand.Text()
+		c.Set("cspNonce", nonce)
 		h := c.Writer.Header()
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "same-origin")
-		h.Set("Content-Security-Policy", "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'")
+		h.Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'nonce-"+nonce+"'; script-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'")
 		c.Next()
 	}
-}
-
-// roleKey is the message id of a role label.
-func roleKey(role store.Role) string {
-	switch role {
-	case store.RoleAdmin, store.RoleEditor, store.RoleViewer:
-		return "role." + string(role)
-	default:
-		return string(role)
-	}
-}
-
-func derefTime(p *time.Time) string {
-	if p == nil {
-		return ""
-	}
-	return p.UTC().Format("2006-01-02 15:04")
 }

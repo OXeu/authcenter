@@ -17,18 +17,12 @@ export async function api(path, init = {}) {
   /** @type {Record<string, string>} */
   const headers = { Accept: 'application/json', 'X-CSRF-Token': init.csrf ?? '' }
   if (init.body !== undefined) headers['Content-Type'] = 'application/json'
-  /** @type {Response} */
-  let resp
-  try {
-    resp = await fetch(path, {
-      method,
-      headers,
-      credentials: 'same-origin',
-      body: init.body === undefined ? undefined : JSON.stringify(init.body),
-    })
-  } catch (err) {
-    throw new Error(err instanceof Error ? err.message : 'network error', { cause: 0 })
-  }
+  const resp = await fetch(path, {
+    method,
+    headers,
+    credentials: 'same-origin',
+    body: init.body === undefined ? undefined : JSON.stringify(init.body),
+  })
   if (resp.status === 204) return null
   /** @type {any} */
   const data = await resp.json().catch(() => ({}))

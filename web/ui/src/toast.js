@@ -8,13 +8,14 @@ let mounted = false
  * Mounts the toast viewport once; the library injects its own stylesheet and
  * live regions, so no component renders a message element.
  * @param {string} lang
+ * @param {string} [nonce]
  * @returns {void}
  */
-export function mountToasts(lang) {
+export function mountToasts(lang, nonce = '') {
   const { msg } = createCopy(lang)
   if (!mounted) {
     mounted = true
-    mountToaster({ position: 'bottom-right', theme: 'dark' })
+    mountToaster({ position: 'bottom-right', theme: 'dark', nonce })
   }
   toast.configure({
     labels: { region: msg('toast.region'), dismiss: msg('toast.dismiss') },
@@ -30,7 +31,7 @@ export function mountToasts(lang) {
  * @returns {string} the toast id
  */
 export function notify(type, title, description) {
-  mountToasts('en')
+  if (!mounted) mountToasts('en')
   const options = description ? { description } : {}
   if (type === 'loading') return toast.loading(title, options)
   return toast[type](title, options)

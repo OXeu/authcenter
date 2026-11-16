@@ -277,3 +277,56 @@ func TestLanguageSwitcherAndNegotiation(t *testing.T) {
 		}
 	}
 }
+
+func TestVuePageContractAndEscaping(t *testing.T) {
+	f := newFlows(t)
+	name := `</script><script>alert("x")</script>`
+	if code, _ := f.do(http.MethodPost, "/api/v1/projects", map[string]any{"slug": "escaped", "name": name}); code != http.StatusCreated {
+		t.Fatalf("create = %d", code)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/projects/escaped", http.NoBody)
+	req.Header.Set("Cookie", "cc_session="+f.cookies["cc_session"].Value)
+	w := httptest.NewRecorder()
+	f.router.ServeHTTP(w, req)
+	_, tail, found := strings.Cut(w.Body.String(), `<script id="page-data" type="application/json">`)
+	if !found {
+		t.Fatal("missing JSON bootstrap")
+	}
+	raw, _, found := strings.Cut(tail, "</script>")
+	if !found || strings.Contains(raw, "<script>") {
+		t.Fatal("unsafe script boundary")
+	}
+	var data struct {
+		Page     string `json:"page"`
+		CanWrite bool   `json:"canWrite"`
+		CSRF     string `json:"csrf"`
+		Nonce    string `json:"nonce"`
+		Me       struct {
+			Name string `json:"name"`
+			Role string `json:"role"`
+		} `json:"me"`
+		Project struct {
+			Slug string `json:"slug"`
+			Name string `json:"name"`
+		} `json:"project"`
+	}
+	if err := json.Unmarshal([]byte(raw), &data); err != nil {
+		t.Fatal(err)
+	}
+	if data.Page != "project" || data.Project.Slug != "escaped" || data.Project.Name != name || data.Me.Role != "admin" || !data.CanWrite || data.CSRF == "" {
+		t.Fatalf("invalid page contract: %+v", data)
+	}
+	if data.Nonce == "" || !strings.Contains(w.Header().Get("Content-Security-Policy"), "'nonce-"+data.Nonce+"'") {
+		t.Fatal("missing style nonce")
+	}
+	if strings.Contains(raw, "OAuthSub") || strings.Contains(raw, "OAuthIssuer") {
+		t.Fatal("private model fields exposed")
+	}
+	for _, path := range []string{"/static/app/main.js", "/static/app/main.css", "/static/icons/remixicon.css"} {
+		asset := httptest.NewRecorder()
+		f.router.ServeHTTP(asset, httptest.NewRequest(http.MethodGet, path, http.NoBody))
+		if asset.Code != http.StatusOK || asset.Body.Len() == 0 {
+			t.Fatalf("asset %s = %d", path, asset.Code)
+		}
+	}
+}
