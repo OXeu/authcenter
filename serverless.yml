@@ -1,0 +1,35 @@
+app: configcenter
+component: scf
+name: configcenter
+stage: ${env.STAGE}
+inputs:
+  name: configcenter
+  src: ./.tmp/scf
+  type: web
+  runtime: Nodejs18.15
+  region: ${env.SCF_REGION}
+  memorySize: 512
+  timeout: 30
+  initTimeout: 60
+  publicAccess: true
+  vpcConfig:
+    vpcId: ${env.SCF_VPC_ID}
+    subnetId: ${env.SCF_SUBNET_ID}
+  environment:
+    variables:
+      CC_ADDR: "0.0.0.0:9000"
+      CC_DB_DRIVER: mysql
+      CC_ENV: production
+      CC_ENV_FILE: /var/user/.env.local
+  events:
+    - apigw:
+        parameters:
+          protocols: [https]
+          environment: release
+          endpoints:
+            - path: /
+              method: ANY
+              enableCORS: false
+              serviceTimeout: 30
+              function:
+                isIntegratedResponse: true

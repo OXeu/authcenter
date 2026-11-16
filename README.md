@@ -34,7 +34,8 @@ All settings come from the environment (read once in `internal/config`). The bin
 | Variable                                        | Default                       | Meaning                                                                  |
 | ----------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------ |
 | `CC_ADDR`                                       | `127.0.0.1:8080`              | Listen address                                                           |
-| `CC_DB`                                         | `file:configcenter.db`        | SQLite DSN                                                               |
+| `CC_DB_DRIVER` | `sqlite` | Database backend: `sqlite` or `mysql` |
+| `CC_DB`                                         | `file:configcenter.db`        | SQLite or MySQL DSN                                                               |
 | `CC_PUBLIC_URL`                                 | `http://127.0.0.1:8080`       | Public base URL                                                          |
 | `CC_OAUTH_ISSUER`                               |                               | OIDC issuer (discovery at `/.well-known/openid-configuration`)           |
 | `CC_OAUTH_CLIENT_ID` / `CC_OAUTH_CLIENT_SECRET` |                               | OAuth client; redirect URI is `CC_PUBLIC_URL/oauth/callback`             |
@@ -120,3 +121,46 @@ Vite Plus provides the build, Oxlint, Oxfmt and Vitest. `vue-tsc` checks both sc
 Build output stays in ignored `.tmp/ui` and `.tmp/docs` and is embedded by `assets.go`. `npm run build:docs` renders Markdown and Shiki HTML/CSS; `make assets` runs it before the Vite build. Run `make assets` before direct Go commands on a fresh checkout; Make targets do this automatically. Go scratch files use `.tmp`, and binaries use `.tmp/bin`. The live SDK test is opt-in through `CC_TEST_URL` and `CC_TEST_KEY`.
 
 Type checking uses TypeScript 7 (`typescript-native`) for modules, tools and non-component tests. Vue template and component tests use `vue-tsc` with TypeScript 6 because Volar requires its JavaScript compiler API. Run both with `npm run typecheck`.
+
+### MySQL
+
+Local development defaults to SQLite. To connect to MySQL, set:
+
+```dotenv
+CC_DB_DRIVER=mysql
+CC_DB=user:password@tcp(mysql-host:3306)/configcenter?charset=utf8mb4&tls=true
+```
+
+Create the database first (MySQL 8+, utf8mb4 with a case-sensitive collation such
+as utf8mb4_bin). The application creates tables and enables timestamp parsing.
+Keep credentials in environment variables or the ignored .env.local file.
+
+### Tencent Cloud Functions
+
+The GitHub workflow runs `make check`, MySQL integration tests and `make build`.
+Deployments from main are enabled by repository variable `SCF_DEPLOY_ENABLED=true`;
+leave it unset until production configuration is ready.
+
+Configure variables `SCF_REGION`, `SCF_VPC_ID`, `SCF_SUBNET_ID` for the network
+that can reach MySQL. Configure secrets `TENCENT_SECRET_ID`,
+`TENCENT_SECRET_KEY`, and `SCF_RUNTIME_ENV`. The last secret is a dotenv file:
+
+```dotenv
+CC_DB=user:password@tcp(mysql-host:3306)/configcenter?charset=utf8mb4
+CC_SESSION_SECRET=replace-with-a-long-random-secret
+CC_PUBLIC_URL=https://your-domain.example
+CC_OAUTH_ISSUER=https://your-identity-provider.example
+CC_OAUTH_CLIENT_ID=your-client-id
+CC_OAUTH_CLIENT_SECRET=your-client-secret
+CC_BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+```
+
+The workflow packages this file privately with the function code, removes the
+runner copy after deployment, and never uploads the package as a GitHub artifact.
+SCF forces MySQL, production mode and port 9000. Configure an API Gateway custom
+domain with root path mapping and register its /oauth/callback URL at the identity
+provider. The VPC must also permit outbound access to the identity provider.
+The selected Tencent action runs serverless-cloud-framework; its source is pinned,
+but its upstream CLI installation is not version-pinned.
+
+Changing the driver does not migrate existing SQLite data to MySQL.
