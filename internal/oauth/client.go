@@ -207,18 +207,17 @@ func (c *Client) Metadata(ctx context.Context) (Discovery, error) {
 	}
 	c.mu.RUnlock()
 
-	origin := strings.TrimRight(c.cfg.IssuerURL, "/")
+	if strings.EqualFold(issuerHost(c.cfg.IssuerURL), "github.com") {
+		meta := githubDiscovery()
+		c.remember(meta)
+		return meta, nil
+	}
 	endpoint := discoveryURL(c.cfg.IssuerURL)
 	status, resp, err := c.fetchDiscovery(ctx, endpoint)
 	if err != nil {
 		return Discovery{}, err
 	}
 	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // a close error cannot be reported after the body was consumed
-	if status == http.StatusNotFound && strings.EqualFold(issuerHost(origin), "github.com") {
-		meta := githubDiscovery()
-		c.remember(meta)
-		return meta, nil
-	}
 	if status != http.StatusOK {
 		return Discovery{}, fmt.Errorf("fetch discovery: %w", fmt.Errorf("%s returned status %d", endpoint, status))
 	}

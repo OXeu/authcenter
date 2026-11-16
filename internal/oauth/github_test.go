@@ -3,6 +3,7 @@ package oauth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -107,5 +108,40 @@ func TestSameIssuerAcceptsOriginAfterPath(t *testing.T) {
 		if got := sameIssuer(c.discovered, c.configured); got != c.want {
 			t.Fatalf("sameIssuer(%q, %q) = %v, want %v", c.discovered, c.configured, got, c.want)
 		}
+	}
+}
+
+type unavailableDiscoveryTransport struct {
+	calls int
+}
+
+func (t *unavailableDiscoveryTransport) RoundTrip(_ *http.Request) (*http.Response, error) {
+	t.calls++
+	return nil, errors.New("network unavailable")
+}
+
+func TestGitHubMetadataWithoutNetwork(t *testing.T) {
+	t.Parallel()
+	for _, issuer := range []string{"https://github.com", "https://github.com/login/oauth/", "https://GITHUB.com"} {
+		t.Run(issuer, func(t *testing.T) {
+			transport := &unavailableDiscoveryTransport{}
+			client := New(Config{IssuerURL: issuer}, &http.Client{Transport: transport})
+			meta, err := client.Metadata(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if transport.calls != 0 {
+				t.Fatal("GitHub metadata must not require network discovery")
+			}
+			if meta.AuthorizationEndpoint != "https://github.com/login/oauth/authorize" ||
+				meta.TokenEndpoint != "https://github.com/login/oauth/access_token" {
+				t.Fatalf("unexpected GitHub endpoints: %+v", meta)
+			}
+		})
+	}
+	transport := &unavailableDiscoveryTransport{}
+	client := New(Config{IssuerURL: "https://github.com.example.org"}, &http.Client{Transport: transport})
+	if _, err := client.Metadata(t.Context()); err == nil || transport.calls != 1 {
+		t.Fatal("other providers must still use discovery")
 	}
 }
