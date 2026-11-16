@@ -104,5 +104,9 @@
   "docs.api": "HTTP API",
   "docs.sdk": "Go SDK",
   "docs.raw": "Markdown 原文",
-  "docs.navigation": "文档导航"
+  "docs.navigation": "文档导航",
+  "role.user": "用户",
+  "projects.rotate": "轮换",
+  "projects.mine": "我的项目",
+  "projects.all": "所有项目"
 }

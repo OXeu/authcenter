@@ -50,6 +50,9 @@ func (s *Server) projectPage(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
+	if !s.allowProject(c, project) {
+		return
+	}
 	envs, err := s.store.ListEnvironments(c.Request.Context(), project.ID)
 	if err != nil {
 		s.fail(c, err)

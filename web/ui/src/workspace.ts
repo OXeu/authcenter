@@ -19,6 +19,7 @@ export function createWorkspace(
     rows: /** @type {any[]} */ ([]) as any[],
     environments: /** @type {any[]} */ ([]) as any[],
     tab: 'items',
+    view: 'all',
     env: data.env,
     busy: false,
   })
@@ -37,7 +38,13 @@ export function createWorkspace(
     try {
       if (data.page === 'project')
         state.environments = (await api(`${base}/environments`)).environments
-      const result = await api(path() + (state.tab === 'proposals' ? '?status=pending' : ''))
+      const query =
+        data.page === 'projects'
+          ? '?view=' + state.view
+          : state.tab === 'proposals'
+            ? '?status=pending'
+            : ''
+      const result = await api(path() + query)
       state.rows = result[data.page === 'project' ? state.tab : data.page] ?? []
     } finally {
       state.busy = false
@@ -61,7 +68,7 @@ export function createWorkspace(
   const roles = () => ({
     key: 'role',
     label: 'dialog.role',
-    options: ['viewer', 'editor', 'admin'].map((value) => ({
+    options: (data.page === 'users' ? ['user', 'admin'] : ['viewer', 'editor']).map((value) => ({
       value,
       label: page.msg(`role.${value}`),
     })),
@@ -116,7 +123,13 @@ export function createWorkspace(
   }
   function removal(row: any) {
     const id =
-      data.page === 'projects' ? 'deleteProject' : state.tab === 'keys' ? 'revokeKey' : 'deleteItem'
+      data.page === 'users'
+        ? 'deleteUser'
+        : data.page === 'projects'
+          ? 'deleteProject'
+          : state.tab === 'keys'
+            ? 'revokeKey'
+            : 'deleteItem'
     const url = path() + '/' + enc(row.slug ?? row.key ?? String(row.id))
     return dangerAction(
       form,
@@ -140,9 +153,20 @@ export function createWorkspace(
   function review(row: any, approve: boolean) {
     proposal(row, approve).request()
   }
+  async function toggleView() {
+    state.view = state.view === 'all' ? 'mine' : 'all'
+    await refresh()
+  }
+  function rotation(row: any) {
+    return dangerAction(form, 'rotateKey', page.msg('projects.rotate'), row.name, async () => {
+      const result = await mutate(base + '/keys/' + row.id + '/rotate', 'POST')
+      form.token = result.token
+    })
+  }
   function actionsFor(row: any) {
     if (state.tab === 'proposals') return [proposal(row, true), proposal(row, false)]
-    return data.page === 'users' ? [] : [removal(row)]
+    if (state.tab === 'keys') return [rotation(row), removal(row)]
+    return [removal(row)]
   }
   /** @returns {void} */
   function environment(): void {
@@ -175,6 +199,7 @@ export function createWorkspace(
     )
   }
   return {
+    toggleView,
     actionsFor,
     state,
     form,

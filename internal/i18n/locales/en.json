@@ -104,5 +104,9 @@
   "docs.api": "HTTP API",
   "docs.sdk": "Go SDK",
   "docs.raw": "Markdown source",
-  "docs.navigation": "Documentation navigation"
+  "docs.navigation": "Documentation navigation",
+  "role.user": "User",
+  "projects.rotate": "Rotate",
+  "projects.mine": "My projects",
+  "projects.all": "All projects"
 }

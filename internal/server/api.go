@@ -18,12 +18,12 @@ import (
 
 // MountAPI registers the JSON API used by the web UI and by operators.
 func (s *Server) MountAPI(r *gin.Engine) {
-	ui := r.Group("/api/v1", s.authenticator.BrowserMiddleware())
+	ui := r.Group("/api/v1", s.authenticator.BrowserMiddleware(), auth.RequireUser())
 	ui.GET("/me", s.apiMe)
 	ui.GET("/projects", s.apiListProjects)
 	ui.POST("/projects", auth.RequireWriter(), s.apiCreateProject)
-	ui.PATCH("/projects/:project", auth.RequireWriter(), s.apiUpdateProject)
-	ui.DELETE("/projects/:project", auth.RequireWriter(), s.apiDeleteProject)
+	ui.PATCH("/projects/:project", auth.RequireWriter(), s.withProject(s.apiUpdateProject))
+	ui.DELETE("/projects/:project", auth.RequireWriter(), s.withProject(s.apiDeleteProject))
 	ui.GET("/projects/:project/environments", s.withProject(s.apiListEnvironments))
 	ui.POST("/projects/:project/environments", auth.RequireWriter(), s.withProject(s.apiCreateEnvironment))
 	ui.DELETE("/projects/:project/environments/:env", auth.RequireWriter(), s.withProject(s.apiDeleteEnvironment))
@@ -35,6 +35,8 @@ func (s *Server) MountAPI(r *gin.Engine) {
 	ui.DELETE("/projects/:project/keys/:id", auth.RequireWriter(), s.withProject(s.apiDeleteKey))
 	ui.GET("/projects/:project/proposals", s.withProject(s.apiListProposals))
 	ui.POST("/projects/:project/proposals/:id/review", auth.RequireWriter(), s.withProject(s.apiReviewProposal))
+	ui.POST("/projects/:project/keys/:id/rotate", auth.RequireWriter(), s.withProject(s.apiRotateKey))
+	ui.DELETE("/users/:id", auth.RequireAdmin(), s.apiDeleteUser)
 	ui.GET("/users", auth.RequireAdmin(), s.apiListUsers)
 	ui.PATCH("/users/:id", auth.RequireAdmin(), s.apiSetRole)
 
@@ -49,6 +51,9 @@ func (s *Server) withProject(fn func(*gin.Context, store.Project)) gin.HandlerFu
 		project, err := s.store.ProjectBySlug(c.Request.Context(), c.Param("project"))
 		if err != nil {
 			s.fail(c, err)
+			return
+		}
+		if !s.allowProject(c, project) {
 			return
 		}
 		c.Set("cc_project", project)
@@ -143,7 +148,11 @@ func (s *Server) apiListProjects(c *gin.Context) {
 		return
 	}
 	out := make([]projectJSON, 0, len(projects))
+	me, _ := s.me(c)
 	for _, p := range projects {
+		if p.OwnerID != me.ID && (me.Role != store.RoleAdmin || c.Query("view") == "mine") {
+			continue
+		}
 		out = append(out, toProjectJSON(p))
 	}
 	c.JSON(http.StatusOK, gin.H{"projects": out})
@@ -170,10 +179,11 @@ func (s *Server) apiCreateProject(c *gin.Context) {
 		s.fail(c, fmt.Errorf("%w: name is required", errBadRequest))
 		return
 	}
+	me, _ := s.me(c)
 	now := time.Now().UTC()
 	created, err := s.store.CreateProject(
 		c.Request.Context(),
-		store.Project{Slug: in.Slug, Name: name, Description: in.Description, CreatedAt: now, UpdatedAt: now},
+		store.Project{OwnerID: me.ID, Slug: in.Slug, Name: name, Description: in.Description, CreatedAt: now, UpdatedAt: now},
 		store.Environment{Slug: "production", Name: "Production", CreatedAt: now},
 	)
 	if err != nil {
@@ -183,17 +193,13 @@ func (s *Server) apiCreateProject(c *gin.Context) {
 	c.JSON(http.StatusCreated, toProjectJSON(created))
 }
 
-func (s *Server) apiUpdateProject(c *gin.Context) {
+func (s *Server) apiUpdateProject(c *gin.Context, project store.Project) {
 	var in projectInput
 	if err := bindJSON(c, &in); err != nil {
 		s.fail(c, err)
 		return
 	}
-	project, err := s.store.ProjectBySlug(c.Request.Context(), c.Param("project"))
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
+
 	if err := s.store.UpdateProject(c.Request.Context(), project.ID, in.Name, in.Description); err != nil {
 		s.fail(c, err)
 		return
@@ -202,12 +208,7 @@ func (s *Server) apiUpdateProject(c *gin.Context) {
 	c.JSON(http.StatusOK, toProjectJSON(project))
 }
 
-func (s *Server) apiDeleteProject(c *gin.Context) {
-	project, err := s.store.ProjectBySlug(c.Request.Context(), c.Param("project"))
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
+func (s *Server) apiDeleteProject(c *gin.Context, project store.Project) {
 	if err := s.store.DeleteProject(c.Request.Context(), project.ID); err != nil {
 		s.fail(c, err)
 		return
@@ -481,13 +482,18 @@ func (s *Server) apiSetRole(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
-	if !in.Role.Valid() {
+	if in.Role != store.RoleAdmin && in.Role != store.RoleUser {
 		s.fail(c, fmt.Errorf("%w: invalid role", errBadRequest))
 		return
 	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		s.fail(c, fmt.Errorf("%w: invalid user id", errBadRequest))
+		return
+	}
+	me, _ := s.me(c)
+	if uint(id) == me.ID && in.Role != store.RoleAdmin {
+		c.Status(http.StatusBadRequest)
 		return
 	}
 	if err := s.store.SetUserRole(c.Request.Context(), uint(id), in.Role); err != nil {

@@ -47,6 +47,9 @@ func Open(ctx context.Context, dialector gorm.Dialector, adminEmail, adminName s
 	if err := s.ensureAdmin(ctx, adminEmail, adminName); err != nil {
 		return nil, err
 	}
+	if err := s.initializeOwnership(ctx); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 
@@ -131,8 +134,8 @@ func (s *Store) adoptByEmail(ctx context.Context, identity Identity) (User, erro
 		return u, nil
 	case errors.Is(err, ErrNotFound):
 		u = User{Email: identity.Email, Name: identity.Name, Role: identity.Role}
-		if u.Role == "" {
-			u.Role = RoleViewer
+		if u.Role != RoleAdmin {
+			u.Role = RoleUser
 		}
 		if err := s.db.WithContext(ctx).Create(&u).Error; err != nil {
 			return User{}, fmt.Errorf("create oauth user: %w", err)

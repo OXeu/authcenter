@@ -6,6 +6,7 @@ import "time"
 type Role string
 
 const (
+	RoleUser   Role = "user"
 	RoleAdmin  Role = "admin"
 	RoleEditor Role = "editor"
 	RoleViewer Role = "viewer"
@@ -14,7 +15,7 @@ const (
 // Valid reports whether r is a known role.
 func (r Role) Valid() bool {
 	switch r {
-	case RoleAdmin, RoleEditor, RoleViewer:
+	case RoleUser, RoleAdmin, RoleEditor, RoleViewer:
 		return true
 	default:
 		return false
@@ -23,7 +24,7 @@ func (r Role) Valid() bool {
 
 // CanWrite reports whether the role may modify projects.
 func (r Role) CanWrite() bool {
-	return r == RoleAdmin || r == RoleEditor
+	return r == RoleUser || r == RoleAdmin || r == RoleEditor
 }
 
 // User is a human account, optionally linked to an OAuth subject.
@@ -50,6 +51,7 @@ type Session struct {
 
 // Project is the isolation boundary for every configuration item.
 type Project struct {
+	OwnerID     uint   `gorm:"index;not null;default:0"`
 	ID          uint   `gorm:"primaryKey"`
 	Slug        string `gorm:"uniqueIndex;size:64;not null"`
 	Name        string `gorm:"not null"`

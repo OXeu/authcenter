@@ -22,7 +22,7 @@ const docsLinks = [
 const rawDocument = computed(() => `/docs/${data.docPage ?? 'index'}.md`)
 const page = createPage(data)
 const { msg } = page
-const { state, form, refresh, select, edit, actionsFor, environment, newEnvironment } =
+const { state, form, refresh, select, edit, toggleView, actionsFor, environment, newEnvironment } =
   createWorkspace(data, page)
 const title = computed(
   () => data.project?.name ?? msg(data.page === 'login' ? 'login.title' : data.title),
@@ -30,6 +30,8 @@ const title = computed(
 const canCreate = computed(
   () => data.canWrite && data.page !== 'users' && state.tab !== 'proposals',
 )
+const showViewSwitch = computed(() => data.isAdmin && data.page === 'projects')
+const viewLabel = computed(() => msg(state.view === 'all' ? 'projects.mine' : 'projects.all'))
 const reviewing = computed(() => data.page === 'project' && state.tab === 'proposals')
 const columns = computed(() => {
   if (data.page === 'projects') return ['name', 'slug', 'description']
@@ -112,6 +114,14 @@ onMounted(() => {
               {{ msg('common.newEnvironment') }}
             </button>
           </template>
+          <button
+            v-if="showViewSwitch"
+            class="btn-outline"
+            :disabled="state.busy"
+            @click="toggleView"
+          >
+            {{ viewLabel }}
+          </button>
           <button class="btn-outline" :disabled="state.busy" @click="refresh">
             {{ msg('common.refresh') }}
           </button>

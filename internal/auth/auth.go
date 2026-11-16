@@ -91,6 +91,10 @@ func (a *Authenticator) AgentMiddleware(st AgentStore) gin.HandlerFunc {
 			c.AbortWithStatusJSON(status, gin.H{"error": "project not found"})
 			return
 		}
+		if user.Role != store.RoleAdmin && project.OwnerID != user.ID {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
 		identity := Identity{User: &user, Project: &project, Role: user.Role}
 		c.Request = c.Request.WithContext(WithIdentity(c.Request.Context(), identity))
 		c.Next()

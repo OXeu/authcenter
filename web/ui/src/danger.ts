@@ -1,5 +1,7 @@
 import type { createForm } from './forms.ts'
 export const dangerOperations = {
+  deleteUser: 'common.delete',
+  rotateKey: 'projects.rotate',
   deleteProject: 'common.delete',
   deleteEnvironment: 'common.delete',
   deleteItem: 'common.delete',
