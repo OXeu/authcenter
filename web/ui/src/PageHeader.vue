@@ -57,9 +57,8 @@ async function logout() {
 <template>
   <a class="sr-only" href="#main">{{ msg('nav.skip') }}</a>
   <header class="flex flex-wrap items-center gap-4 border-b px-6 py-3">
-    <a class="inline-flex items-center gap-2 text-sm font-semibold" href="/projects">
+    <a class="btn-ghost btn-icon" href="/projects" :aria-label="msg('app.name')">
       <img :src="brandIcon.src" :srcset="brandIcon.srcset" width="32" height="32" alt="" />
-      {{ msg('app.name') }}
     </a>
     <nav class="flex flex-1 gap-1" :aria-label="msg('nav.main')">
       <a v-if="data.loggedIn" class="btn-ghost" href="/projects">{{ msg('nav.projects') }}</a>

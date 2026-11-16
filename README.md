@@ -1,4 +1,7 @@
-# configuration center
+<h1 align="center">
+  <img src="assets/icon-128.webp" width="64" height="64" alt="" align="middle" />
+  configcenter
+</h1>
 
 Self-hosted configuration service: projects as isolation boundaries, environments, OAuth single sign-on, project-scoped API keys, a Vue web UI and an MCP endpoint for agents.
 
