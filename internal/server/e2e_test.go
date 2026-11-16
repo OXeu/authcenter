@@ -322,7 +322,7 @@ func TestVuePageContractAndEscaping(t *testing.T) {
 	if strings.Contains(raw, "OAuthSub") || strings.Contains(raw, "OAuthIssuer") {
 		t.Fatal("private model fields exposed")
 	}
-	for _, path := range []string{"/static/app/main.js", "/static/app/main.css", "/static/icons/remixicon.css"} {
+	for _, path := range []string{"/static/app/main.js", "/static/app/main.css", "/static/icons/remixicon.css", "/static/brand/icon-32.webp", "/static/brand/icon-512.webp"} {
 		asset := httptest.NewRecorder()
 		f.router.ServeHTTP(asset, httptest.NewRequest(http.MethodGet, path, http.NoBody))
 		if asset.Code != http.StatusOK || asset.Body.Len() == 0 {

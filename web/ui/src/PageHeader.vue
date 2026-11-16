@@ -17,6 +17,10 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['toggle-theme'])
+const brandIcon = {
+  src: '/static/brand/icon-32.webp',
+  srcset: '/static/brand/icon-64.webp 2x, /static/brand/icon-128.webp 4x',
+}
 const themeLabel = computed(() => msg(props.theme === 'dark' ? 'theme.toLight' : 'theme.toDark'))
 const themeIcon = computed(() => (props.theme === 'dark' ? 'ri-moon-line' : 'ri-sun-line'))
 
@@ -53,7 +57,10 @@ async function logout() {
 <template>
   <a class="sr-only" href="#main">{{ msg('nav.skip') }}</a>
   <header class="flex flex-wrap items-center gap-4 border-b px-6 py-3">
-    <a class="text-sm font-semibold" href="/projects">{{ msg('app.name') }}</a>
+    <a class="inline-flex items-center gap-2 text-sm font-semibold" href="/projects">
+      <img :src="brandIcon.src" :srcset="brandIcon.srcset" width="32" height="32" alt="" />
+      {{ msg('app.name') }}
+    </a>
     <nav class="flex flex-1 gap-1" :aria-label="msg('nav.main')">
       <a v-if="data.loggedIn" class="btn-ghost" href="/projects">{{ msg('nav.projects') }}</a>
       <a v-if="data.isAdmin" class="btn-ghost" href="/users">{{ msg('nav.users') }}</a>

@@ -11,3 +11,8 @@ var Frontend embed.FS
 //
 //go:embed docs/index.md docs/api.md docs/sdk.md
 var Documentation embed.FS
+
+// Brand contains the application icon in sizes for browsers and page headers.
+//
+//go:embed assets/icon-*.webp
+var Brand embed.FS

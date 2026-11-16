@@ -201,7 +201,16 @@ func (s *Server) router() *gin.Engine {
 	if frontendErr != nil {
 		s.log.Error("mount frontend", "error", frontendErr)
 	}
+	brand, brandErr := fs.Sub(configcenter.Brand, "assets")
+	if brandErr != nil {
+		s.log.Error("mount brand assets", "error", brandErr)
+	}
 	r.GET("/static/*filepath", func(c *gin.Context) {
+		if strings.HasPrefix(c.Param("filepath"), "/brand/") {
+			c.Header("Cache-Control", "no-cache")
+			http.StripPrefix("/static/brand/", http.FileServer(http.FS(brand))).ServeHTTP(c.Writer, c.Request)
+			return
+		}
 		if strings.HasPrefix(c.Param("filepath"), "/app/") {
 			c.Header("Cache-Control", "no-cache")
 			http.StripPrefix("/static/app/", http.FileServer(http.FS(frontend))).ServeHTTP(c.Writer, c.Request)
