@@ -3,7 +3,6 @@ package oauth
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
@@ -15,6 +14,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/github"
 )
 
 const (
@@ -133,25 +135,12 @@ func (c *Client) begin(ctx context.Context) (redirect, stateBlob string, err err
 	if err != nil {
 		return "", "", fmt.Errorf("encode state: %w", err)
 	}
-	q := url.Values{
-		"response_type": {"code"},
-		"client_id":     {c.cfg.ClientID},
-		"redirect_uri":  {c.cfg.RedirectURL},
-		"scope":         {strings.Join(c.scopes(), " ")},
-		"state":         {state},
-	}
-	// GitHub OAuth apps have no nonce and no PKCE; the state cookie still
-	// protects the callback there.
+	conf := c.oauthConfig(meta)
+	var opts []oauth2.AuthCodeOption
 	if !c.isGitHub() {
-		q.Set("nonce", nonce)
-		q.Set("code_challenge", challenge(verifier))
-		q.Set("code_challenge_method", "S256")
+		opts = append(opts, oauth2.SetAuthURLParam("nonce", nonce), oauth2.S256ChallengeOption(verifier))
 	}
-	sep := "?"
-	if strings.Contains(meta.AuthorizationEndpoint, "?") {
-		sep = "&"
-	}
-	redirect = meta.AuthorizationEndpoint + sep + q.Encode()
+	redirect = conf.AuthCodeURL(state, opts...)
 	stateBlob, err = encodeState(blob)
 	if err != nil {
 		return "", "", err
@@ -326,56 +315,38 @@ func (c *Client) exchangeCode(ctx context.Context, meta Discovery, code, verifie
 }
 
 func (c *Client) token(ctx context.Context, meta Discovery, code, verifier string) (idToken, accessToken string, err error) {
-	form := url.Values{
-		"grant_type":   {"authorization_code"},
-		"code":         {code},
-		"redirect_uri": {c.cfg.RedirectURL},
-	}
-	form.Set("client_id", c.cfg.ClientID)
-	form.Set("client_secret", c.cfg.ClientSecret)
+	conf := c.oauthConfig(meta)
+	var opts []oauth2.AuthCodeOption
 	if !c.isGitHub() {
-		form.Set("code_verifier", verifier)
+		opts = append(opts, oauth2.VerifierOption(verifier))
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, meta.TokenEndpoint, strings.NewReader(form.Encode()))
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, c.http)
+	token, err := conf.Exchange(ctx, code, opts...)
 	if err != nil {
-		return "", "", fmt.Errorf("build token request: %w", err)
+		return "", "", fmt.Errorf("exchange code: %w: %w", ErrInvalidToken, err)
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/json")
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return "", "", fmt.Errorf("exchange code: %w", err)
+	idToken, ok := token.Extra("id_token").(string)
+	if !ok || idToken == "" {
+		return "", token.AccessToken, ErrNoIDToken
 	}
-	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // a close error cannot be reported after the body was consumed
-	var body struct {
-		IDToken          string `json:"id_token"`
-		AccessToken      string `json:"access_token"`
-		Error            string `json:"error"`
-		ErrorDescription string `json:"error_description"`
+	return idToken, token.AccessToken, nil
+}
+
+func (c *Client) oauthConfig(meta Discovery) *oauth2.Config {
+	endpoint := oauth2.Endpoint{
+		AuthURL:  meta.AuthorizationEndpoint,
+		TokenURL: meta.TokenEndpoint,
 	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, maxDiscoveryBytes)).Decode(&body); err != nil {
-		if resp.StatusCode != http.StatusOK {
-			return "", "", fmt.Errorf("exchange code: %w", fmt.Errorf("%w: status %d", ErrInvalidToken, resp.StatusCode))
-		}
-		return "", "", fmt.Errorf("decode token response: %w", err)
+	if c.isGitHub() {
+		endpoint.AuthStyle = github.Endpoint.AuthStyle
 	}
-	if body.Error != "" {
-		detail := body.Error
-		if body.ErrorDescription != "" {
-			detail += ": " + body.ErrorDescription
-		}
-		return "", "", fmt.Errorf("exchange code: %w: %s", ErrInvalidToken, detail)
+	return &oauth2.Config{
+		ClientID:     c.cfg.ClientID,
+		ClientSecret: c.cfg.ClientSecret,
+		RedirectURL:  c.cfg.RedirectURL,
+		Scopes:       c.scopes(),
+		Endpoint:     endpoint,
 	}
-	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("exchange code: %w", fmt.Errorf("%w: status %d", ErrInvalidToken, resp.StatusCode))
-	}
-	if body.IDToken == "" {
-		if body.AccessToken == "" {
-			return "", "", fmt.Errorf("exchange code: %w: response contains neither id_token nor access_token", ErrInvalidToken)
-		}
-		return "", body.AccessToken, ErrNoIDToken
-	}
-	return body.IDToken, body.AccessToken, nil
 }
 
 func (c *Client) isGitHub() bool {
@@ -414,11 +385,6 @@ func randomString(n int) (string, error) {
 		return "", fmt.Errorf("read random bytes: %w", err)
 	}
 	return base64.RawURLEncoding.EncodeToString(buf), nil
-}
-
-func challenge(verifier string) string {
-	sum := sha256.Sum256([]byte(verifier))
-	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
 func subtleEqual(a, b string) error {

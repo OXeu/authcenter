@@ -51,6 +51,7 @@ func TestGitHubDiscoveryFallbackAndUserinfo(t *testing.T) {
 			http.Error(w, "bad code", http.StatusBadRequest)
 			return
 		}
+		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "gho_token", "token_type": "bearer"})
 	})
 	mux.HandleFunc("/user", func(w http.ResponseWriter, r *http.Request) {

@@ -66,7 +66,8 @@ func newFakeIdP(t *testing.T) *fakeIdP {
 			http.Error(w, "bad code", http.StatusUnauthorized)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"id_token": idp.sign(t, map[string]any{
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "access", "token_type": "Bearer", "id_token": idp.sign(t, map[string]any{
 			"iss":            idp.server.URL,
 			"aud":            "client",
 			"sub":            "u-1",

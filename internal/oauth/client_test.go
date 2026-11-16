@@ -22,31 +22,32 @@ func TestFinishReportsTokenResponseErrors(t *testing.T) {
 			name:   "provider error with success status",
 			status: http.StatusOK,
 			body:   `{"error":"invalid_grant","error_description":"authorization code expired"}`,
-			want:   "invalid oauth token: invalid_grant: authorization code expired",
+			want:   "authorization code expired",
 		},
 		{
 			name:   "provider error with failure status",
 			status: http.StatusBadRequest,
 			body:   `{"error":"invalid_client","error_description":"client authentication failed"}`,
-			want:   "invalid oauth token: invalid_client: client authentication failed",
+			want:   "client authentication failed",
 		},
 		{
 			name:   "empty success response",
 			status: http.StatusOK,
 			body:   `{}`,
-			want:   "response contains neither id_token nor access_token",
+			want:   "server response missing access_token",
 		},
 		{
 			name:   "non-json failure response",
 			status: http.StatusBadGateway,
 			body:   `upstream unavailable`,
-			want:   "status 502",
+			want:   "502 Bad Gateway",
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tc.status)
 				_, _ = w.Write([]byte(tc.body))
 			}))
@@ -110,6 +111,50 @@ func TestUserinfoReportsMissingInputs(t *testing.T) {
 			_, err := c.userinfo(context.Background(), tc.accessToken)
 			if !errors.Is(err, ErrInvalidToken) || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("userinfo() error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestTokenExchangeAuthentication(t *testing.T) {
+	t.Parallel()
+	for _, style := range []string{"basic", "form"} {
+		t.Run(style, func(t *testing.T) {
+			t.Parallel()
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if err := r.ParseForm(); err != nil {
+					http.Error(w, "bad form", http.StatusBadRequest)
+					return
+				}
+				id, secret, basic := r.BasicAuth()
+				valid := basic && id == "client" && secret == "secret"
+				if style == "form" {
+					valid = !basic && r.PostForm.Get("client_id") == "client" &&
+						r.PostForm.Get("client_secret") == "secret"
+				}
+				w.Header().Set("Content-Type", "application/json")
+				if !valid {
+					w.WriteHeader(http.StatusUnauthorized)
+					_, _ = w.Write([]byte(`{"error":"invalid_client"}`))
+					return
+				}
+				if r.PostForm.Get("code_verifier") != "verifier" ||
+					r.PostForm.Get("code") != "code" ||
+					r.PostForm.Get("grant_type") != "authorization_code" ||
+					r.PostForm.Get("redirect_uri") != "https://app.example/callback" {
+					http.Error(w, "invalid exchange parameters", http.StatusBadRequest)
+					return
+				}
+				_, _ = w.Write([]byte(`{"access_token":"access","token_type":"Bearer","id_token":"identity"}`))
+			}))
+			t.Cleanup(srv.Close)
+			c := New(Config{
+				ClientID: "client", ClientSecret: "secret",
+				RedirectURL: "https://app.example/callback",
+			}, srv.Client())
+			id, access, err := c.token(t.Context(), Discovery{TokenEndpoint: srv.URL}, "code", "verifier")
+			if err != nil || id != "identity" || access != "access" {
+				t.Fatalf("token exchange: id=%q access=%q error=%v", id, access, err)
 			}
 		})
 	}
