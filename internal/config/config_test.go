@@ -23,7 +23,7 @@ func TestSDKLoadsAllRuntimeConfiguration(t *testing.T) {
 		json.NewEncoder(w).Encode(map[string]any{"items": items})
 	}))
 	defer remote.Close()
-	values := map[string]string{"AC_CONFIGCENTER_URL": remote.URL, "AC_CONFIGCENTER_KEY": "cc_test", "AC_CONFIGCENTER_ENVIRONMENT": "staging", "AC_ENV_FILE": "missing-test-env", "AC_ADDR": "127.0.0.1:1"}
+	values := map[string]string{"AC_CONFIGCENTER_URL": remote.URL, "AC_CONFIGCENTER_API_KEY": "cc_test", "AC_CONFIGCENTER_ENVIRONMENT": "staging", "AC_ENV_FILE": "missing-test-env", "AC_ADDR": "127.0.0.1:1"}
 	cfg, err := Load(context.Background(), func(k string) (string, bool) { v, ok := values[k]; return v, ok })
 	if err != nil {
 		t.Fatal(err)
@@ -36,7 +36,7 @@ func TestSDKLoadsAllRuntimeConfiguration(t *testing.T) {
 func TestSDKFailureDoesNotFallBackToRuntimeEnvironment(t *testing.T) {
 	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(503) }))
 	defer remote.Close()
-	for _, values := range []map[string]string{{}, {"AC_CONFIGCENTER_URL": remote.URL, "AC_CONFIGCENTER_KEY": "cc_test"}} {
+	for _, values := range []map[string]string{{}, {"AC_CONFIGCENTER_URL": remote.URL, "AC_CONFIGCENTER_API_KEY": "cc_test"}} {
 		_, err := Load(context.Background(), func(k string) (string, bool) {
 			if k == "AC_ENV_FILE" {
 				return "missing-test-env", true
@@ -70,6 +70,26 @@ func TestConfigValidation(t *testing.T) {
 		})
 		if err == nil {
 			t.Fatal("invalid config accepted")
+		}
+	}
+}
+
+func TestBootstrapAPIKeyPrecedenceAndLegacyAlias(t *testing.T) {
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "ApiKey cc_correct" {
+			t.Error("wrong bootstrap API key selected")
+		}
+		json.NewEncoder(w).Encode(map[string]any{"items": []map[string]string{{"key": "AC_LOCAL_LOGIN", "value": "false"}}})
+	}))
+	defer remote.Close()
+	for _, keys := range []map[string]string{
+		{"AC_CONFIGCENTER_API_KEY": "cc_correct", "AC_CONFIGCENTER_KEY": "cc_legacy"},
+		{"AC_CONFIGCENTER_KEY": "cc_correct"},
+	} {
+		keys["AC_CONFIGCENTER_URL"] = remote.URL
+		keys["AC_ENV_FILE"] = "missing-test-env"
+		if _, err := Load(t.Context(), func(key string) (string, bool) { value, ok := keys[key]; return value, ok }); err != nil {
+			t.Fatal(err)
 		}
 	}
 }

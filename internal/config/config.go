@@ -59,7 +59,7 @@ func Load(ctx context.Context, lookup func(string) (string, bool)) (Config, erro
 
 	client, err := configcenter.New(configcenter.Config{
 		BaseURL:     lookupOr(lookup, "AC_CONFIGCENTER_URL", ""),
-		APIKey:      lookupOr(lookup, "AC_CONFIGCENTER_KEY", ""),
+		APIKey:      lookupOr(lookup, "AC_CONFIGCENTER_API_KEY", lookupOr(lookup, "AC_CONFIGCENTER_KEY", "")),
 		Environment: lookupOr(lookup, "AC_CONFIGCENTER_ENVIRONMENT", "production"),
 		DotenvFiles: []string{},
 	})
@@ -67,7 +67,7 @@ func Load(ctx context.Context, lookup func(string) (string, bool)) (Config, erro
 		return Config{}, fmt.Errorf("configure configcenter SDK: %w", err)
 	}
 	if client.IsLocal() {
-		return Config{}, errors.New("AC_CONFIGCENTER_URL and AC_CONFIGCENTER_KEY are required")
+		return Config{}, errors.New("AC_CONFIGCENTER_URL and AC_CONFIGCENTER_API_KEY are required")
 	}
 	if err := client.Load(ctx); err != nil {
 		return Config{}, fmt.Errorf("load configcenter snapshot: %w", err)

@@ -16,7 +16,7 @@
 
 ```dotenv
 AC_CONFIGCENTER_URL=https://config.example.com
-AC_CONFIGCENTER_KEY=cc_your_project_key
+AC_CONFIGCENTER_API_KEY=cc_your_project_key
 AC_CONFIGCENTER_ENVIRONMENT=production
 ```
 
