@@ -8,7 +8,6 @@
   "exclude": [
     "web/ui/src/main.ts",
     "web/ui/__tests__/*components.test.ts",
-    "web/ui/__tests__/dropdown.test.ts",
-    "web/ui/__tests__/sign-out.test.ts"
+    "web/ui/__tests__/dropdown.test.ts"
   ]
 }
