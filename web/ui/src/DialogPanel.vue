@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { onBeforeUnmount, ref, watch, nextTick, useId } from 'vue'
 import DropdownSelect from '@oxeu/center-common/ui/DropdownSelect.vue'
 import CheckboxField from '@oxeu/center-common/ui/CheckboxField.vue'
@@ -8,7 +8,7 @@ const props = defineProps({
   form: { type: Object, required: true },
   msg: { type: Function, required: true },
 })
-const dialog = ref(/** @type {HTMLDialogElement | null} */ (null))
+const dialog = ref<HTMLDialogElement | null>(null)
 let detachToasts = () => {}
 onBeforeUnmount(() => detachToasts())
 watch(
@@ -25,17 +25,15 @@ watch(
   },
   { immediate: true },
 )
-/** @param {Event} event */
-function cancel(event) {
+function cancel(event: Event) {
   if (props.form.busy) {
     event.preventDefault()
     return
   }
   props.form.open = false
 }
-/** @param {Event} event @param {string} key */
-async function upload(event, key) {
-  const file = /** @type {HTMLInputElement} */ (event.target).files?.[0]
+async function upload(event: Event, key: string) {
+  const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
   if (file.size > 512 * 1024) {
     props.form.validationError = props.msg('apps.logoLimit')

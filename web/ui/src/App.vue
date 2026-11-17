@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, watch } from 'vue'
 import LoginPanel from './LoginPanel.vue'
 import ConsentPage from './ConsentPage.vue'
@@ -14,7 +14,7 @@ const KeysPage = defineAsyncComponent(() => import('./KeysPage.vue'))
 const SettingsPage = defineAsyncComponent(() => import('./SettingsPage.vue'))
 
 const props = defineProps({ data: { type: Object, required: true } })
-const data = /** @type {import('./data.ts').PageData} */ (props.data)
+const data = props.data as import('./data.ts').PageData
 const { theme, toggleTheme } = useTheme()
 watch(theme, (value) => setToastTheme(value))
 const isDocs = computed(() => data.page === 'docs')
