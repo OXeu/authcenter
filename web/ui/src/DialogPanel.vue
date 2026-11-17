@@ -82,7 +82,7 @@ async function upload(event, key) {
             :id="`${formId}-${field.key}`"
             v-model="form.values[field.key]"
             type="password"
-            autocomplete="current-password"
+            :autocomplete="field.autocomplete || 'current-password'"
             class="input"
             :required="field.required"
             :disabled="form.busy"

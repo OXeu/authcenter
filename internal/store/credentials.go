@@ -12,17 +12,19 @@ import (
 
 // LoginChallenge is a browser-bound pending password and second-factor check.
 type LoginChallenge struct {
-	ID           string `gorm:"primaryKey;size:64"`
-	UserID       uint   `gorm:"index"`
-	Email        string `gorm:"size:254;not null"`
-	Name         string
-	PasswordHash string
-	EmailHash    string `gorm:"size:64"`
-	Purpose      string `gorm:"size:32;not null"`
-	Secret       string
-	Attempts     int
-	Used         bool
-	ExpiresAt    time.Time `gorm:"index;not null"`
+	ID            string `gorm:"primaryKey;size:64"`
+	UserID        uint   `gorm:"index"`
+	Email         string `gorm:"size:254;not null"`
+	Name          string
+	PasswordHash  string
+	SessionHash   string `gorm:"size:64"`
+	PreviousEmail string
+	EmailHash     string `gorm:"size:64"`
+	Purpose       string `gorm:"size:32;not null"`
+	Secret        string
+	Attempts      int
+	Used          bool
+	ExpiresAt     time.Time `gorm:"index;not null"`
 }
 
 // LoginLimit counts attempts within a fixed time window.
@@ -106,7 +108,7 @@ func (s *Store) VerifyLoginChallenge(ctx context.Context, id, emailHash string, 
 			if err := tx.mustAffect(ctx, tx.db.WithContext(ctx).Model(&User{}).Where("id = ? AND totp_secret = ?", user.ID, "").Updates(map[string]any{"totp_secret": challenge.Secret, "totp_step": step}), "enable authenticator"); err != nil {
 				return err
 			}
-		default:
+		case "login":
 			if user.PasswordHash != challenge.PasswordHash {
 				return ErrInvalidGrant
 			}
@@ -116,6 +118,8 @@ func (s *Store) VerifyLoginChallenge(ctx context.Context, id, emailHash string, 
 					return err
 				}
 			}
+		default:
+			return ErrInvalidGrant
 		}
 		if err := tx.mustAffect(ctx, tx.db.WithContext(ctx).Model(&LoginChallenge{}).Where("id = ? AND used = ?", id, false).Update("used", true), "consume login challenge"); err != nil {
 			return err

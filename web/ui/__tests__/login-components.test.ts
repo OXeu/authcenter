@@ -58,7 +58,14 @@ it('keeps password and verification inputs in the shared dialog until both facto
 })
 it('shows the authenticator secret only inside the enrollment dialog and verifies before enabling', async () => {
   vi.mocked(fetch)
-    .mockResolvedValueOnce(reply({ totp_enabled: false, password_enabled: true }))
+    .mockResolvedValueOnce(
+      reply({
+        totp_enabled: false,
+        password_enabled: true,
+        local_login: true,
+        email_available: true,
+      }),
+    )
     .mockResolvedValueOnce(
       reply({ request: 'request', secret: 'SECRET', uri: 'otpauth://totp/example' }),
     )
@@ -66,7 +73,10 @@ it('shows the authenticator secret only inside the enrollment dialog and verifie
     .mockResolvedValueOnce(reply({ totp_enabled: true, password_enabled: true }))
   const wrapper = mount(AccountPage, { props: { data, page: createPage(data) } })
   await flushPromises()
-  await wrapper.get('button').trigger('click')
+  await wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Set up authenticator')!
+    .trigger('click')
   await wrapper.get('input[type="password"]').setValue('correct horse battery')
   await wrapper.get('form').trigger('submit')
   await flushPromises()

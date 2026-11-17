@@ -141,7 +141,7 @@ func (s *Server) currentChallenge(c *gin.Context) (store.LoginChallenge, bool) {
 		return store.LoginChallenge{}, false
 	}
 	challenge, err := s.store.LoginChallengeByID(c.Request.Context(), raw)
-	if err != nil || challenge.Purpose == "enroll" {
+	if err != nil || (challenge.Purpose != "login" && challenge.Purpose != "register") {
 		oauthError(c, 401, "invalid_challenge")
 		return store.LoginChallenge{}, false
 	}
@@ -226,12 +226,12 @@ func (s *Server) verifyLogin(c *gin.Context) {
 
 func (s *Server) securitySettings(c *gin.Context) {
 	user, _ := s.me(c)
-	c.JSON(200, gin.H{"totp_enabled": user.TOTPSecret != "", "password_enabled": user.PasswordHash != ""})
+	c.JSON(200, gin.H{"email": user.Email, "totp_enabled": user.TOTPSecret != "", "password_enabled": user.PasswordHash != "", "local_login": s.cfg.LocalLogin, "email_available": s.cfg.ResendKey != "" && s.cfg.ResendFrom != ""})
 }
 
 func (s *Server) enrollTOTP(c *gin.Context) {
 	user, _ := s.me(c)
-	if user.PasswordHash == "" || user.TOTPSecret != "" {
+	if user.TOTPSecret != "" {
 		oauthError(c, 400, "enrollment_unavailable")
 		return
 	}
@@ -245,8 +245,7 @@ func (s *Server) enrollTOTP(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
-	if !credentials.CheckPassword(user.PasswordHash, in.Password) {
-		oauthError(c, 401, "invalid_credentials")
+	if !s.verifyAccountPassword(c, user, in.Password) {
 		return
 	}
 	secret := credentials.NewSecret()

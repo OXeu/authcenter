@@ -16,6 +16,11 @@ import (
 func (s *Server) MountAPI(r *gin.Engine) {
 	api := r.Group("/api/v1", auth.RequireUser())
 	api.GET("/me", s.apiMe)
+	api.GET("/account/security", s.securitySettings)
+	api.PUT("/account/password", s.setPassword)
+	api.POST("/account/email", s.startEmailChange)
+	api.POST("/account/email/verify", s.verifyEmailChange)
+	api.DELETE("/account/totp", s.disableTOTP)
 	api.GET("/grants", s.apiGrants)
 	api.DELETE("/grants/:id", s.apiRevokeGrant)
 	admin := api.Group("", auth.RequireAdmin())

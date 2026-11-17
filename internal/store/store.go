@@ -122,7 +122,7 @@ func (s *Store) LinkOAuthUser(ctx context.Context, identity Identity) (User, err
 		"oauth_sub":      identity.Sub,
 		"name":           identity.Name,
 		"avatar_url":     identity.AvatarURL,
-		"email_verified": identity.EmailVerified,
+		"email_verified": u.EmailVerified || (identity.Email == u.Email && identity.EmailVerified),
 		"last_login_at":  identity.Now,
 	}
 	if err := s.db.WithContext(ctx).Model(&u).Updates(updates).Error; err != nil {

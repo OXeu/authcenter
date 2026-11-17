@@ -37,6 +37,10 @@ function codeOf(err: unknown): number {
 export function describeError(msg: (id: string) => string, err: unknown): string {
   const authErrors = [
     'invalid_credentials',
+    'invalid_email',
+    'email_in_use',
+    'local_login_disabled',
+    'enrollment_unavailable',
     'invalid_code',
     'invalid_challenge',
     'password_length',
