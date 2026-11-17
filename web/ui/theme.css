@@ -89,7 +89,7 @@
   }
   .dropdown-panel {
     position: fixed;
-    @apply z-30 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-md border bg-card p-1 text-foreground shadow-lg;
+    @apply z-30 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-md border border-gray-200 bg-card p-1 text-foreground shadow-xl;
   }
   .dropdown-content {
     @apply min-w-40;

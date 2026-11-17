@@ -119,14 +119,14 @@ async function logout() {
               <i v-else class="ri-user-line" aria-hidden="true"></i>
             </div>
             <p class="w-full break-words text-sm font-semibold">{{ data.me.name }}</p>
-            <div class="flex items-center justify-center gap-1">
+            <div class="flex items-center justify-center gap-2">
               <span class="badge role-badge" :data-role="data.me.role" aria-hidden="true">
                 <i :class="roleIcon" aria-hidden="true"></i>
               </span>
               <p class="text-sm text-muted-foreground">{{ roleLabel }}</p>
             </div>
           </div>
-          <div v-if="data.isAdmin" class="border-t pt-1">
+          <div v-if="data.isAdmin" class="border-t border-gray-200 pt-1">
             <a
               class="btn-ghost w-full justify-start gap-1"
               href="/keys"
