@@ -48,7 +48,8 @@ func TestMySQLStore(t *testing.T) {
 	if err := st.DecideAuthorization(ctx, request, grant, code, true); err != nil {
 		t.Fatal(err)
 	}
-	token := store.OAuthToken{AccessHash: digest(rand.Text()), ExpiresAt: time.Now().Add(time.Hour)}
+	refreshHash := digest(rand.Text())
+	token := store.OAuthToken{AccessHash: digest(rand.Text()), RefreshHash: &refreshHash, ExpiresAt: time.Now().Add(time.Hour), RefreshExpiresAt: time.Now().Add(24 * time.Hour)}
 	if _, err := st.RedeemAuthorizationCode(ctx, code.Digest, client.ID, request.RedirectURI, "", token); err != nil {
 		t.Fatal(err)
 	}
