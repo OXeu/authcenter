@@ -12,10 +12,8 @@ import (
 // MountUI registers the server-rendered pages.
 func (s *Server) MountUI(r *gin.Engine) {
 	ui := r.Group("")
-	ui.GET("/projects", auth.RequireUser(), s.projectsPage)
-	ui.GET("/projects/:project", auth.RequireUser(), s.projectPage)
-	ui.GET("/settings", auth.RequireAdmin(), s.settingsPage)
-	ui.GET("/keys", auth.RequireUser(), s.keysPage)
+	ui.GET("/applications", auth.RequireUser(), s.applicationsPage)
+	ui.GET("/account", auth.RequireUser(), func(c *gin.Context) { s.render(c, 200, gin.H{"Page": "account", "Title": "title.account"}) })
 	ui.GET("/users", auth.RequireAdmin(), s.usersPage)
 }
 
@@ -27,52 +25,8 @@ func (s *Server) me(c *gin.Context) (store.User, bool) {
 	return *id.User, true
 }
 
-func (s *Server) projectsPage(c *gin.Context) {
-	me, ok := s.me(c)
-	if !ok {
-		c.Redirect(http.StatusFound, "/login")
-		return
-	}
-	s.render(c, http.StatusOK, gin.H{
-		"Page":    "projects",
-		"Title":   "title.projects",
-		"Me":      me,
-		"IsAdmin": me.Role == store.RoleAdmin,
-	})
-}
-
-func (s *Server) projectPage(c *gin.Context) {
-	me, ok := s.me(c)
-	if !ok {
-		c.Redirect(http.StatusFound, "/login")
-		return
-	}
-	project, err := s.store.ProjectBySlug(c.Request.Context(), c.Param("project"))
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	if !s.allowProject(c, project) {
-		return
-	}
-	envs, err := s.store.ListEnvironments(c.Request.Context(), project.ID)
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	if len(envs) == 0 {
-		s.fail(c, store.ErrNotFound)
-		return
-	}
-	s.render(c, http.StatusOK, gin.H{
-		"Page":     "project",
-		"Title":    project.Name,
-		"Me":       me,
-		"IsAdmin":  me.Role == store.RoleAdmin,
-		"Project":  &project,
-		"Env":      envs[0].Slug,
-		"CanWrite": me.Role.CanWrite(),
-	})
+func (s *Server) applicationsPage(c *gin.Context) {
+	s.render(c, http.StatusOK, gin.H{"Page": "applications", "Title": "title.applications"})
 }
 
 func (s *Server) usersPage(c *gin.Context) {

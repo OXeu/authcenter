@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -62,12 +63,17 @@ func TestGitHubDiscoveryFallbackAndUserinfo(t *testing.T) {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"id": 42, "login": "octo", "name": "Octo Cat", "avatar_url": "https://avatars.githubusercontent.com/u/42"})
 	})
+	mux.HandleFunc("/user/emails", func(w http.ResponseWriter, _ *http.Request) {
+		json.NewEncoder(w).Encode([]map[string]any{{"email": "verified@example.com", "primary": true, "verified": true}})
+	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
 	// The fallback only applies to github.com, so the test drives the pieces
 	// that are host specific and points userinfo at the fake server.
-	c := New(Config{IssuerURL: "https://github.com", ClientID: "id", ClientSecret: "secret", RedirectURL: "http://cc/cb", Scopes: []string{"openid", "groups", "read:user"}}, srv.Client())
+	client := srv.Client()
+	client.Transport = githubTestTransport{target: srv.URL, base: client.Transport}
+	c := New(Config{IssuerURL: "https://github.com", ClientID: "id", ClientSecret: "secret", RedirectURL: "http://cc/cb", Scopes: []string{"openid", "groups", "read:user"}}, client)
 	meta := githubDiscovery()
 	meta.TokenEndpoint = srv.URL + "/login/oauth/access_token"
 	meta.UserinfoEndpoint = srv.URL + "/user"
@@ -85,7 +91,7 @@ func TestGitHubDiscoveryFallbackAndUserinfo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("userinfo: %v", err)
 	}
-	if claims.Sub != "42" || claims.Name != "Octo Cat" || claims.Picture != "https://avatars.githubusercontent.com/u/42" {
+	if !claims.EmailVerified || claims.Email != "verified@example.com" || claims.Sub != "42" || claims.Name != "Octo Cat" || claims.Picture != "https://avatars.githubusercontent.com/u/42" {
 		t.Fatalf("claims = %+v", claims)
 	}
 	if !sawCredentials {
@@ -144,4 +150,21 @@ func TestGitHubMetadataWithoutNetwork(t *testing.T) {
 	if _, err := client.Metadata(t.Context()); err == nil || transport.calls != 1 {
 		t.Fatal("other providers must still use discovery")
 	}
+}
+
+type githubTestTransport struct {
+	target string
+	base   http.RoundTripper
+}
+
+func (t githubTestTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	if r.URL.Host == "api.github.com" {
+		r = r.Clone(r.Context())
+		target, err := url.Parse(t.target + r.URL.Path)
+		if err != nil {
+			return nil, err
+		}
+		r.URL = target
+	}
+	return t.base.RoundTrip(r)
 }

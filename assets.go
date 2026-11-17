@@ -9,7 +9,7 @@ var Frontend embed.FS
 
 // Documentation contains the public integration guides.
 //
-//go:embed docs/index.md docs/api.md docs/sdk.md docs/mcp.md
+//go:embed docs/index.md docs/api.md docs/configuration.md docs/security.md
 var Documentation embed.FS
 
 // Brand contains the application icon in sizes for browsers and page headers.

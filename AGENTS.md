@@ -4,14 +4,14 @@ Rules for anyone (human or model) changing authcenter. They are enforced where a
 
 ## Layout
 
-- `cmd/authcenter` — main, flags-free, environment driven. `internal/config` loads `.env.local` (or `AC_ENV_FILE`) with godotenv before reading variables; exported variables are never overridden. Never print secret values.
-- `internal/config` — loads the env file and reads every environment variable here and nowhere else.
+- `cmd/authcenter` — main, flags-free, configcenter driven. `internal/config` loads bootstrap connection settings from `.env.local` (or `AC_ENV_FILE`) with godotenv; exported bootstrap variables are never overridden. Never print secret values.
+- `internal/config` — reads only configcenter connection parameters from the environment, then loads all runtime settings using the configcenter Go SDK.
 - `internal/store` — gorm models and all queries; one `Store` method per query.
-- `internal/auth` — sessions, roles, CSRF, API-key and agent middleware, OAuth provider adapter.
+- `internal/auth` — sessions, roles, CSRF and upstream OAuth provider adapter.
 - `internal/oauth` — the RFC 6749 + OIDC client (discovery, PKCE, id_token verification, userinfo fallback).
-- `internal/server` — gin router, REST handlers, MCP endpoint, Go templates (`templates/shell/vue.html`), embedded static files.
+- `internal/server` — gin router, OAuth provider and management REST handlers, Go templates (`templates/shell/vue.html`), embedded static files.
 - `web/ui` — Vue 3 single-file components and Tailwind CSS; Vite Plus builds into `.tmp/ui`, embedded by root `assets.go`.
-- `sdk/authcenter` — separate module with the public Go client.
+- `sdk/configcenter` — the original configcenter Go SDK, used as a local module dependency.
 - `docs/commits.md` — the commit message rules (Conventional Commits 1.0.0 plus this repository's constraints).
 
 ## Commits
@@ -65,10 +65,10 @@ Commit messages follow [`docs/commits.md`](docs/commits.md): Conventional Commit
 
 ## Testing
 
-- `go test ./...` — OAuth login through a fake identity provider, project isolation, CSRF.
-- `go test ./...` in `sdk/authcenter`; the live test runs only with `AC_TEST_URL` and `AC_TEST_KEY`.
+- `go test ./...` — GitHub/OAuth login, password and second-factor login, application isolation, CSRF, token rotation and replay.
+- `go test ./...` in `sdk/configcenter`; the live test runs only with `CC_TEST_URL` and `CC_TEST_KEY`.
 - `npm test` — Vitest and Vue Test Utils with jsdom cover dialogs, requests, permissions, translations, toast setup and template rules.
-- `internal/server/e2e_test.go` renders every page, logs in through a fake IdP and proves a key of one project cannot reach another. Its `TestMain` (`scratch_test.go`) points `TMPDIR` at `.tmp/go-test` so `go test` run directly, without `make`, also keeps its scratch files in the workspace.
+- `internal/server/e2e_test.go` logs in through a fake IdP; authorization tests prove client and user isolation. Its `TestMain` (`scratch_test.go`) points `TMPDIR` at `.tmp/go-test` so `go test` run directly, without `make`, also keeps its scratch files in the workspace.
 - Relational test databases use `mode=memory`. SDK caches use isolated in-memory maps with TTL; dotenv test files live under the repository root `.tmp/` and are cleaned up. No database is written into a package directory.
 
 ## Definition of done

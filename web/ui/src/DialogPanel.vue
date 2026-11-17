@@ -1,20 +1,11 @@
 <script setup>
-import { computed, ref, watch, nextTick, useId } from 'vue'
+import { ref, watch, nextTick, useId } from 'vue'
 import DropdownSelect from './DropdownSelect.vue'
-import CheckboxField from './CheckboxField.vue'
 const formId = useId()
 const props = defineProps({
   form: { type: Object, required: true },
   msg: { type: Function, required: true },
 })
-const canAddScope = computed(() =>
-  props.form.scopeProjects.some(
-    (/** @type {import('./forms.ts').Choice} */ option) =>
-      !props.form.scopes?.some(
-        (/** @type {import('./forms.ts').ScopeDraft} */ scope) => scope.project === option.value,
-      ),
-  ),
-)
 const dialog = ref(/** @type {HTMLDialogElement | null} */ (null))
 watch(
   () => props.form.open,
@@ -32,6 +23,26 @@ function cancel(event) {
     return
   }
   props.form.open = false
+}
+/** @param {Event} event @param {string} key */
+async function upload(event, key) {
+  const file = /** @type {HTMLInputElement} */ (event.target).files?.[0]
+  if (!file) return
+  if (file.size > 512 * 1024) {
+    props.form.error = props.msg('apps.logoLimit')
+    return
+  }
+  props.form.busy = true
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    let binary = ''
+    for (const byte of bytes) binary += String.fromCharCode(byte)
+    props.form.values[key] = btoa(binary)
+  } catch {
+    props.form.error = props.msg('apps.logoLimit')
+  } finally {
+    props.form.busy = false
+  }
 }
 </script>
 <template>
@@ -59,6 +70,36 @@ function cancel(event) {
             :disabled="form.busy"
           ></textarea>
           <input
+            v-else-if="field.password"
+            :id="`${formId}-${field.key}`"
+            v-model="form.values[field.key]"
+            type="password"
+            autocomplete="current-password"
+            class="input"
+            :required="field.required"
+            :disabled="form.busy"
+          />
+          <input
+            v-else-if="field.email"
+            :id="`${formId}-${field.key}`"
+            v-model="form.values[field.key]"
+            type="email"
+            autocomplete="email"
+            class="input"
+            :required="field.required"
+            :disabled="form.busy"
+          />
+          <input
+            v-else-if="field.file"
+            :id="`${formId}-${field.key}`"
+            type="file"
+            accept="image/png,image/jpeg"
+            class="input"
+            :required="field.required"
+            :disabled="form.busy"
+            @change="upload($event, field.key)"
+          />
+          <input
             v-else
             :id="`${formId}-${field.key}`"
             v-model="form.values[field.key]"
@@ -67,63 +108,22 @@ function cancel(event) {
             :disabled="form.busy"
           />
         </div>
-        <section v-if="form.scopes !== null" class="space-y-3">
-          <h3 class="text-sm font-medium">{{ msg('keys.scopes') }}</h3>
-          <p class="field">{{ msg('keys.scopeHelp') }}</p>
-          <fieldset
-            v-for="scope in form.scopes"
-            :key="scope.id"
-            class="card space-y-3"
-            :aria-label="msg('keys.scopeProject')"
-          >
-            <div class="flex items-center gap-2">
-              <DropdownSelect
-                :id="`${formId}-scope-${scope.id}`"
-                v-model="scope.project"
-                @update:model-value="form.limitScope(scope)"
-                class="min-w-0 flex-1"
-                :label="msg('keys.scopeProject')"
-                :options="form.scopeProjects"
-                :disabled="form.busy"
-                required
-              />
-              <button
-                type="button"
-                class="btn-outline btn-icon"
-                :aria-label="msg('keys.excludeScope')"
-                :disabled="form.busy"
-                @click="form.excludeScope(scope.id)"
-              >
-                <i class="ri-close-line" aria-hidden="true"></i>
-              </button>
-            </div>
-            <div class="grid gap-1 sm:grid-cols-2">
-              <CheckboxField
-                v-for="permission in form.permissionsFor(scope)"
-                :key="permission.value"
-                v-model="scope.permissions"
-                :label="permission.label"
-                :value="permission.value"
-                :disabled="form.busy"
-              />
-            </div>
-          </fieldset>
-          <button
-            v-if="canAddScope"
-            type="button"
-            class="btn-outline"
-            :disabled="form.busy"
-            @click="form.addScope"
-          >
-            {{ msg('keys.addScope') }}
-          </button>
-        </section>
       </template>
+      <p v-if="form.info" class="field whitespace-pre-wrap break-all">{{ form.info }}</p>
       <p v-if="form.token" class="field">
-        {{ msg('projects.tokenIssued') }}<code class="break-all">{{ form.token }}</code>
+        {{ msg('apps.secretOnce') }}<code class="break-all">{{ form.token }}</code>
       </p>
       <p v-if="form.error" class="field">{{ form.error }}</p>
       <div class="flex flex-wrap justify-end gap-2">
+        <button
+          v-if="form.secondaryLabel"
+          class="btn-outline"
+          type="button"
+          :disabled="form.busy"
+          @click="form.secondary"
+        >
+          {{ form.secondaryLabel }}
+        </button>
         <button class="btn-ghost" type="button" :disabled="form.busy" @click="form.open = false">
           {{ msg('common.cancel') }}
         </button>

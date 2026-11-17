@@ -6,19 +6,17 @@ async function serve(
 ) {
   if (req.url === '/') {
     res.statusCode = 302
-    res.setHeader('Location', '/projects')
+    res.setHeader('Location', '/applications')
     res.end()
     return
   }
   if (
     req.method !== 'GET' ||
-    !/^\/(?:projects(?:\/[^?]*)?|users|settings|keys|login|docs(?:\/[^?]*)?)(?:\?|$)/u.test(
-      req.url ?? '',
-    )
+    !/^\/(?:applications|account|users|login|docs(?:\/[^?]*)?)(?:\?|$)/u.test(req.url ?? '')
   )
     return next()
   try {
-    const response = await fetch(`http://127.0.0.1:8080${req.url}`, {
+    const response = await fetch(`http://127.0.0.1:8081${req.url}`, {
       redirect: 'manual',
       headers: {
         cookie: req.headers.cookie ?? '',

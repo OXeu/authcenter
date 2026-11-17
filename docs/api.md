@@ -1,190 +1,96 @@
-# HTTP API 接入
+# OAuth 与管理 API
 
-[文档首页](/docs/) · [Go SDK](/docs/sdk) · [MCP 接口](/docs/mcp) · [Markdown 原文](/docs/api.md)
+## 应用注册
 
-## 批量读写配置
+登录 `/applications`，创建应用，填写名称、主页、多个回调 URL（每行一个）和 Logo。Logo 支持 PNG/JPEG，最大 512 KiB、1024 × 1024 像素。回调和主页支持 HTTPS；本机开发可使用 localhost、127.0.0.1、::1 的 HTTP 地址。
 
-批量读取使用 `GET /api/v1/projects/:project/environments/:env/items?keys=certcenter.server&keys=certcenter.providers`，需要 `config:read`。SDK 路径 `/api/v1/agent/environments/:env/values` 同样接受重复的 `keys` 参数。返回 `items` 数组和 `missing_keys` 数组；不存在的键不会使整个请求失败。不传 `keys` 时仍按原有列表方式读取，可用 `prefix` 筛选；`keys` 与 `prefix` 不能同时使用。
+机密应用保存创建时返回的 `client_secret`。公开客户端没有密钥，只能通过 PKCE 兑换授权码。创建后可以编辑名称、主页、Logo 和回调列表。
 
-批量写入使用 `PUT /api/v1/projects/:project/environments/:env/items`，只需要对应项目的 `config:write`。请求示例：
+## 授权
 
-```json
-{
-  "items": [
-    {"key": "feature.enabled", "value": "false"},
-    {"key": "db.pool", "value": "10", "description": "连接池大小"}
-  ]
-}
+```http
+GET /oauth/authorize?client_id=CLIENT_ID&redirect_uri=https%3A%2F%2Fapp.example%2Fcallback&scope=profile%20email%20offline_access&state=RANDOM_STATE&response_type=code
 ```
 
-每批接受 1–500 个不重复的键，写入请求体上限为 1 MiB。值必须是字符串，允许空字符串；省略 description 时按空字符串保存。全部验证通过后，在一个事务中创建或更新所有项，任何失败都会回滚整批。成功返回 `204`，不返回配置值。项目和环境须预先存在。原有单项 GET、PUT 和 DELETE 接口保持兼容。
+`response_type` 可省略，默认 `code`。`redirect_uri` 可省略，使用第一个已登记回调；传入时必须与某个已登记地址完整匹配。`scope` 默认 `profile email`。`state` 原样返回，业务应用应生成随机值并核对，以防登录请求伪造。未登录用户在完成登录后自动继续原授权请求。
 
-MCP 的 `list_config` 和 `list_values` 接受 `keys` 字符串数组，`set_configs` 接受上述 `items` 数组。SDK 提供 `ReadMany` 和 `PutMany`；`EnsureDefaults` 先批量读，再批量写入缺失项，不使用独立初始化 API。远端首次初始化应由一个实例完成，读写之间不提供跨请求并发保护。
+- `profile`：姓名和头像。
+- `email`：邮箱。
+- `offline_access`：签发刷新令牌，允许持续访问。
 
-## 认证与 scope
+不需要 `nonce` 或 issuer 参数，不返回 `id_token`，也不要求客户端进行 OIDC issuer 验证。机密客户端 PKCE 可选；提供 challenge 时必须完成验证。公开客户端必须附带 `code_challenge` 和 `code_challenge_method=S256`。challenge 为 `BASE64URL(SHA256(code_verifier))`，verifier 为 43–128 个合法字符。
 
-请求携带 `Authorization: ApiKey ac_…`。所有 API Key 使用 scope 权限模型。
+用户明确允许后回调附带 `code` 和原始 `state`；拒绝则附带 `error=access_denied`。无效客户端或未登记的回调直接返回 HTTP 400，不跳转。
 
-每把 Key 的 `scopes` 是一组“项目范围 + 操作权限”。同一把 Key 可以只读取项目 A，同时写入项目 B；`project: "*"` 表示所有项目（包括以后创建的项目）。权限需要逐项授权，写入不自动包含读取或删除。
-
-```json
-{
-  "name": "billing-worker",
-  "scopes": [
-    { "project": "billing", "permissions": ["config:read"] },
-    { "project": "shipping", "permissions": ["config:write"] }
-  ]
-}
-```
-
-这里的 project 使用 slug，不是展示名称。每个项目只能出现一次，每项 scope 必须有至少一项权限；未知或重复权限会被拒绝。`scopes: []` 可以保存一把没有访问权限的 Key，省略 `scopes` 则返回 HTTP 400。
-
-浏览器登录后，在账户菜单的「密钥」页面 `/keys` 创建、编辑、轮换或吊销 Key。普通用户可管理自己创建的 Key，授权范围限于自己拥有的项目；管理员可管理所有 Key，并选择所有项目。编辑 scope 保留原 token，后续请求立即使用新权限。所有 scope 覆盖目标项目的全部环境。
-
-## 可配置权限
-
-| 权限                  | 允许的操作                                                   |
-| --------------------- | ------------------------------------------------------------ |
-| `projects:read`       | 列出授权范围内的项目、读取项目元数据                         |
-| `projects:write`      | 修改项目名称和描述；范围为 `*` 时可创建项目                  |
-| `projects:delete`     | 删除项目及其环境、配置和提案                                 |
-| `environments:read`   | 读取环境列表                                                 |
-| `environments:write`  | 创建环境                                                     |
-| `environments:delete` | 删除环境及其配置                                             |
-| `config:read`         | 读取配置列表或单个配置项                                     |
-| `config:write`        | 创建、更新或重命名配置                                       |
-| `config:delete`       | 删除配置                                                     |
-| `proposals:read`      | 列出变更提案                                                 |
-| `proposals:write`     | 提交变更提案                                                 |
-| `proposals:review`    | 批准或拒绝提案；批准会应用提案中的配置写入或删除             |
-| `keys:read`           | 列出授权范围内、权限未超出当前 Key 的 API Key 元数据         |
-| `keys:write`          | 创建、编辑、轮换或吊销授权范围内的 API Key，不能超出自身权限 |
-
-父资源删除会级联删除内容，因此 `projects:delete`、`environments:delete` 也包含对应的配置清理能力。`keys:write` 不能用于提权：调用方必须对目标 Key 的每项项目范围都拥有 `keys:write`，且目标 Key 的全部权限必须是调用方权限的子集；创建或修改后的 scope 也要满足这个约束。只有 `keys:read` 不会返回完整 token。
-
-用户管理和系统设置 scope 只能配置在 `project: "*"`，指定具体项目会返回 HTTP 400。普通用户不能授予这些权限。
-
-| 权限             | 允许的操作                               |
-| ---------------- | ---------------------------------------- |
-| `users:read`     | 列出用户                                 |
-| `users:write`    | 修改用户角色                             |
-| `users:delete`   | 删除用户及其会话和 Key，将项目转交调用者 |
-| `settings:read`  | 读取系统设置                             |
-| `settings:write` | 修改系统设置                             |
-
-## 读取配置
-
-以下命令假设调用环境已安全提供 `AC_URL`（无尾部斜杠）和 `AC_KEY`（完整 token）。这些是调用方变量，不是服务端配置项。
-
-只授权一个具体项目的 Key 可省略项目参数；多项目 Key 或包含 `*` 的 Key 必须用 `?project=billing` 指定项目，否则返回 HTTP 400。
+## 兑换和刷新
 
 ```sh
-curl --fail-with-body --silent --show-error --get \
-  -H "Authorization: ApiKey $AC_KEY" \
-  --data-urlencode 'project=billing' \
-  --data-urlencode 'prefix=db.' \
-  "$AC_URL/api/v1/agent/environments/production/values"
+curl https://auth.example/oauth/token \
+  -u 'CLIENT_ID:CLIENT_SECRET' \
+  -d grant_type=authorization_code \
+  -d code=AUTHORIZATION_CODE \
+  --data-urlencode redirect_uri=https://app.example/callback
 ```
 
-此请求需要 billing 项目的 `config:read`。响应示例：
+可改用表单 `client_id`、`client_secret`；不要同时使用 Basic 与表单凭据。公开客户端只传 `client_id` 和 `code_verifier`。请求必须使用 `application/x-www-form-urlencoded`。
 
 ```json
 {
-  "project": "billing",
-  "environment": "production",
-  "items": [
-    {
-      "key": "db.pool",
-      "value": "20",
-      "description": "数据库连接池大小",
-      "updated_at": "2026-01-01T00:00:00Z"
-    }
-  ]
+  "access_token": "opaque-token",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "refresh_token": "opaque-refresh-token",
+  "scope": "profile email offline_access"
 }
 ```
 
-`value` 始终是字符串，数字、布尔值或 JSON 由调用方解析。无匹配项时 `items` 为空数组。此接口没有分页或推送订阅，调用方可定时刷新。
-
-`GET /api/v1/agent/project?project=billing` 返回 `project` 和 `environments`，需要同时拥有 `projects:read` 与 `environments:read`。环境 slug 和配置键作为路径段时需 URL 编码，项目和 prefix 查询参数也需要编码。
-
-## 项目管理 API
-
-浏览器会话和 API Key 共用以下接口。浏览器修改请求需要 `X-CSRF-Token` 和项目管理权限；使用 API Key 时不需要 Cookie 或 CSRF Token。显式提供 Authorization 后不会回退到浏览器会话。
-
-| 方法   | 路径                                                     | scope / 请求体                                                                                                |
-| ------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/v1/projects`                                       | `projects:read`；只返回 scope 允许读取的项目                                                                  |
-| POST   | `/api/v1/projects`                                       | `*` 范围的 `projects:write`；`slug`、`name`、可选 `description`                                               |
-| PATCH  | `/api/v1/projects/:project`                              | `projects:write`；`name`、`description`                                                                       |
-| DELETE | `/api/v1/projects/:project`                              | `projects:delete`                                                                                             |
-| GET    | `/api/v1/projects/:project/environments`                 | `environments:read`                                                                                           |
-| POST   | `/api/v1/projects/:project/environments`                 | `environments:write`；`slug`、`name`                                                                          |
-| DELETE | `/api/v1/projects/:project/environments/:env`            | `environments:delete`                                                                                         |
-| GET    | `/api/v1/projects/:project/environments/:env/items`      | `config:read`；可选 `?prefix=`                                                                                |
-| GET    | `/api/v1/projects/:project/environments/:env/items/:key` | `config:read`；读取单个配置项                                                                                 |
-| PUT    | `/api/v1/projects/:project/environments/:env/items/:key` | `config:write`；`value` 必填字符串，可选 `description`、`key`（重命名）                                       |
-| DELETE | `/api/v1/projects/:project/environments/:env/items/:key` | `config:delete`                                                                                               |
-| GET    | `/api/v1/projects/:project/proposals`                    | `proposals:read`；可选 `?status=pending`                                                                      |
-| POST   | `/api/v1/projects/:project/proposals`                    | `proposals:write`；`environment`、`key`、`action`（`set` / `delete`）、`value`（`set` 时必填）、可选 `reason` |
-| POST   | `/api/v1/projects/:project/proposals/:id/review`         | `proposals:review`；`approve` 布尔值                                                                          |
-
-创建项目会自动创建 `production` 环境，所有者及操作归属记录为 Key 的创建者。删除项目会移除 Key 对该项目的 scope，保留其他项目的授权；最后一项 scope 移除后，该 Key 没有访问权限。重新创建相同 slug 的项目不会恢复旧的项目授权；`*` 范围仍覆盖新项目。
+只有授权包含 `offline_access` 才返回刷新令牌。访问令牌有效期 1 小时，授权码有效期 5 分钟且只能兑换一次。
 
 ```sh
-curl --fail-with-body --silent --show-error \
-  -H "Authorization: ApiKey $AC_KEY" \
-  -H 'Content-Type: application/json' \
-  -X PUT "$AC_URL/api/v1/projects/shipping/environments/production/items/db.pool" \
-  --data '{"value":"20","description":"数据库连接池大小"}'
+curl https://auth.example/oauth/token \
+  -u 'CLIENT_ID:CLIENT_SECRET' \
+  -d grant_type=refresh_token \
+  -d refresh_token=REFRESH_TOKEN
 ```
 
-## API Key 管理
+每次刷新返回新的刷新令牌，客户端必须原子保存并串行刷新。刷新令牌族最长有效 30 天；轮换不会延长该期限。重复使用已消耗的授权码或刷新令牌会撤销所属授权。刷新不支持修改 scope。
 
-| 方法   | 路径                      | 行为                                                                                                  |
-| ------ | ------------------------- | ----------------------------------------------------------------------------------------------------- |
-| GET    | `/api/v1/keys`            | 列表；可选 `?project=billing` 过滤项目，包括覆盖该项目的 `*` scope                                    |
-| POST   | `/api/v1/keys`            | 创建；`name`、`scopes` 必填，可选 RFC 3339 格式的 `expires_at`                                        |
-| PATCH  | `/api/v1/keys/:id`        | 使用 `name` 和 `scopes` 替换名称及权限；不会返回或替换 token                                          |
-| POST   | `/api/v1/keys/:id/rotate` | 轮换凭据；scope 和过期时间保持不变                                                                    |
-| DELETE | `/api/v1/keys/:id`        | 吊销                                                                                                  |
-| GET    | `/api/v1/key-scopes`      | 返回当前身份可选的 `projects`、`permissions`、`global_permissions`（仅限全局的权限）和 `all_projects` |
+## 用户信息及撤销
 
-API Key 查询 scope 选项时，`projects` 只包含具有 `projects:read` 的项目；实际授权仍需满足 `keys:write` 和权限子集约束。
+```sh
+curl https://auth.example/oauth/userinfo -H 'Authorization: Bearer ACCESS_TOKEN'
+curl https://auth.example/oauth/revoke -u 'CLIENT_ID:CLIENT_SECRET' -d token=TOKEN
+```
 
-创建成功返回 HTTP 201：
+用户信息始终包含稳定的 `sub` 和数值 `id`；按 scope 返回 `name`、`picture`、`avatar_url`、`email`。撤销接口接受访问令牌或刷新令牌并撤销整组授权；未知令牌也返回 200。令牌只在它所属的客户端下可撤销。用户也可在“我的授权”撤销访问；删除应用立即使其令牌失效。
+
+`GET /.well-known/oauth-authorization-server` 提供 OAuth 授权服务器元数据，供支持发现的客户端选用。
+
+## 管理 API
+
+管理 API 只接受浏览器登录会话。写请求需要 `/api/v1/me` 返回的 `csrf` 作为 `X-CSRF-Token`。访问令牌不能代替管理会话。
+
+| 方法           | 路径                     | 作用            |
+| -------------- | ------------------------ | --------------- |
+| GET            | `/api/v1/me`             | 当前用户与 CSRF |
+| GET / POST     | `/api/v1/clients`        | 列出 / 注册应用 |
+| PATCH / DELETE | `/api/v1/clients/:id`    | 编辑 / 删除应用 |
+| GET            | `/applications/:id/logo` | 应用 Logo       |
+| GET            | `/api/v1/grants`         | 当前用户的授权  |
+| DELETE         | `/api/v1/grants/:id`     | 撤销自己的授权  |
+| GET            | `/api/v1/users`          | 管理员列出用户  |
+| PATCH          | `/api/v1/users/:id`      | 管理员修改角色  |
+
+创建应用 JSON：
 
 ```json
 {
-  "key": {
-    "id": 42,
-    "name": "billing-worker",
-    "prefix": "ac_exampl…",
-    "scopes": [{ "project": "billing", "permissions": ["config:read"] }],
-    "created_at": "2026-01-01T00:00:00Z",
-    "last_used_at": null,
-    "expires_at": null
-  },
-  "token": "ac_REPLACE_WITH_THE_ISSUED_TOKEN"
+  "name": "Example",
+  "homepage": "https://app.example",
+  "redirect_uris": ["https://app.example/callback", "http://localhost:3000/callback"],
+  "logo": "BASE64_PNG_OR_JPEG_WITHOUT_DATA_URL_PREFIX",
+  "public": false
 }
 ```
 
-列表返回 `{"keys":[...]}`；编辑返回 `{"key":{...}}`；轮换返回 `{"token":"ac_..."}`。完整 token 只在创建和轮换时显示，服务端仅保存摘要，列表和编辑响应不返回 token 或摘要。旧 token 在轮换或吊销后失效。并发修改导致授权检查过期时返回 HTTP 409，需要重新读取后重试。
-
-浏览器普通用户的列表只包含自己创建的 Key；管理员可查看所有 Key。API Key 调用列表需要 `keys:read`，返回结果也会按目标 Key 的项目和权限过滤。删除用户账号会撤销该用户创建的全部 Key。
-
-## 身份、用户与系统设置
-
-这些接口接受 API Key 或浏览器会话。浏览器用户管理和系统设置要求管理员身份，修改请求需要 CSRF Token。
-
-| 方法   | 路径                | 权限 / 请求体                                                  |
-| ------ | ------------------- | -------------------------------------------------------------- |
-| GET    | `/api/v1/me`        | 已认证；浏览器返回用户信息和 `csrf`，API Key 返回 `key` 元数据 |
-| GET    | `/api/v1/users`     | `*` 的 `users:read`                                            |
-| PATCH  | `/api/v1/users/:id` | `*` 的 `users:write`；`role` 为 `user` 或 `admin`              |
-| DELETE | `/api/v1/users/:id` | `*` 的 `users:delete`                                          |
-| GET    | `/api/v1/settings`  | `*` 的 `settings:read`                                         |
-| PUT    | `/api/v1/settings`  | `*` 的 `settings:write`；`allow_registration` 必填布尔值       |
-
-不能删除调用者自己的账号，也不能将自己从管理员降级。Key 调用以 Key 的创建者作为操作账号。设置读取响应为 `{"settings":[{"key":"allow_registration","value":false}]}`，保存成功返回 HTTP 204。
-
-以上全部 API 都可通过统一 [MCP 接口](/docs/mcp) 调用，权限和业务行为保持一致。
+PATCH 使用相同资料字段，`logo` 为空或省略时保留原图；不修改客户端密钥、ID、所有者或客户端类型。每个应用最多 20 个回调。

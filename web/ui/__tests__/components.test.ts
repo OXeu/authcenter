@@ -16,13 +16,16 @@ const data: PageData = {
   providerName: '',
   nonce: '',
   oauthEnabled: false,
+  localLogin: false,
+  emailLogin: false,
+  registration: false,
   flash: null,
   env: '',
   project: null,
-  page: 'projects',
-  title: 'title.projects',
+  page: 'applications',
+  title: 'title.applications',
   lang: 'en',
-  messages: { 'title.projects': 'Projects' },
+  messages: { 'title.applications': 'Projects' },
   loggedIn: true,
   me: { id: 1, email: '', name: 'Admin', role: 'admin' },
   isAdmin: true,
@@ -42,7 +45,14 @@ beforeEach(() => {
       ok: true,
       status: 200,
       json: async () => ({
-        projects: [{ slug: 'billing', name: 'Billing', description: '<script>bad</script>' }],
+        clients: [
+          {
+            id: 'billing',
+            name: 'Billing',
+            homepage: 'https://example.com',
+            redirect_uris: ['https://example.com/callback'],
+          },
+        ],
       }),
     }),
   )
@@ -54,11 +64,11 @@ beforeEach(() => {
   }
 })
 describe('Vue pages', () => {
-  it('renders projects safely and opens the shared creation dialog', async () => {
+  it('renders applications safely and opens the shared creation dialog', async () => {
     const wrapper = mount(App, { props: { data } })
     await vi.dynamicImportSettled()
     await flushPromises()
-    expect(wrapper.get('a[href="/projects/billing"]').text()).toBe('Billing')
+    expect(wrapper.get('table').text()).toContain('Billing')
     expect(wrapper.find('script').exists()).toBe(false)
     await wrapper
       .findAll('button')
@@ -84,7 +94,7 @@ describe('Vue pages', () => {
     await more.trigger('keydown', { key: 'Escape' })
     expect(wrapper.find('[data-danger-action]').exists()).toBe(false)
     await more.trigger('click')
-    const action = wrapper.get('[data-danger-action="deleteProject"]')
+    const action = wrapper.get('[data-danger-action="deleteClient"]')
     expect(action.classes()).toContain('btn-danger')
     await action.trigger('click')
     await vi.dynamicImportSettled()
@@ -95,17 +105,17 @@ describe('Vue pages', () => {
     await wrapper.get('dialog button[type="button"]').trigger('click')
     expect(vi.mocked(fetch).mock.calls).toHaveLength(calls)
     await more.trigger('click')
-    await wrapper.get('[data-danger-action="deleteProject"]').trigger('click')
+    await wrapper.get('[data-danger-action="deleteClient"]').trigger('click')
     await wrapper.get('dialog form').trigger('submit')
     await vi.dynamicImportSettled()
     await flushPromises()
     expect(fetch).toHaveBeenCalledWith(
-      '/api/v1/projects/billing',
+      '/api/v1/clients/billing',
       expect.objectContaining({ method: 'DELETE' }),
     )
     wrapper.unmount()
   })
-  it('hides writer actions without write permission and preserves language links', async () => {
+  it('allows regular users to manage their own applications and preserves language links', async () => {
     const wrapper = mount(App, {
       props: {
         data: {
@@ -118,7 +128,7 @@ describe('Vue pages', () => {
     })
     await vi.dynamicImportSettled()
     await flushPromises()
-    expect(wrapper.findAll('button').some((b) => b.text() === 'Create')).toBe(false)
+    expect(wrapper.findAll('button').some((b) => b.text() === 'Create')).toBe(true)
     expect(wrapper.find('a[href="/users"]').exists()).toBe(false)
     await wrapper.get('button[aria-controls]').trigger('click')
     expect(wrapper.find('a[href="/language?lang=zh-CN"]').exists()).toBe(true)
@@ -195,12 +205,12 @@ describe('Vue pages', () => {
     })
     await vi.dynamicImportSettled()
     await flushPromises()
-    expect(wrapper.find('a[href="/keys"]').exists()).toBe(false)
+    expect(wrapper.find('a[href="/account"]').exists()).toBe(false)
     expect(wrapper.find('a[href="/users"]').exists()).toBe(false)
     await wrapper.get('header .dropdown:last-child button').trigger('click')
     const menu = wrapper.get('.dropdown-content')
     expect(menu.find(`.role-badge .${icon}`).exists()).toBe(true)
-    expect(menu.find('a[href="/keys"]').exists()).toBe(true)
+    expect(menu.find('a[href="/account"]').exists()).toBe(true)
     expect(menu.find('a[href="/users"]').exists()).toBe(role === 'admin')
     expect(menu.get('button').text()).toBe('More')
     await menu.get('button').trigger('click')
@@ -208,8 +218,8 @@ describe('Vue pages', () => {
     wrapper.unmount()
   })
   it.each([
-    ['en', 'Users', 'API keys', 'Admin'],
-    ['zh-CN', '用户管理', '密钥', '管理员'],
+    ['en', 'Users', 'Security', 'Admin'],
+    ['zh-CN', '用户管理', '安全设置', '管理员'],
   ])(
     'puts localized admin navigation in the docs account menu for %s',
     async (lang, users, keys, role) => {
@@ -218,13 +228,13 @@ describe('Vue pages', () => {
         attachTo: document.body,
       })
       const header = wrapper.get('header')
-      expect(header.find('nav a[href="/keys"]').exists()).toBe(false)
+      expect(header.find('nav a[href="/account"]').exists()).toBe(false)
       expect(header.find('nav a[href="/users"]').exists()).toBe(false)
       const trigger = header.get<HTMLButtonElement>(`button[aria-label="Admin ${role}"]`)
       trigger.element.focus()
       await trigger.trigger('click')
       const menu = header.get('.dropdown-content')
-      expect(menu.get('a[href="/keys"]').text()).toBe(keys)
+      expect(menu.get('a[href="/account"]').text()).toBe(keys)
       expect(menu.get('a[href="/users"]').text()).toBe(users)
       expect(menu.get('.text-muted-foreground').text()).toBe(role)
       await menu.get('a[href="/users"]').trigger('keydown', { key: 'Escape' })
@@ -259,7 +269,7 @@ describe('Vue pages', () => {
     expect(wrapper.get('header img').attributes('src')).toBe('/static/brand/icon-32.webp')
     expect(wrapper.get('a[href="/docs/api"]').attributes('aria-current')).toBe('page')
     expect(wrapper.find('a[href="/docs/api.md"]').exists()).toBe(true)
-    expect(wrapper.get('a[href="/docs/mcp"]').text()).toBe('MCP')
+    expect(wrapper.get('a[href="/docs/security"]').text()).toBe('Security')
     expect(wrapper.find('main').exists()).toBe(false)
     expect(wrapper.find('dialog').exists()).toBe(false)
     expect(wrapper.classes()).not.toContain('min-h-screen')

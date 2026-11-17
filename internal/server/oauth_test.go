@@ -118,13 +118,14 @@ func testServer(t *testing.T, withOAuth bool) (*Server, *gin.Engine, *fakeIdP) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	cfg := config.Config{
-		Addr:        "127.0.0.1:0",
-		DatabaseDSN: fmt.Sprintf("file:oauth-test-%d?mode=memory&cache=shared", time.Now().UnixNano()),
-		PublicURL:   "http://127.0.0.1",
-		SessionTTL:  time.Hour,
-		Languages:   []string{"en", "zh-CN"},
-		Bootstrap:   config.Bootstrap{AdminEmail: "admin@localhost", AdminName: "admin"},
-		Groups:      auth.GroupPolicy{AdminGroups: []string{"authcenter-admin"}},
+		AllowRegistration: true,
+		Addr:              "127.0.0.1:0",
+		DatabaseDSN:       fmt.Sprintf("file:oauth-test-%d?mode=memory&cache=shared", time.Now().UnixNano()),
+		PublicURL:         "http://127.0.0.1",
+		SessionTTL:        time.Hour,
+		Languages:         []string{"en", "zh-CN"},
+		Bootstrap:         config.Bootstrap{AdminEmail: "admin@localhost", AdminName: "admin"},
+		Groups:            auth.GroupPolicy{AdminGroups: []string{"authcenter-admin"}},
 	}
 	var idp *fakeIdP
 	if withOAuth {
@@ -186,7 +187,7 @@ func TestOAuthLoginCreatesAdminSession(t *testing.T) {
 	req.Header.Set("Cookie", cookies.header())
 	cb := httptest.NewRecorder()
 	router.ServeHTTP(cb, req)
-	if cb.Code != http.StatusFound || cb.Header().Get("Location") != "/projects" {
+	if cb.Code != http.StatusFound || cb.Header().Get("Location") != "/applications" {
 		t.Fatalf("callback = %d %q", cb.Code, cb.Header().Get("Location"))
 	}
 	cookies.add(cb.Result())
@@ -244,7 +245,7 @@ func TestSessionCookieRequiredForAPI(t *testing.T) {
 		t.Fatalf("status = %d", resp.Code)
 	}
 	page := httptest.NewRecorder()
-	router.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/projects", http.NoBody))
+	router.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/applications", http.NoBody))
 	if page.Code != http.StatusFound || page.Header().Get("Location") != "/login" {
 		t.Fatalf("page = %d %q", page.Code, page.Header().Get("Location"))
 	}
@@ -270,7 +271,7 @@ func TestOAuthUserinfoPictureMatchesSubject(t *testing.T) {
 			req.Header.Set("Cookie", cookies.header())
 			response := httptest.NewRecorder()
 			router.ServeHTTP(response, req)
-			if response.Header().Get("Location") != "/projects" {
+			if response.Header().Get("Location") != "/applications" {
 				t.Fatalf("login = %d %s", response.Code, response.Header().Get("Location"))
 			}
 			user, err := srv.store.UserBySubject(context.Background(), idp.server.URL, "u-1")

@@ -23,7 +23,7 @@ func (s *Server) serveDocs(c *gin.Context) {
 		name = "index"
 	}
 	switch name {
-	case "index", "api", "sdk", "mcp":
+	case "index", "api", "configuration", "security":
 	default:
 		c.Status(http.StatusNotFound)
 		return

@@ -35,10 +35,6 @@ type Store interface {
 	SessionUser(ctx context.Context, id string) (store.Session, store.User, error)
 	CreateSession(ctx context.Context, sess store.Session) error
 	DeleteSession(ctx context.Context, id string) error
-	ProjectBySlug(ctx context.Context, slug string) (store.Project, error)
-	ProjectByID(ctx context.Context, id uint) (store.Project, error)
-	APIKeyByDigest(ctx context.Context, digest [32]byte) (store.APIKey, error)
-	TouchAPIKey(ctx context.Context, id uint)
 }
 
 // Config is the upstream identity provider configuration.
@@ -58,10 +54,8 @@ func (c Config) Enabled() bool {
 
 // Identity is the authenticated principal of a request.
 type Identity struct {
-	User    *store.User
-	APIKey  *store.APIKey
-	Project *store.Project
-	Role    store.Role
+	User *store.User
+	Role store.Role
 }
 
 // CanWrite reports whether the principal may change configuration.
@@ -150,10 +144,7 @@ func RequireAdmin() gin.HandlerFunc {
 // same routes, so every page and JSON call behind it behaves alike.
 func (a *Authenticator) BrowserMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.GetHeader("Authorization") != "" && (strings.HasPrefix(c.Request.URL.Path, "/api/") || c.Request.URL.Path == "/mcp") {
-			c.Next()
-			return
-		}
+		c.Header("Cache-Control", "no-store")
 		raw, err := c.Cookie(sessionCookie)
 		if err == nil {
 			sess, user, sessErr := a.store.SessionUser(c.Request.Context(), raw)
@@ -189,53 +180,6 @@ func subtleCompare(a, b string) error {
 	return nil
 }
 
-// BearerMiddleware authenticates API keys for SDK reads, resolving the project
-// from the query parameter or the key's single project scope.
-func (a *Authenticator) BearerMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		key, ok := a.requestKey(c)
-		if !ok {
-			return
-		}
-		projectSlug := c.Query("project")
-		var project store.Project
-		var err error
-		switch {
-		case projectSlug != "":
-			project, err = a.store.ProjectBySlug(c.Request.Context(), projectSlug)
-		case len(key.Scopes) == 1 && key.Scopes[0].ProjectID != 0:
-			project, err = a.store.ProjectByID(c.Request.Context(), key.Scopes[0].ProjectID)
-		default:
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "project is required for a multi-project api key"})
-			return
-		}
-		if err != nil {
-			a.unauthorised(c, err)
-			return
-		}
-		if !key.HasProject(project.ID) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "api key scope does not include this project"})
-			return
-		}
-		a.store.TouchAPIKey(c.Request.Context(), key.ID)
-		ctx := WithIdentity(c.Request.Context(), Identity{APIKey: &key, Project: &project})
-		c.Request = c.Request.WithContext(ctx)
-		c.Next()
-	}
-}
-
-func (a *Authenticator) unauthorised(c *gin.Context, err error) {
-	if errors.Is(err, store.ErrNotFound) {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid api key"})
-		return
-	}
-	c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
-}
-
-func apikeyExpired(k store.APIKey, now time.Time) bool {
-	return k.ExpiresAt != nil && !k.ExpiresAt.After(now)
-}
-
 // Login creates a session for the user and sets the session cookie.
 func (a *Authenticator) Login(c *gin.Context, userID uint) error {
 	id, err := randomToken(32)
@@ -256,7 +200,7 @@ func (a *Authenticator) Login(c *gin.Context, userID uint) error {
 		Value:    id,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   c.Request.TLS != nil,
+		Secure:   c.Request.TLS != nil || c.GetBool("secureCookies"),
 		SameSite: http.SameSiteLaxMode,
 		Expires:  sess.ExpiresAt,
 	})

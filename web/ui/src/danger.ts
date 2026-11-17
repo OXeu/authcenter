@@ -1,14 +1,8 @@
 import type { createForm } from './forms.ts'
 export const dangerOperations = {
   signOut: 'nav.signOut',
-  deleteUser: 'common.delete',
-  rotateKey: 'projects.rotate',
-  deleteProject: 'common.delete',
-  deleteEnvironment: 'common.delete',
-  deleteItem: 'common.delete',
-  revokeKey: 'projects.revoke',
-  approveProposal: 'projects.approve',
-  rejectProposal: 'projects.reject',
+  deleteClient: 'common.delete',
+  revokeGrant: 'apps.revoke',
 } as const
 export type DangerOperation = keyof typeof dangerOperations
 const confirmedAction = Symbol('confirmedAction')

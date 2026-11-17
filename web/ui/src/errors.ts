@@ -5,6 +5,7 @@ const statusMessages: Record<string, string> = {
   403: 'error.forbidden',
   404: 'error.notFound',
   409: 'error.conflict',
+  429: 'error.rateLimit',
   500: 'error.500',
   502: 'error.502',
 }
@@ -34,6 +35,19 @@ function codeOf(err: unknown): number {
  * @returns {string}
  */
 export function describeError(msg: (id: string) => string, err: unknown): string {
+  const authErrors = [
+    'invalid_credentials',
+    'invalid_code',
+    'invalid_challenge',
+    'password_length',
+    'registration_unavailable',
+    'second_factor_unavailable',
+    'email_delivery_failed',
+    'email_unavailable',
+    'rate_limited',
+  ]
+  const message = messageOf(err)
+  if (authErrors.includes(message)) return msg(`authError.${message}`)
   const code = codeOf(err)
   const key = code === 0 ? 'error.network' : statusMessages[code]
   if (key === undefined) return messageOf(err)

@@ -5,68 +5,39 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/OXeu/authcenter/internal/auth"
-	"github.com/OXeu/authcenter/internal/slug"
 	"github.com/OXeu/authcenter/internal/store"
+	"github.com/gin-gonic/gin"
 )
 
-// MountAPI registers the JSON API used by the web UI and by operators.
+// MountAPI registers session-authenticated management endpoints.
 func (s *Server) MountAPI(r *gin.Engine) {
-	management := r.Group("/api/v1", s.authenticator.ManagementMiddleware())
-	for _, op := range s.apiOperations() {
-		handlers := []gin.HandlerFunc{}
-		switch {
-		case op.Agent:
-			handlers = append(handlers, s.authenticator.BearerMiddleware())
-			for _, permission := range op.Permissions {
-				handlers = append(handlers, auth.RequireScope(permission))
-			}
-		case op.ProjectHandler != nil:
-			handlers = append(handlers, s.withProject(op.Permissions[0], op.ProjectHandler))
-		default:
-			handlers = append(handlers, op.authorize)
-		}
-		if op.Handler != nil {
-			handlers = append(handlers, op.Handler)
-		}
-		management.Handle(op.Method, op.Path, handlers...)
-	}
+	api := r.Group("/api/v1", auth.RequireUser())
+	api.GET("/me", s.apiMe)
+	api.GET("/grants", s.apiGrants)
+	api.DELETE("/grants/:id", s.apiRevokeGrant)
+	admin := api.Group("", auth.RequireAdmin())
+	api.GET("/clients", s.apiClients)
+	api.POST("/clients", s.apiCreateClient)
+	api.PATCH("/clients/:id", s.apiUpdateClient)
+	api.DELETE("/clients/:id", s.apiDeleteClient)
+	admin.GET("/users", s.apiListUsers)
+	admin.PATCH("/users/:id", s.apiSetRole)
 }
 
-// withProject resolves the :project route parameter before the handler runs.
-func (s *Server) withProject(permission store.Permission, fn func(*gin.Context, store.Project)) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		project, err := s.store.ProjectBySlug(c.Request.Context(), c.Param("project"))
-		if err != nil {
-			s.fail(c, err)
-			return
-		}
-		if !s.allowProject(c, project) {
-			return
-		}
-		id, _ := auth.FromContext(c.Request.Context())
-		if !id.Allows(project.ID, permission) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient api key scope"})
-			return
-		}
-		c.Set("ac_project", project)
-		fn(c, project)
-	}
+func (s *Server) apiMe(c *gin.Context) {
+	id, _ := auth.FromContext(c.Request.Context())
+	c.JSON(http.StatusOK, gin.H{"email": id.User.Email, "name": id.User.Name, "avatar_url": id.User.AvatarURL, "role": id.Role, "csrf": auth.CSRF(c)})
 }
 
 func (s *Server) fail(c *gin.Context, err error) {
 	status := http.StatusInternalServerError
 	switch {
-	case errors.Is(err, store.ErrKeyChanged):
-		status = http.StatusConflict
 	case errors.Is(err, store.ErrNotFound):
 		status = http.StatusNotFound
-	case errors.Is(err, slug.ErrInvalid), errors.Is(err, slug.ErrInvalidKey), errors.Is(err, errBadRequest):
+	case errors.Is(err, errBadRequest):
 		status = http.StatusBadRequest
 	}
 	if status == http.StatusInternalServerError {
@@ -84,294 +55,6 @@ func bindJSON(c *gin.Context, dst any) error {
 		return fmt.Errorf("%w: %w", errBadRequest, err)
 	}
 	return nil
-}
-
-type projectJSON struct {
-	Slug        string    `json:"slug"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	CreatedAt   time.Time `json:"created_at"`
-}
-
-func toProjectJSON(p store.Project) projectJSON {
-	return projectJSON{Slug: p.Slug, Name: p.Name, Description: p.Description, CreatedAt: p.CreatedAt}
-}
-
-type envJSON struct {
-	Slug string `json:"slug"`
-	Name string `json:"name"`
-}
-
-func toEnvJSON(e store.Environment) envJSON {
-	return envJSON{Slug: e.Slug, Name: e.Name}
-}
-
-type itemJSON struct {
-	Key         string    `json:"key"`
-	Value       string    `json:"value"`
-	Description string    `json:"description"`
-	UpdatedAt   time.Time `json:"updated_at"`
-}
-
-func toItemJSON(i store.ConfigItem) itemJSON {
-	return itemJSON{Key: i.Key, Value: i.Value, Description: i.Description, UpdatedAt: i.UpdatedAt}
-}
-
-// apiMe returns the signed-in user and the CSRF token of the session.
-func (s *Server) apiMe(c *gin.Context) {
-	id, ok := auth.FromContext(c.Request.Context())
-	if ok && id.APIKey != nil {
-		if keys, valid := s.keyViews(c, []store.APIKey{*id.APIKey}); valid {
-			c.JSON(http.StatusOK, gin.H{"key": keys[0]})
-		}
-		return
-	}
-	if !ok || id.User == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"email": id.User.Email, "name": id.User.Name, "avatar_url": id.User.AvatarURL, "role": id.Role, "csrf": auth.CSRF(c)})
-}
-
-func (s *Server) apiListProjects(c *gin.Context) {
-	projects, err := s.store.ListProjects(c.Request.Context())
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	out := make([]projectJSON, 0, len(projects))
-	id, _ := auth.FromContext(c.Request.Context())
-	for _, p := range projects {
-		if id.APIKey != nil {
-			if id.APIKey.Allows(p.ID, store.ProjectsRead) {
-				out = append(out, toProjectJSON(p))
-			}
-			continue
-		}
-		if p.OwnerID != id.ActorID() && (id.Role != store.RoleAdmin || c.Query("view") == "mine") {
-			continue
-		}
-		out = append(out, toProjectJSON(p))
-	}
-	c.JSON(http.StatusOK, gin.H{"projects": out})
-}
-
-type projectInput struct {
-	Slug        string `json:"slug"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-}
-
-func (s *Server) apiCreateProject(c *gin.Context) {
-	var in projectInput
-	if err := bindJSON(c, &in); err != nil {
-		s.fail(c, err)
-		return
-	}
-	if err := slug.Validate(in.Slug); err != nil {
-		s.fail(c, err)
-		return
-	}
-	name := strings.TrimSpace(in.Name)
-	if name == "" || len(name) > 128 {
-		s.fail(c, fmt.Errorf("%w: name is required", errBadRequest))
-		return
-	}
-	id, _ := auth.FromContext(c.Request.Context())
-	now := time.Now().UTC()
-	created, err := s.store.CreateProject(
-		c.Request.Context(),
-		store.Project{OwnerID: id.ActorID(), Slug: in.Slug, Name: name, Description: in.Description, CreatedAt: now, UpdatedAt: now},
-		store.Environment{Slug: "production", Name: "Production", CreatedAt: now},
-	)
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	c.JSON(http.StatusCreated, toProjectJSON(created))
-}
-
-func (s *Server) apiUpdateProject(c *gin.Context, project store.Project) {
-	var in projectInput
-	if err := bindJSON(c, &in); err != nil {
-		s.fail(c, err)
-		return
-	}
-
-	if err := s.store.UpdateProject(c.Request.Context(), project.ID, in.Name, in.Description); err != nil {
-		s.fail(c, err)
-		return
-	}
-	project.Name, project.Description = in.Name, in.Description
-	c.JSON(http.StatusOK, toProjectJSON(project))
-}
-
-func (s *Server) apiDeleteProject(c *gin.Context, project store.Project) {
-	if err := s.store.DeleteProject(c.Request.Context(), project.ID); err != nil {
-		s.fail(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
-func (s *Server) apiListEnvironments(c *gin.Context, project store.Project) {
-	envs, err := s.store.ListEnvironments(c.Request.Context(), project.ID)
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	out := make([]envJSON, 0, len(envs))
-	for _, e := range envs {
-		out = append(out, toEnvJSON(e))
-	}
-	c.JSON(http.StatusOK, gin.H{"environments": out})
-}
-
-func (s *Server) apiCreateEnvironment(c *gin.Context, project store.Project) {
-	var in envJSON
-	if err := bindJSON(c, &in); err != nil {
-		s.fail(c, err)
-		return
-	}
-	if err := slug.Validate(in.Slug); err != nil {
-		s.fail(c, err)
-		return
-	}
-	created, err := s.store.CreateEnvironment(c.Request.Context(), store.Environment{
-		ProjectID: project.ID, Slug: in.Slug, Name: in.Name, CreatedAt: time.Now().UTC(),
-	})
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	c.JSON(http.StatusCreated, toEnvJSON(created))
-}
-
-func (s *Server) apiDeleteEnvironment(c *gin.Context, project store.Project) {
-	env, err := s.store.EnvironmentBySlug(c.Request.Context(), project.ID, c.Param("env"))
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	if err := s.store.DeleteEnvironment(c.Request.Context(), project.ID, env.ID); err != nil {
-		s.fail(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
-func (s *Server) resolveEnv(c *gin.Context, project store.Project) (store.Environment, bool) {
-	env, err := s.store.EnvironmentBySlug(c.Request.Context(), project.ID, c.Param("env"))
-	if err != nil {
-		s.fail(c, err)
-		return store.Environment{}, false
-	}
-	return env, true
-}
-
-func (s *Server) itemsResponse(c *gin.Context, project store.Project, env store.Environment, items []store.ConfigItem) {
-	out := make([]itemJSON, 0, len(items))
-	for _, item := range items {
-		out = append(out, toItemJSON(item))
-	}
-	c.JSON(http.StatusOK, gin.H{"project": project.Slug, "environment": env.Slug, "items": out})
-}
-
-func (s *Server) apiListItems(c *gin.Context, project store.Project) {
-	env, ok := s.resolveEnv(c, project)
-	if !ok {
-		return
-	}
-	s.readItems(c, project, env)
-}
-
-type itemInput struct {
-	Key         string  `json:"key"`
-	Value       *string `json:"value"`
-	Description string  `json:"description"`
-}
-
-func (s *Server) apiPutItem(c *gin.Context, project store.Project) {
-	env, ok := s.resolveEnv(c, project)
-	if !ok {
-		return
-	}
-	var in itemInput
-	if err := bindJSON(c, &in); err != nil {
-		s.fail(c, err)
-		return
-	}
-	if in.Value == nil {
-		s.fail(c, fmt.Errorf("%w: value is required", errBadRequest))
-		return
-	}
-	key := c.Param("key")
-	if err := slug.ValidateKey(key); err != nil {
-		s.fail(c, err)
-		return
-	}
-	if in.Key != "" && in.Key != key {
-		if err := slug.ValidateKey(in.Key); err != nil {
-			s.fail(c, err)
-			return
-		}
-		if err := s.store.RenameItem(c.Request.Context(), project.ID, env.ID, key, in.Key); err != nil && !errors.Is(err, store.ErrNotFound) {
-			s.fail(c, err)
-			return
-		}
-		key = in.Key
-	}
-	id, _ := auth.FromContext(c.Request.Context())
-	userID := id.ActorID()
-	item, err := s.store.PutItem(c.Request.Context(), store.ConfigItem{
-		ProjectID: project.ID, EnvironmentID: env.ID, Key: key, Value: *in.Value,
-		Description: in.Description, UpdatedBy: userID,
-	})
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, toItemJSON(item))
-}
-
-func (s *Server) apiDeleteItem(c *gin.Context, project store.Project) {
-	env, ok := s.resolveEnv(c, project)
-	if !ok {
-		return
-	}
-	if err := s.store.DeleteItem(c.Request.Context(), project.ID, env.ID, c.Param("key")); err != nil {
-		s.fail(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
-// apiProgrammaticProject lists the environments reachable with this API key.
-func (s *Server) apiProgrammaticProject(c *gin.Context) {
-	id, _ := auth.FromContext(c.Request.Context())
-	if id.Project == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "api key required"})
-		return
-	}
-	envs, err := s.store.ListEnvironments(c.Request.Context(), id.Project.ID)
-	if err != nil {
-		s.fail(c, fmt.Errorf("list environments: %w", err))
-		return
-	}
-	out := make([]envJSON, 0, len(envs))
-	for _, e := range envs {
-		out = append(out, toEnvJSON(e))
-	}
-	c.JSON(http.StatusOK, gin.H{"project": toProjectJSON(*id.Project), "environments": out})
-}
-
-func (s *Server) apiProgrammaticItems(c *gin.Context) {
-	id, _ := auth.FromContext(c.Request.Context())
-	env, ok := s.resolveEnv(c, *id.Project)
-	if !ok {
-		return
-	}
-	s.readItems(c, *id.Project, env)
 }
 
 type userJSON struct {
@@ -415,7 +98,7 @@ func (s *Server) apiSetRole(c *gin.Context) {
 		return
 	}
 	actor, _ := auth.FromContext(c.Request.Context())
-	if uint(id) == actor.ActorID() && in.Role != store.RoleAdmin {
+	if uint(id) == actor.User.ID && in.Role != store.RoleAdmin {
 		c.Status(http.StatusBadRequest)
 		return
 	}
@@ -424,76 +107,4 @@ func (s *Server) apiSetRole(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"id": id, "role": in.Role})
-}
-
-type proposalJSON struct {
-	ID          uint       `json:"id"`
-	Environment string     `json:"environment"`
-	Key         string     `json:"key"`
-	Action      string     `json:"action"`
-	Value       *string    `json:"value"`
-	Reason      string     `json:"reason"`
-	Status      string     `json:"status"`
-	CreatedAt   time.Time  `json:"created_at"`
-	ReviewedAt  *time.Time `json:"reviewed_at"`
-}
-
-func (s *Server) proposalViews(c *gin.Context, project store.Project, ps []store.MCPProposal) ([]proposalJSON, error) {
-	envs, err := s.store.ListEnvironments(c.Request.Context(), project.ID)
-	if err != nil {
-		return nil, fmt.Errorf("list environments for proposals: %w", err)
-	}
-	byID := make(map[uint]string, len(envs))
-	for _, e := range envs {
-		byID[e.ID] = e.Slug
-	}
-	out := make([]proposalJSON, 0, len(ps))
-	for _, p := range ps {
-		out = append(out, proposalJSON{
-			ID: p.ID, Environment: byID[p.EnvironmentID], Key: p.Key, Action: p.Action,
-			Value: p.Value, Reason: p.Reason, Status: p.Status, CreatedAt: p.CreatedAt, ReviewedAt: p.ReviewedAt,
-		})
-	}
-	return out, nil
-}
-
-func (s *Server) apiListProposals(c *gin.Context, project store.Project) {
-	ps, err := s.store.ListProposals(c.Request.Context(), project.ID, c.Query("status"))
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	views, err := s.proposalViews(c, project, ps)
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"proposals": views})
-}
-
-func (s *Server) apiReviewProposal(c *gin.Context, project store.Project) {
-	var in struct {
-		Approve *bool `json:"approve" binding:"required"`
-	}
-	if err := bindJSON(c, &in); err != nil {
-		s.fail(c, err)
-		return
-	}
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		s.fail(c, fmt.Errorf("%w: invalid proposal id", errBadRequest))
-		return
-	}
-	identity, _ := auth.FromContext(c.Request.Context())
-	reviewed, err := s.store.ReviewProposal(c.Request.Context(), project.ID, uint(id), identity.ActorID(), *in.Approve)
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	views, err := s.proposalViews(c, project, []store.MCPProposal{reviewed})
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"proposal": views[0]})
 }

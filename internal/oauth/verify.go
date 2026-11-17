@@ -141,7 +141,7 @@ func verifyIDToken(raw, issuer, clientID, nonce, groupsClaim string, keys map[st
 		return Claims{}, err
 	}
 
-	out := Claims{Issuer: claims.Iss, Sub: claims.Sub, Email: claims.Email, Name: claims.Name, Picture: pictureURL(claims.Picture)}
+	out := Claims{EmailVerified: claims.EmailVerified != nil && *claims.EmailVerified, Issuer: claims.Iss, Sub: claims.Sub, Email: claims.Email, Name: claims.Name, Picture: pictureURL(claims.Picture)}
 	if out.Name == "" {
 		out.Name = claims.PreferredName
 	}

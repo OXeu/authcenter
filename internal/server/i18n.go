@@ -76,12 +76,12 @@ func (s *Server) MountLanguage(r *gin.Engine) {
 }
 
 // nextPage turns a same-origin referer into a local path; anything that is
-// not a clean absolute path falls back to the projects page, so the cookie
+// not a clean absolute path falls back to the applications page, so the cookie
 // endpoint cannot be used as an open redirect.
 func nextPage(referer string) string {
 	u, err := url.Parse(referer)
 	if err != nil || u.Host == "" || !strings.HasPrefix(u.Path, "/") || strings.HasPrefix(u.Path, "//") {
-		return "/projects"
+		return "/applications"
 	}
 	return u.RequestURI()
 }

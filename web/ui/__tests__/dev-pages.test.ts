@@ -1,7 +1,7 @@
 import { it, expect, vi, afterEach } from 'vite-plus/test'
 import { devPages } from '../../../tools/dev-pages.ts'
 afterEach(() => vi.unstubAllGlobals())
-it.each(['/projects', '/docs/', '/docs/api', '/docs/sdk'])(
+it.each(['/applications', '/docs/', '/docs/api', '/docs/configuration'])(
   'proxies %s with shared assets for hot reload',
   async (path) => {
     let handler!: import('vite-plus').Connect.NextHandleFunction
@@ -37,7 +37,7 @@ it.each(['/projects', '/docs/', '/docs/api', '/docs/sdk'])(
       ),
     )
     expect(fetchMock).toHaveBeenCalledWith(
-      `http://127.0.0.1:8080${path}`,
+      `http://127.0.0.1:8081${path}`,
       expect.objectContaining({
         headers: { cookie: 'ac_session=test', 'accept-language': 'zh-CN' },
       }),

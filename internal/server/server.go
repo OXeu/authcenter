@@ -22,6 +22,7 @@ import (
 	"github.com/OXeu/authcenter"
 	"github.com/OXeu/authcenter/internal/auth"
 	"github.com/OXeu/authcenter/internal/config"
+	"github.com/OXeu/authcenter/internal/credentials"
 	"github.com/OXeu/authcenter/internal/i18n"
 	"github.com/OXeu/authcenter/internal/store"
 )
@@ -32,6 +33,7 @@ var templateFS embed.FS
 // Server wires storage, authentication and HTTP handlers together.
 type Server struct {
 	cfg           config.Config
+	mailer        credentials.Resend
 	store         *store.Store
 	authenticator *auth.Authenticator
 	oauth         auth.Provider
@@ -39,7 +41,6 @@ type Server struct {
 	catalog       *i18n.Catalog
 	log           *slog.Logger
 	template      *template.Template
-	mcpAPI        *gin.Engine
 }
 
 // Engine builds the gin engine for the given configuration.
@@ -48,6 +49,7 @@ func Engine(ctx context.Context, cfg config.Config, log *slog.Logger) (*gin.Engi
 	if err != nil {
 		return nil, fmt.Errorf("start server: %w", err)
 	}
+	go s.cleanup(ctx)
 	return s.router(), nil
 }
 
@@ -60,6 +62,7 @@ func newServer(ctx context.Context, cfg config.Config, log *slog.Logger) (*Serve
 	if err != nil {
 		return nil, fmt.Errorf("open store: %w", err)
 	}
+	st.ConfigureRegistration(cfg.AllowRegistration)
 	provider, err := auth.NewProvider(ctx, cfg.OAuth)
 	if err != nil {
 		return nil, fmt.Errorf("configure oauth: %w", err)
@@ -73,6 +76,7 @@ func newServer(ctx context.Context, cfg config.Config, log *slog.Logger) (*Serve
 	}
 	s := &Server{
 		cfg:           cfg,
+		mailer:        credentials.Resend{APIKey: cfg.ResendKey, From: cfg.ResendFrom},
 		store:         st,
 		authenticator: auth.New(st, cfg.SessionTTL),
 		oauth:         provider,
@@ -178,21 +182,19 @@ func (s *Server) render(c *gin.Context, status int, data gin.H) {
 		"nonce": c.GetString("cspNonce"), "page": "login", "lang": withCommon["Lang"], "title": withCommon["Title"],
 		"publicUrl": withCommon["PublicURL"], "providerName": withCommon["ProviderName"],
 		"csrf": withCommon["CSRF"], "loggedIn": withCommon["LoggedIn"],
+		"localLogin": s.cfg.LocalLogin, "emailLogin": s.cfg.ResendKey != "" && s.cfg.ResendFrom != "", "registration": s.cfg.AllowRegistration,
 		"isAdmin": withCommon["IsAdmin"], "oauthEnabled": withCommon["OAuthEnabled"],
 		"me": withCommon["Me"], "project": withCommon["Project"], "env": "",
 		"canWrite": loggedIn && id.User != nil && id.User.Role.CanWrite(), "languageLabel": label,
 		"messages": s.catalog.Messages(s.translator(c).Lang()), "flash": nil,
 	}
-	for _, key := range []string{"Page", "Env", "CanWrite", "DocPage"} {
+	for _, key := range []string{"Page", "Env", "CanWrite", "DocPage", "Authorization"} {
 		if value, ok := withCommon[key]; ok {
 			payload[strings.ToLower(key[:1])+key[1:]] = value
 		}
 	}
 	if loggedIn && id.User != nil {
 		payload["me"] = userJSON{ID: id.User.ID, Name: id.User.Name, AvatarURL: id.User.AvatarURL, Email: id.User.Email, Role: id.User.Role, LastLoginAt: id.User.LastLoginAt}
-	}
-	if project, ok := withCommon["Project"].(*store.Project); ok {
-		payload["project"] = toProjectJSON(*project)
 	}
 	withCommon["Title"] = s.translator(c).T(fmt.Sprint(withCommon["Title"]))
 	languages := make([]gin.H, 0, len(language))
@@ -221,10 +223,18 @@ func (s *Server) render(c *gin.Context, status int, data gin.H) {
 func (s *Server) router() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
+	if err := r.SetTrustedProxies(nil); err != nil {
+		s.log.Error("configure proxies", "error", err)
+	}
 	r.UseRawPath = true
 	r.UnescapePathValues = true
 	r.Use(gin.Recovery(), s.requestLogger())
 	r.Use(securityHeaders())
+	r.Use(func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1024*1024)
+		c.Next()
+	})
+	r.Use(func(c *gin.Context) { c.Set("secureCookies", strings.HasPrefix(s.cfg.PublicURL, "https://")); c.Next() })
 
 	frontend, frontendErr := fs.Sub(authcenter.Frontend, ".tmp/ui")
 	if frontendErr != nil {
@@ -259,17 +269,19 @@ func (s *Server) router() *gin.Engine {
 		c.Status(http.StatusNotFound)
 	})
 
+	s.mountTokenEndpoints(r)
 	r.Use(s.authenticator.BrowserMiddleware())
 	r.Use(s.languageMiddleware())
 
 	s.mountDocs(r)
 	s.MountOAuth(r)
+	s.mountLocalLogin(r)
 	s.MountLanguage(r)
-	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusFound, "/projects") })
+	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusFound, "/applications") })
 
 	s.MountUI(r)
 	s.MountAPI(r)
-	s.MountMCP(r)
+	s.mountAuthorization(r)
 	return r
 }
 
@@ -291,5 +303,23 @@ func securityHeaders() gin.HandlerFunc {
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'nonce-"+nonce+"'; script-src 'self'; img-src 'self' data: https:; connect-src 'self'; form-action 'self'")
 		c.Next()
+	}
+}
+
+func (s *Server) cleanup(ctx context.Context) {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for {
+		if err := s.store.DeleteExpiredCredentials(ctx); err != nil && ctx.Err() == nil {
+			s.log.Error("clean expired credentials", "error", err)
+		}
+		if err := s.store.DeleteExpiredSessions(ctx); err != nil && ctx.Err() == nil {
+			s.log.Error("clean expired sessions", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }

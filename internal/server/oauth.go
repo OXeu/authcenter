@@ -26,7 +26,7 @@ func (s *Server) MountOAuth(r *gin.Engine) {
 
 func (s *Server) loginPage(c *gin.Context) {
 	if id, ok := auth.FromContext(c.Request.Context()); ok && id.User != nil {
-		c.Redirect(http.StatusFound, "/projects")
+		c.Redirect(http.StatusFound, s.loginDestination(c))
 		return
 	}
 	s.render(c, http.StatusOK, gin.H{
@@ -60,7 +60,7 @@ func (s *Server) oauthStart(c *gin.Context) {
 		Value:    stateBlob,
 		Path:     "/oauth/callback",
 		HttpOnly: true,
-		Secure:   c.Request.TLS != nil,
+		Secure:   c.Request.TLS != nil || c.GetBool("secureCookies"),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   int((10 * time.Minute).Seconds()),
 	})
@@ -106,7 +106,7 @@ func (s *Server) oauthCallback(c *gin.Context) {
 		s.redirectWithError(c, "session_failed")
 		return
 	}
-	c.Redirect(http.StatusFound, "/projects")
+	c.Redirect(http.StatusFound, s.loginDestination(c))
 }
 
 func (s *Server) identityFromClaims(claims auth.Claims) (store.Identity, error) {
@@ -114,7 +114,9 @@ func (s *Server) identityFromClaims(claims auth.Claims) (store.Identity, error) 
 	email := strings.ToLower(strings.TrimSpace(claims.Email))
 	issuer := strings.TrimRight(claims.Issuer, "/")
 	if claims.Sub == "" || issuer == "" {
-		return store.Identity{}, fmt.Errorf("claims incomplete: %w", errNoAccount)
+		return store.Identity{
+			EmailVerified: claims.EmailVerified,
+		}, fmt.Errorf("claims incomplete: %w", errNoAccount)
 	}
 	name := claims.Name
 	if email == "" || strings.HasSuffix(email, "@users.noreply.github.com") {
@@ -126,13 +128,14 @@ func (s *Server) identityFromClaims(claims auth.Claims) (store.Identity, error) 
 		name = strings.SplitN(email, "@", 2)[0]
 	}
 	return store.Identity{
-		Issuer:    issuer,
-		Sub:       claims.Sub,
-		Email:     email,
-		Name:      name,
-		AvatarURL: claims.Picture,
-		Role:      role,
-		Now:       time.Now().UTC(),
+		EmailVerified: claims.EmailVerified,
+		Issuer:        issuer,
+		Sub:           claims.Sub,
+		Email:         email,
+		Name:          name,
+		AvatarURL:     claims.Picture,
+		Role:          role,
+		Now:           time.Now().UTC(),
 	}, nil
 }
 

@@ -1,13 +1,13 @@
 <script setup>
 import DropdownMenu from './DropdownMenu.vue'
 import DangerActions from './DangerActions.vue'
-import { computed, defineAsyncComponent, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { api } from './core.ts'
 import { createPage } from './page.ts'
 import { createForm } from './forms.ts'
 import { dangerAction } from './danger.ts'
 
-const DialogPanel = defineAsyncComponent(() => import('./DialogPanel.vue'))
+import DialogPanel from './DialogPanel.vue'
 
 /**
  * @typedef {import('./data.ts').PageData} PageData
@@ -72,15 +72,20 @@ async function logout() {
 <template>
   <a class="sr-only" href="#main">{{ msg('nav.skip') }}</a>
   <header class="flex flex-wrap items-center gap-2 border-b px-4 py-3 sm:gap-4 sm:px-6">
-    <a class="btn-ghost btn-icon mr-auto sm:mr-0" href="/projects" :aria-label="msg('app.name')">
+    <a
+      class="btn-ghost btn-icon mr-auto sm:mr-0"
+      href="/applications"
+      :aria-label="msg('app.name')"
+    >
       <img :src="brandIcon.src" :srcset="brandIcon.srcset" width="32" height="32" alt="" />
     </a>
     <nav
       class="order-last flex w-full flex-wrap gap-1 sm:order-none sm:w-auto sm:flex-1"
       :aria-label="msg('nav.main')"
     >
-      <a v-if="data.loggedIn" class="btn-ghost" href="/projects">{{ msg('nav.projects') }}</a>
-      <a v-if="data.isAdmin" class="btn-ghost" href="/settings">{{ msg('title.settings') }}</a>
+      <a v-if="data.loggedIn" class="btn-ghost" href="/applications">{{
+        msg('title.applications')
+      }}</a>
       <a class="btn-ghost" href="/docs/">{{ msg('nav.docs') }}</a>
     </nav>
     <button
@@ -143,11 +148,11 @@ async function logout() {
           <div class="border-t border-gray-200 pt-1">
             <a
               class="btn-ghost w-full justify-start gap-2"
-              href="/keys"
-              :aria-label="msg('title.keys')"
+              href="/account"
+              :aria-label="msg('title.account')"
             >
               <i class="ri-key-2-line" aria-hidden="true"></i>
-              <span>{{ msg('nav.keys') }}</span>
+              <span>{{ msg('nav.account') }}</span>
             </a>
             <a v-if="data.isAdmin" class="btn-ghost w-full justify-start gap-2" href="/users">
               <i class="ri-group-line" aria-hidden="true"></i>

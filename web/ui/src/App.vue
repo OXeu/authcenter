@@ -1,5 +1,8 @@
 <script setup>
 import { computed, defineAsyncComponent, onMounted, watch } from 'vue'
+import LoginPanel from './LoginPanel.vue'
+import ConsentPage from './ConsentPage.vue'
+import AccountPage from './AccountPage.vue'
 import PageHeader from './PageHeader.vue'
 import { createPage } from './page.ts'
 import { useTheme } from './theme.ts'
@@ -12,14 +15,12 @@ const data = /** @type {import('./data.ts').PageData} */ (props.data)
 const { theme, toggleTheme } = useTheme()
 watch(theme, (value) => setToastTheme(value))
 const isDocs = computed(() => data.page === 'docs')
-const isWorkspace = computed(() =>
-  ['projects', 'project', 'users', 'settings', 'keys'].includes(data.page),
-)
+const isWorkspace = computed(() => ['applications', 'users'].includes(data.page))
 const docsLinks = [
   { page: 'index', href: '/docs/', label: 'docs.overview' },
   { page: 'api', href: '/docs/api', label: 'docs.api' },
-  { page: 'sdk', href: '/docs/sdk', label: 'docs.sdk' },
-  { page: 'mcp', href: '/docs/mcp', label: 'docs.mcp' },
+  { page: 'configuration', href: '/docs/configuration', label: 'docs.configuration' },
+  { page: 'security', href: '/docs/security', label: 'docs.security' },
 ]
 const rawDocument = computed(() => `/docs/${data.docPage ?? 'index'}.md`)
 const page = createPage(data)
@@ -30,7 +31,8 @@ const title = computed(
 onMounted(() => {
   mountToasts(data.lang, data.nonce, theme.value)
   if (data.flash) notify(data.flash.level, data.flash.message)
-  if (data.page === 'login' && !data.oauthEnabled) notify('info', msg('login.notConfigured'))
+  if (data.page === 'login' && !data.oauthEnabled && !data.localLogin)
+    notify('info', msg('login.notConfigured'))
 })
 </script>
 <template>
@@ -48,9 +50,9 @@ onMounted(() => {
       subtitle=""
       @toggle-theme="toggleTheme"
     >
-      <a v-if="data.page === 'login' && data.oauthEnabled" class="btn mt-4" href="/auth/login">{{
-        msg('login.continue', { ProviderName: data.providerName })
-      }}</a>
+      <LoginPanel v-if="data.page === 'login'" :data="data" :page="page" />
+      <ConsentPage v-if="data.page === 'consent'" :data="data" :page="page" />
+      <AccountPage v-if="data.page === 'account'" :data="data" :page="page" />
       <WorkspacePage v-if="isWorkspace" :data="data" :page="page" :title="title" />
     </PageHeader>
     <nav

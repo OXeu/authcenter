@@ -80,12 +80,13 @@ var ErrNoIDToken = errors.New("id_token not issued")
 
 // Claims is the verified identity of a logged-in user.
 type Claims struct {
-	Issuer  string
-	Sub     string
-	Email   string
-	Name    string
-	Picture string
-	Groups  []string
+	EmailVerified bool
+	Issuer        string
+	Sub           string
+	Email         string
+	Name          string
+	Picture       string
+	Groups        []string
 }
 
 // Name returns the host of the issuer, used on the login page.

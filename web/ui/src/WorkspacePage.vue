@@ -1,115 +1,69 @@
-<script setup>
-import { computed, defineAsyncComponent, onMounted } from 'vue'
+<script setup lang="ts">
+import { computed, onMounted } from 'vue'
 import DangerActions from './DangerActions.vue'
-const DialogPanel = defineAsyncComponent(() => import('./DialogPanel.vue'))
+import DialogPanel from './DialogPanel.vue'
 import { createWorkspace } from './workspace.ts'
-
-const props = defineProps({
-  data: { type: Object, required: true },
-  page: { type: Object, required: true },
-  title: { type: String, required: true },
-})
-const data = /** @type {import('./data.ts').PageData} */ (props.data)
-const page = /** @type {import('./page.ts').PageContext} */ (props.page)
+import type { PageData } from './data.ts'
+import type { PageContext } from './page.ts'
+const props = defineProps<{ data: PageData; page: PageContext; title: string }>()
+const { data, page } = props
 const { msg } = page
-const { state, form, refresh, select, edit, toggleView, actionsFor, environment, newEnvironment } =
-  createWorkspace(data, page)
-const canCreate = computed(
-  () =>
-    data.canWrite && data.page !== 'users' && data.page !== 'settings' && state.tab !== 'proposals',
+const { state, form, refresh, select, edit, actionsFor } = createWorkspace(data, page)
+const applications = computed(() => data.page === 'applications')
+const clients = computed(() => applications.value && state.tab === 'clients')
+const columns = computed(() =>
+  !applications.value
+    ? ['name', 'email', 'role']
+    : clients.value
+      ? ['name', 'id', 'homepage', 'redirect_uris']
+      : ['client_id', 'scope'],
 )
-const showViewSwitch = computed(() => data.isAdmin && data.page === 'projects')
-const viewLabel = computed(() => msg(state.view === 'all' ? 'projects.mine' : 'projects.all'))
-const reviewing = computed(() => data.page === 'project' && state.tab === 'proposals')
-const columns = computed(() => {
-  if (data.page === 'settings') return ['key', 'value']
-  if (data.page === 'projects') return ['name', 'slug', 'description']
-  if (data.page === 'users') return ['name', 'email', 'role', 'last_login_at']
-  if (state.tab === 'keys') return ['name', 'prefix', 'scopes', 'last_used_at']
-  if (state.tab === 'proposals') return ['environment', 'key', 'action', 'value', 'reason']
-  return ['key', 'value', 'description', 'updated_at']
-})
-/** @type {Record<string, string>} */
-const labels = {
+const labels: Record<string, string> = {
   name: 'common.name',
-  slug: 'common.slug',
-  description: 'common.description',
+  id: 'apps.clientId',
+  homepage: 'apps.homepage',
+  redirect_uris: 'apps.callbacks',
+  client_id: 'apps.clientId',
+  scope: 'apps.scopes',
   email: 'users.email',
   role: 'users.role',
-  last_login_at: 'users.lastLogin',
-  prefix: 'projects.prefix',
-  scopes: 'keys.scopes',
-  last_used_at: 'projects.lastUsed',
-  environment: 'projects.environment',
-  key: 'projects.key',
-  action: 'projects.proposalAction',
-  value: 'projects.value',
-  reason: 'projects.proposalReason',
-  updated_at: 'projects.updated',
 }
-/** @param {any} row @param {string} column */
-function cell(row, column) {
-  if (data.page === 'settings')
-    return msg(
-      column === 'key'
-        ? 'settings.registration'
-        : row.value
-          ? 'settings.allowed'
-          : 'settings.closed',
-    )
-  if (column === 'scopes') return scopeText(row.scopes)
+function cell(row: Record<string, any>, column: string) {
   if (column === 'role') return msg(`role.${row[column]}`)
-  if (column.endsWith('_at'))
-    return row[column] ? new Date(row[column]).toLocaleString(data.lang) : ''
-  return row[column] ?? ''
+  return Array.isArray(row[column]) ? row[column].join('\n') : row[column]
 }
-/** @param {{ project: string; permissions: string[] }[]} scopes */
-function scopeText(scopes) {
-  if (!scopes.length) return msg('keys.noScopes')
-  return scopes
-    .map((scope) => {
-      const project = scope.project === '*' ? msg('keys.allProjects') : scope.project
-      return `${project}: ${scope.permissions.map((permission) => msg(`scope.${permission}`)).join(', ')}`
-    })
-    .join('\n')
+function logo(row: Record<string, any>) {
+  return `/applications/${encodeURIComponent(row.id)}/logo`
 }
 onMounted(refresh)
 </script>
 <template>
-  <p v-if="data.page === 'keys'" class="mt-2 text-sm text-muted-foreground">
-    {{ msg('keys.description') }}
+  <p v-if="applications" class="mt-2 text-sm text-muted-foreground">
+    {{ msg('apps.description') }}
   </p>
-  <div class="flex flex-wrap gap-2 my-4">
-    <template v-if="data.page === 'project'">
+  <div class="my-4 flex flex-wrap gap-2">
+    <template v-if="applications">
       <button
-        v-for="tab in ['items', 'keys', 'proposals']"
-        :key="tab"
         class="tabs-trigger"
-        :data-active="state.tab === tab"
+        :data-active="clients"
         :disabled="state.busy"
-        @click="select(tab)"
+        @click="select('clients')"
       >
-        {{ msg(`projects.${tab}`) }}
-      </button>
-      <button class="btn-outline" :disabled="state.busy" @click="environment">
-        {{ msg('projects.environment') }}: {{ state.env }}
+        {{ msg('apps.clients') }}
       </button>
       <button
-        v-if="data.canWrite"
-        class="btn-outline"
+        class="tabs-trigger"
+        :data-active="!clients"
         :disabled="state.busy"
-        @click="newEnvironment"
+        @click="select('grants')"
       >
-        {{ msg('common.newEnvironment') }}
+        {{ msg('apps.grants') }}
       </button>
     </template>
-    <button v-if="showViewSwitch" class="btn-outline" :disabled="state.busy" @click="toggleView">
-      {{ viewLabel }}
-    </button>
     <button class="btn-outline" :disabled="state.busy" @click="refresh">
       {{ msg('common.refresh') }}
     </button>
-    <button v-if="canCreate" class="btn" :disabled="state.busy" @click="edit()">
+    <button v-if="clients" class="btn" :disabled="state.busy" @click="edit()">
       {{ msg('common.create') }}
     </button>
   </div>
@@ -117,30 +71,34 @@ onMounted(refresh)
     <table class="table" :aria-label="title" :aria-busy="state.busy">
       <thead>
         <tr>
-          <th v-for="column in columns" :key="column" scope="col">
-            {{ msg(labels[column]) }}
-          </th>
-          <th v-if="data.canWrite || data.isAdmin" scope="col">
-            {{ msg('common.actions') }}
-          </th>
+          <th v-for="column in columns" :key="column" scope="col">{{ msg(labels[column]) }}</th>
+          <th scope="col">{{ msg('common.actions') }}</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="row in state.rows" :key="row.id ?? row.slug ?? row.key">
+        <tr v-for="row in state.rows" :key="row.id">
           <td v-for="column in columns" :key="column" :data-label="msg(labels[column])">
-            <a
-              v-if="data.page === 'projects' && column === 'name'"
-              :href="`/projects/${encodeURIComponent(row.slug)}`"
-              >{{ row.name }}</a
-            >
-            <span v-else class="whitespace-pre-wrap break-all">{{ cell(row, column) }}</span>
+            <img
+              v-if="clients && column === 'name'"
+              :src="logo(row)"
+              alt=""
+              width="32"
+              height="32"
+              class="mb-2 rounded-sm"
+            />
+            <span class="whitespace-pre-wrap break-all">{{ cell(row, column) }}</span>
           </td>
-          <td v-if="data.canWrite || data.isAdmin" :data-label="msg('common.actions')">
-            <button v-if="!reviewing" class="btn-ghost" :disabled="state.busy" @click="edit(row)">
+          <td :data-label="msg('common.actions')">
+            <button
+              v-if="clients || !applications"
+              class="btn-ghost"
+              :disabled="state.busy"
+              @click="edit(row)"
+            >
               {{ msg('common.edit') }}
             </button>
             <DangerActions
-              v-if="data.page !== 'settings'"
+              v-if="applications"
               :actions="actionsFor(row)"
               :label="msg('common.more')"
               :disabled="state.busy"
@@ -150,6 +108,8 @@ onMounted(refresh)
       </tbody>
     </table>
   </div>
-
+  <p v-if="!state.busy && !state.rows.length" class="mt-4 text-sm text-muted-foreground">
+    {{ msg('apps.empty') }}
+  </p>
   <DialogPanel v-if="form.open" :form="form" :msg="msg" />
 </template>

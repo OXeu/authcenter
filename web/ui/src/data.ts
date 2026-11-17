@@ -8,7 +8,7 @@ export type User = {
 }
 
 export type PageData = {
-  page: 'login' | 'projects' | 'project' | 'users' | 'settings' | 'keys' | 'docs'
+  page: 'login' | 'applications' | 'consent' | 'account' | 'users' | 'docs'
   docPage?: string
   lang: string
   title: string
@@ -19,6 +19,15 @@ export type PageData = {
   loggedIn: boolean
   isAdmin: boolean
   oauthEnabled: boolean
+  localLogin: boolean
+  emailLogin: boolean
+  registration: boolean
+  authorization?: {
+    id: string
+    client: import('./workspace.ts').Application
+    scopes: string[]
+    redirect_uri: string
+  }
   me: User | null
   project: { slug: string; name: string } | null
   env: string
@@ -29,4 +38,4 @@ export type PageData = {
   flash: { message: string; level: 'error' | 'success' } | null
 }
 
-export const pages = ['login', 'projects', 'project', 'users', 'settings', 'keys', 'docs']
+export const pages = ['login', 'applications', 'consent', 'account', 'users', 'docs']

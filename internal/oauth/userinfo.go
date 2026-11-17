@@ -47,12 +47,13 @@ func (c *Client) userinfo(ctx context.Context, accessToken string) (Claims, erro
 	if err != nil {
 		return Claims{}, err
 	}
-	if strings.EqualFold(issuerHost(c.cfg.IssuerURL), "github.com") && profile.Email == "" {
+	if strings.EqualFold(issuerHost(c.cfg.IssuerURL), "github.com") {
 		email, emailErr := c.githubEmail(ctx, accessToken)
 		if emailErr != nil {
 			return Claims{}, emailErr
 		}
 		profile.Email = email
+		profile.EmailVerified = email != ""
 	}
 	profile.Issuer = c.cfg.IssuerURL
 	return profile, nil

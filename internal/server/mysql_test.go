@@ -4,8 +4,9 @@ package server
 
 import (
 	"context"
-	"strings"
+	"crypto/rand"
 	"testing"
+	"time"
 
 	"github.com/OXeu/authcenter/internal/config"
 	"github.com/OXeu/authcenter/internal/store"
@@ -13,10 +14,7 @@ import (
 
 func TestMySQLStore(t *testing.T) {
 	ctx := context.Background()
-	dialect, err := databaseDialector(config.Config{
-		DatabaseDriver: "mysql",
-		DatabaseDSN:    "root@tcp(127.0.0.1:23306)/authcenter?parseTime=true",
-	})
+	dialect, err := databaseDialector(config.Config{DatabaseDriver: "mysql", DatabaseDSN: "root@tcp(127.0.0.1:23306)/authcenter?parseTime=true"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,39 +22,37 @@ func TestMySQLStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	project, err := st.CreateProject(ctx, store.Project{Slug: "mysql-test", Name: "MySQL"}, store.Environment{Slug: "default", Name: "Default"})
-	if err != nil {
+	client := store.OAuthClient{ID: rand.Text(), Name: "MySQL", Homepage: "https://app.example", RedirectURIs: []string{"https://app.example/cb"}, Scopes: []string{"profile", "offline_access"}}
+	if err := st.CreateOAuthClient(ctx, client); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		if err := st.DeleteProject(ctx, project.ID); err != nil {
+		if err := st.DisableOAuthClient(ctx, client.ID); err != nil {
 			t.Error(err)
 		}
 	})
-	envs, err := st.ListEnvironments(ctx, project.ID)
-	if err != nil || len(envs) != 1 {
-		t.Fatalf("environments: %v, %v", envs, err)
-	}
-	item := store.ConfigItem{ProjectID: project.ID, EnvironmentID: envs[0].ID, Key: "key", Value: strings.Repeat("x", 70000)}
-	if _, err := st.PutItem(ctx, item); err != nil {
+	client.RedirectURIs = append(client.RedirectURIs, "https://app.example/second")
+	if err := st.UpdateOAuthClient(ctx, client); err != nil {
 		t.Fatal(err)
 	}
-	item.Value = "updated"
-	if _, err := st.PutItem(ctx, item); err != nil {
+	loaded, err := st.OAuthClientByID(ctx, client.ID)
+	if err != nil || len(loaded.RedirectURIs) != 2 {
+		t.Fatalf("callbacks: %v %v", loaded.RedirectURIs, err)
+	}
+	request := store.AuthorizationRequest{ID: rand.Text(), ClientID: client.ID, RedirectURI: client.RedirectURIs[0], ExpiresAt: time.Now().Add(time.Minute)}
+	if err := st.CreateAuthorizationRequest(ctx, request); err != nil {
 		t.Fatal(err)
 	}
-	got, err := st.GetItem(ctx, project.ID, envs[0].ID, "key")
-	if err != nil || got.Value != "updated" {
-		t.Fatalf("get: %v, %v", got, err)
-	}
-	if err := st.RenameItem(ctx, project.ID, envs[0].ID, "key", "renamed"); err != nil {
+	grant := store.OAuthGrant{ID: rand.Text(), ClientID: client.ID, Scope: "profile offline_access"}
+	code := store.AuthorizationCode{Digest: digest(rand.Text()), GrantID: grant.ID, ClientID: client.ID, RedirectURI: request.RedirectURI, ExpiresAt: request.ExpiresAt}
+	if err := st.DecideAuthorization(ctx, request, grant, code, true); err != nil {
 		t.Fatal(err)
 	}
-	items, err := st.ListItems(ctx, project.ID, envs[0].ID, "ren")
-	if err != nil || len(items) != 1 {
-		t.Fatalf("list: %v, %v", items, err)
+	token := store.OAuthToken{AccessHash: digest(rand.Text()), ExpiresAt: time.Now().Add(time.Hour)}
+	if _, err := st.RedeemAuthorizationCode(ctx, code.Digest, client.ID, request.RedirectURI, "", token); err != nil {
+		t.Fatal(err)
 	}
-	if err := st.DeleteItem(ctx, project.ID, envs[0].ID, "renamed"); err != nil {
+	if _, err := st.AccessTokenGrant(ctx, token.AccessHash); err != nil {
 		t.Fatal(err)
 	}
 }

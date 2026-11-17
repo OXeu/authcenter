@@ -1,177 +1,40 @@
-<h1 align="center">
-  <img src="assets/icon-128.webp" width="64" height="64" alt="" align="middle" />
-  authcenter
-</h1>
+# AuthCenter
 
-Self-hosted configuration service: projects as isolation boundaries, environments, OAuth single sign-on, API keys with configurable project and operation scopes, a responsive Vue web UI and an MCP endpoint for agents.
+从 configcenter 派生的 OAuth 2.0 授权中心。Go + Gin + GORM，Vue 3 管理界面，支持 SQLite 和 MySQL。
 
-## Integration documentation
+- GitHub OAuth 登录；账号密码 + TOTP 身份验证器或 Resend 邮箱验证码。
+- 登录用户可注册应用，上传 Logo，填写名称、主页和多个回调地址，并在后续编辑。
+- 授权码、S256 PKCE、用户同意页面、用户信息、刷新令牌轮换及撤销。
+- 普通 OAuth 2.0 接入：无需 `nonce`、issuer 校验或 `id_token`。机密客户端可不使用 PKCE；公开客户端必须使用 PKCE。
+- 所有运行配置由 configcenter Go SDK 加载，中英文界面、共享原生对话框和危险操作确认。
 
-Open `/docs/` on your running server for the integration documentation. Public Markdown endpoints `/docs/index.md`, `/docs/api.md`, `/docs/sdk.md` and `/docs/mcp.md` support agents without JavaScript or login. Sources: [overview](docs/index.md), [HTTP API](docs/api.md), [Go SDK](docs/sdk.md), [MCP](docs/mcp.md). The guides are embedded in the Go binary. Documentation pages share the application header, design tokens and saved light/dark theme; their content is pre-rendered with Shiki code highlighting at build time and Markdown endpoints remain public. Shiki generates light/dark token styles in an external stylesheet, keeping the CSP intact and adding no browser-side highlighter.
+## 启动
 
-## Stack
+先在 configcenter 创建 authcenter 配置项目及读取密钥，将运行参数写入对应环境。最小配置和完整配置表见 [配置文档](docs/configuration.md)。
 
-Go 1.26, gin, gorm (SQLite), a Go HTML/JSON shell plus Vue 3 (built with Vite Plus), shadcn/ui-style Tailwind CSS with Remix Icon (font vendored, no inline SVG), transient messages as [ding](https://github.com/YusufCeng1z/ding) toasts instead of inline alert elements, a plain OAuth 2.0 authorization-code + PKCE client that works with any OIDC issuer (or a plain OAuth server with a userinfo endpoint).
+本地 `.env.local` 只需要配置中心的连接信息（不提交）：
 
-## Quick start
-
-```sh
-make build          # bundles the web assets, then builds .tmp/bin/authcenter
-AC_OAUTH_ISSUER=https://idp.example.com \
-AC_OAUTH_CLIENT_ID=authcenter \
-AC_OAUTH_CLIENT_SECRET=... \
-.tmp/bin/authcenter
+```dotenv
+AC_CONFIGCENTER_URL=https://config.example.com
+AC_CONFIGCENTER_KEY=cc_your_project_key
+AC_CONFIGCENTER_ENVIRONMENT=production
 ```
-
-Open http://127.0.0.1:8080. Without OAuth configured the server still starts; only the login link is disabled.
-
-GitHub can be used as the identity provider (`AC_OAUTH_ISSUER=https://github.com`, a GitHub OAuth app with the callback `AC_PUBLIC_URL/oauth/callback`): GitHub publishes no OIDC discovery document, so the client falls back to GitHub's documented OAuth endpoints, sends the client ID and secret in the token request form, skips `openid`/PKCE, reads the profile from `/user` and the primary address from `/user/emails`. Accounts without a public email get `<id>@github.com`.
-
-## Configuration
-
-All settings come from the environment (read once in `internal/config`). The binary loads `.env.local` itself with [godotenv](https://github.com/joho/godotenv) (`AC_ENV_FILE` selects another file); variables already exported win over the file, so `AC_ADDR=127.0.0.1:9000 .tmp/bin/authcenter` and `AC_ADDR=… make run` both work, and a missing file is fine. `AC_OAUTH_ISSUER` and `AC_PUBLIC_URL` are trimmed of trailing slashes, and startup logs the resulting address, public URL and OAuth state.
-
-| Variable                                        | Default                       | Meaning                                                                  |
-| ----------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------ |
-| `AC_ADDR`                                       | `127.0.0.1:8080`              | Listen address                                                           |
-| `AC_DB_DRIVER`                                  | `sqlite`                      | Database backend: `sqlite` or `mysql`                                    |
-| `AC_DB`                                         | `file:authcenter.db`        | SQLite or MySQL DSN                                                      |
-| `AC_PUBLIC_URL`                                 | `http://127.0.0.1:8080`       | Public base URL                                                          |
-| `AC_OAUTH_ISSUER`                               |                               | OIDC issuer (discovery at `/.well-known/openid-configuration`)           |
-| `AC_OAUTH_CLIENT_ID` / `AC_OAUTH_CLIENT_SECRET` |                               | OAuth client; redirect URI is `AC_PUBLIC_URL/oauth/callback`             |
-| `AC_OAUTH_SCOPES`                               | `openid profile email groups` | Requested scopes                                                         |
-| `AC_OAUTH_REDIRECT_URL`                         | derived                       | Override the callback URL                                                |
-| `AC_OAUTH_GROUPS_CLAIM`                         | `groups`                      | Claim used for group mapping                                             |
-| `AC_OAUTH_ADMIN_GROUPS`                         | `authcenter-admin`          | Groups that grant the admin role                                         |
-| `AC_OAUTH_GROUP_MAP`                            |                               | `group:role,…` for user/admin defaults                                   |
-| `AC_SESSION_SECRET`                             |                               | Required when `AC_ENV=production`                                        |
-| `AC_LANGUAGES`                                  | `en,zh-CN`                    | Enabled UI languages; tags must match `internal/i18n/locales/<tag>.json` |
-| `AC_BOOTSTRAP_ADMIN_EMAIL` / `_NAME`            | `admin@localhost` / `admin`   | First administrator, created when the user table is empty                |
-
-First login creates the user: linked by OAuth subject, adopted by verified email, otherwise new. Roles are managed afterwards in **Users** (admin only); group membership decides the role only when an account is created.
-
-The header theme button switches between light and dark modes. Before a manual choice, the UI follows the system setting; the choice is saved in browser storage and shared across tabs.
-
-## Languages
-
-The UI ships in English and Simplified Chinese (`internal/i18n/locales`). The header dropdown lists `AC_LANGUAGES`, `/language?lang=<tag>` stores the choice in the `ac_lang` cookie and redirects back to the page; without a choice the server negotiates `Accept-Language`. Go supplies translated messages in the page JSON. Vue uses `web/ui/src/i18n.ts` and the same locale catalogs for dialogs, role badges and errors. Add a language by dropping `<tag>.json` into the locales directory and listing the tag in `AC_LANGUAGES`.
-
-## Isolation model
-
-- A **project** is the boundary for configuration, environments and proposals.
-- Each **API key** has explicit `scopes`: project slugs (or `*`) paired with permissions such as `config:read`, `config:write` and `config:delete`. A key can read one project and write another. Permissions are checked independently by REST and MCP.
-- Users manage their own keys at `/keys` and can grant access to projects they own. Administrators can manage all keys and grant wildcard scopes. Key delegation requires `keys:write` and cannot exceed the caller's scope.
-- Editing scopes keeps the token and changes authorization on subsequent requests. Global `users:read/write/delete` and `settings:read/write` permissions support user administration and system settings.
-
-## REST API
-
-Project and key management accept a browser session with `X-CSRF-Token` on mutations, or an API key with the required scopes. User administration and settings require an administrator session. See [HTTP API](docs/api.md) for routes, request bodies and key lifecycle details.
-
-| Method         | Path                                                                   |
-| -------------- | ---------------------------------------------------------------------- |
-| GET            | `/api/v1/me`                                                           |
-| GET/POST       | `/api/v1/keys`, PATCH/DELETE `/api/v1/keys/:id`, POST `…/:id/rotate`   |
-| GET/POST       | `/api/v1/projects`                                                     |
-| PATCH/DELETE   | `/api/v1/projects/:project`                                            |
-| GET/POST       | `/api/v1/projects/:project/environments`                               |
-| DELETE         | `/api/v1/projects/:project/environments/:env`                          |
-| GET            | `/api/v1/projects/:project/environments/:env/items?prefix=`            |
-| GET/PUT/DELETE | `/api/v1/projects/:project/environments/:env/items/:key`               |
-| GET/POST       | `/api/v1/projects/:project/proposals?status=pending`                   |
-| POST           | `/api/v1/projects/:project/proposals/:id/review` (`{"approve": true}`) |
-| GET            | `/api/v1/agent/project` (API key)                                      |
-| GET            | `/api/v1/agent/environments/:env/values?prefix=` (API key, read-only)  |
-| GET            | `/api/v1/users`, PATCH/DELETE `/api/v1/users/:id`                      |
-| GET/PUT        | `/api/v1/settings`                                                     |
-| GET            | `/api/v1/key-scopes`                                                   |
-
-## MCP
-
-See the [MCP guide](docs/mcp.md) for authentication, initialization, all 28 tools, examples and errors.
-
-`POST /mcp` speaks JSON-RPC 2.0 over stateless HTTP POST with JSON responses. Authenticate with `Authorization: ApiKey <token>`; project operations take an explicit `project` argument. API keys may manage multiple projects with independent scopes. Browser sessions can call management tools with their CSRF token and account permissions.
-
-MCP exposes every API operation: project and environment management, configuration reads and writes, proposals and reviews, key lifecycle, user administration, settings and identity. REST and MCP share operation definitions and handlers. Discovery filters tools by granted scopes, and execution validates permissions for the actual target. User and settings scopes require the `*` project range. Results include JSON text and `structuredContent` with the API response and `http_status`.
-
-## Go SDK
-
-`sdk/authcenter` is a separate module (`github.com/OXeu/authcenter/sdk/authcenter`) with a TTL-based memory cache and godotenv support:
-
-```go
-client, err := authcenter.New(authcenter.Config{
-	BaseURL: os.Getenv("AC_URL"), APIKey: os.Getenv("AC_KEY"),
-})
-if err != nil { /* handle */ }
-if err := client.Load(ctx); err != nil { /* handle */ }
-pool := client.Int("db.pool", 10)
-if err := client.Watch(ctx, authcenter.WatchOptions{Interval: 30 * time.Second}); err != nil { /* handle */ }
-```
-
-The key decides the project, so the SDK never takes a project name.
-
-Reads resolve each key from unexpired memory cache, then AuthCenter, then godotenv files, then `Config.Defaults` or the getter's default. Empty strings count as configured values. Each client has an isolated memory map; `CacheTTL` defaults to 30 seconds and cache hits never extend it. `Load` and `Watch` skip remote requests when their full scope is cached, and refresh after expiry. Getters reject expired entries and use loaded fallbacks without network requests. No cache is persisted to disk. `DotenvFiles` defaults to an optional `.env` without changing process environment variables. Source failures return errors while exposing available fallback values. When both remote connection fields are empty, `Put` writes only to memory with the same TTL; partial remote configuration is rejected. See the [SDK guide](docs/sdk.md) for initialization, source composition and error handling.
-
-## Development
-
-Use Node 22.18+ or 24.11+ (supported Vite Plus LTS versions), npm and Go 1.26.10, with golangci-lint installed.
 
 ```sh
 npm ci
-make check   # build, Go lint/tests, Oxlint, Vue type checking, Vitest, SDK lint/tests
-make build   # embed .tmp/ui and produce .tmp/bin/authcenter
-make run     # build and start the Go server
-npm run dev # in a second terminal; open http://localhost:5173/projects
+make check
+make build
+./.tmp/bin/authcenter
 ```
 
-The Vite development server gets authenticated page JSON from Go at `127.0.0.1:8080` and serves Vue with hot reload. API, OAuth, language and logout requests are proxied to Go. Set `AC_PUBLIC_URL=http://localhost:5173` and register that origin's `/oauth/callback` with your provider when testing OAuth through Vite. Production serves embedded JavaScript and CSS directly from Go; Node is only needed at build time.
+默认监听 `127.0.0.1:8081`，默认 SQLite 路径为 `.tmp/authcenter.db`。生产环境在配置中心设置 HTTPS 公网地址和独立 MySQL 数据库。首次密码管理员使用 `AC_BOOTSTRAP_ADMIN_EMAIL` 指定的邮箱注册，通过验证码验证后获得管理员身份。首次配置需开启注册并配置 Resend；GitHub 登录使用上游已验证的邮箱匹配预置管理员。
 
-Vite Plus provides the build, Oxlint, Oxfmt and Vitest. `vue-tsc` checks both scripts and templates. Oxlint custom plugins inspect script ASTs; separate compiler-based Vitest checks enforce template constraints. See [AGENTS.md](AGENTS.md).
+服务启动时读取一次配置中心快照；修改运行配置后重启服务。连接失败会阻止启动。环境变量中的 `AC_ADDR`、GitHub 密钥、Resend 密钥等业务配置不会覆盖配置中心。
 
-Build output stays in ignored `.tmp/ui` and `.tmp/docs` and is embedded by `assets.go`. `npm run build:docs` renders Markdown and Shiki HTML/CSS; `make assets` runs it before the Vite build. Run `make assets` before direct Go commands on a fresh checkout; Make targets do this automatically. Go scratch files use `.tmp`, and binaries use `.tmp/bin`. The live SDK test is opt-in through `AC_TEST_URL` and `AC_TEST_KEY`.
+## 文档
 
-Type checking uses TypeScript 7 (`typescript-native`) for modules, tools and non-component tests. Vue template and component tests use `vue-tsc` with TypeScript 6 because Volar requires its JavaScript compiler API. Run both with `npm run typecheck`.
+- [OAuth 接入与管理 API](docs/api.md)
+- [configcenter SDK 与运行配置](docs/configuration.md)
+- [登录与安全行为](docs/security.md)
 
-### MySQL
-
-Local development defaults to SQLite. To connect to MySQL, set:
-
-```dotenv
-AC_DB_DRIVER=mysql
-AC_DB=user:password@tcp(mysql-host:3306)/authcenter?charset=utf8mb4&tls=true
-```
-
-Create the database first (MySQL 8+, utf8mb4 with a case-sensitive collation such
-as utf8mb4_bin). The application creates tables and enables timestamp parsing.
-Keep credentials in environment variables or the ignored .env.local file.
-
-### Tencent Cloud Functions
-
-The GitHub workflow runs `make check`, MySQL integration tests and `make build`.
-Deployments from main are enabled by repository variable `SCF_DEPLOY_ENABLED=true`;
-leave it unset until production configuration is ready.
-
-Configure variables `SCF_REGION`, `SCF_VPC_ID`, `SCF_SUBNET_ID` for the network
-that can reach MySQL. Configure secrets `TENCENT_SECRET_ID`,
-`TENCENT_SECRET_KEY`, and `SCF_RUNTIME_ENV`. The last secret is a dotenv file:
-
-```dotenv
-AC_DB=user:password@tcp(mysql-host:3306)/authcenter?charset=utf8mb4
-AC_SESSION_SECRET=replace-with-a-long-random-secret
-AC_PUBLIC_URL=https://your-domain.example
-AC_OAUTH_ISSUER=https://your-identity-provider.example
-AC_OAUTH_CLIENT_ID=your-client-id
-AC_OAUTH_CLIENT_SECRET=your-client-secret
-AC_BOOTSTRAP_ADMIN_EMAIL=admin@example.com
-```
-
-The workflow packages this file privately with the function code, removes the
-runner copy after deployment, and never uploads the package as a GitHub artifact.
-SCF forces MySQL, production mode and port 9000. The HTTP trigger exposes a
-function URL with public and private access. Cloud-level authentication is NONE;
-the application enforces OAuth sessions and API keys. Set AC_PUBLIC_URL to the
-function URL or its custom domain and register its /oauth/callback URL at the
-identity provider. The VPC must also permit outbound access to the identity provider.
-The selected Tencent action runs serverless-cloud-framework; its source is pinned,
-but its upstream CLI installation is not version-pinned.
-
-Changing the driver does not migrate existing SQLite data to MySQL.
+`make check` 包含 Go lint、Go 测试、Vue 类型检查、模板 lint、Vitest、生产资源构建及 configcenter SDK 检查。`make build` 输出 `.tmp/bin/authcenter`。测试使用内存数据库和模拟身份提供方、配置中心及 Resend，不依赖真实外部凭据。

@@ -12,6 +12,7 @@ export async function api(path: string, init: ApiInit = {}): Promise<any> {
   /** @type {Record<string, string>} */
   const headers: Record<string, string> = {
     Accept: 'application/json',
+    'X-Authcenter-Request': '1',
     'X-CSRF-Token': init.csrf ?? '',
   }
   if (init.body !== undefined) headers['Content-Type'] = 'application/json'
