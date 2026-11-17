@@ -104,7 +104,7 @@
     @apply cursor-pointer break-words rounded-sm px-3 py-3 text-sm hover:bg-muted data-[active=true]:bg-muted aria-selected:font-semibold;
   }
   .card {
-    @apply rounded-lg border bg-card p-4 shadow-sm;
+    @apply rounded-lg border bg-card p-4 border-gray-200;
   }
   .field {
     @apply flex flex-col gap-2 text-sm text-muted-foreground;
