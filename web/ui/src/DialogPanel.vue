@@ -71,15 +71,26 @@ function cancel(event) {
           <h3 class="text-sm font-medium">{{ msg('keys.scopes') }}</h3>
           <p class="field">{{ msg('keys.scopeHelp') }}</p>
           <fieldset v-for="scope in form.scopes" :key="scope.id" class="card space-y-3">
-            <legend class="px-1 text-sm">{{ msg('keys.scopeProject') }}</legend>
-            <DropdownSelect
-              :id="`${formId}-scope-${scope.id}`"
-              v-model="scope.project"
-              :label="msg('keys.scopeProject')"
-              :options="form.scopeProjects"
-              :disabled="form.busy"
-              required
-            />
+            <div class="flex items-center gap-2">
+              <DropdownSelect
+                :id="`${formId}-scope-${scope.id}`"
+                v-model="scope.project"
+                class="min-w-0 flex-1"
+                :label="msg('keys.scopeProject')"
+                :options="form.scopeProjects"
+                :disabled="form.busy"
+                required
+              />
+              <button
+                type="button"
+                class="btn-outline btn-icon"
+                :aria-label="msg('keys.excludeScope')"
+                :disabled="form.busy"
+                @click="form.excludeScope(scope.id)"
+              >
+                <i class="ri-close-line" aria-hidden="true"></i>
+              </button>
+            </div>
             <div class="grid gap-1 sm:grid-cols-2">
               <CheckboxField
                 v-for="permission in form.scopePermissions"
@@ -90,14 +101,6 @@ function cancel(event) {
                 :disabled="form.busy"
               />
             </div>
-            <button
-              type="button"
-              class="btn-outline"
-              :disabled="form.busy"
-              @click="form.excludeScope(scope.id)"
-            >
-              {{ msg('keys.excludeScope') }}
-            </button>
           </fieldset>
           <button
             v-if="canAddScope"
