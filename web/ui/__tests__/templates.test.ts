@@ -74,6 +74,8 @@ it.each([
   '<button>Log off</button>',
   '<button>Sign-out</button>',
   '<button>{{ msg("nav.signOut") }}</button>',
+  '<button>{{ msg("account.disable") }}</button>',
+  '<button @click="disableTOTP">Authenticator</button>',
   '<button @click="logout">Account</button>',
   '<button @click="signOut()">Account</button>',
   '<a href="/logout">Account</a>',

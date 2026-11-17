@@ -29,7 +29,12 @@ export function checkDangerTemplate(source: string, filename = ''): string[] {
       if (sharedButton && !inDropdown) errors.push('danger-requires-dropdown')
       const control =
         !sharedButton && (['button', 'a', 'input'].includes(node.tag) || /button$/iu.test(node.tag))
-      const dangerous = marked || (control && words.test(node.loc.source))
+      const registered = Object.entries(dangerOperations).flat()
+      const dangerous =
+        marked ||
+        (control &&
+          (words.test(node.loc.source) ||
+            registered.some((name) => node.loc.source.includes(name))))
       if (dangerous && !trusted) errors.push('danger-use-shared-actions')
       if (dangerous && trusted) {
         if (!attrs.class?.split(/\s/u).includes('btn-danger')) errors.push('danger-requires-style')
