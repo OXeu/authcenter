@@ -28,6 +28,7 @@
   "nav.main": "Main",
   "nav.projects": "Projects",
   "nav.users": "Users",
+  "nav.globalKeys": "API keys",
   "nav.docs": "Documentation",
   "nav.signOut": "Sign out",
   "nav.skip": "Skip to content",

@@ -64,18 +64,18 @@
     @apply h-9 w-9 shrink-0 p-0 text-lg;
   }
   .user-avatar {
-    @apply relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground;
+    @apply flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground;
   }
   .avatar-image {
     @apply h-full w-full rounded-full object-cover;
   }
-  .user-avatar .avatar-role {
-    @apply absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full border bg-muted p-0 text-[11px] leading-none text-foreground shadow-sm ring-2 ring-background;
+  .badge.role-badge {
+    @apply h-5 w-5 justify-center bg-muted p-0 text-[11px] leading-none text-foreground;
   }
-  .user-avatar .avatar-role[data-role='admin'] {
+  .role-badge[data-role='admin'] {
     @apply border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-600 dark:bg-amber-900 dark:text-amber-200;
   }
-  .user-avatar .avatar-role[data-role='editor'] {
+  .role-badge[data-role='editor'] {
     @apply border-sky-300 bg-sky-100 text-sky-800 dark:border-sky-600 dark:bg-sky-900 dark:text-sky-200;
   }
   .btn-danger {

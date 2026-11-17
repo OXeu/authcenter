@@ -162,7 +162,7 @@ describe('Vue pages', () => {
     expect(restored.attributes('data-theme')).toBe('light')
     restored.unmount()
   })
-  it('renders the OAuth avatar with an icon medal and falls back after an image error', async () => {
+  it('shares the OAuth avatar fallback between the trigger and account menu', async () => {
     const wrapper = mount(App, {
       props: {
         data: { ...data, me: { ...data.me!, avatar_url: 'https://images.example.com/avatar.png' } },
@@ -174,23 +174,66 @@ describe('Vue pages', () => {
     expect(avatar.attributes('aria-label')).toBe('Admin Admin')
     expect(avatar.get('img').attributes('src')).toBe('https://images.example.com/avatar.png')
     expect(avatar.get('img').attributes('referrerpolicy')).toBe('no-referrer')
-    expect(avatar.get('.avatar-role').text()).toBe('')
-    expect(avatar.find('.avatar-role .ri-vip-crown-line').exists()).toBe(true)
+    await wrapper.get('button[aria-label="Admin Admin"]').trigger('click')
+    const menu = wrapper.get('.dropdown-content')
+    expect(menu.get('.user-avatar img').attributes('src')).toBe(
+      'https://images.example.com/avatar.png',
+    )
     await avatar.get('img').trigger('error')
     expect(avatar.find('img').exists()).toBe(false)
     expect(avatar.text()).toBe('A')
+    expect(menu.find('.user-avatar img').exists()).toBe(false)
+    expect(menu.get('.user-avatar').text()).toBe('A')
     wrapper.unmount()
   })
   it.each([
+    ['admin', 'ri-vip-crown-line'],
     ['editor', 'ri-edit-line'],
     ['viewer', 'ri-eye-line'],
-  ])('shows the %s medal', async (role, icon) => {
-    const wrapper = mount(App, { props: { data: { ...data, me: { ...data.me!, role } } } })
+    ['user', 'ri-eye-line'],
+  ])('shows the %s badge and limits account links to admins', async (role, icon) => {
+    const wrapper = mount(App, {
+      props: { data: { ...data, isAdmin: role === 'admin', me: { ...data.me!, role } } },
+    })
     await vi.dynamicImportSettled()
     await flushPromises()
-    expect(wrapper.find(`.avatar-role .${icon}`).exists()).toBe(true)
+    expect(wrapper.find('a[href="/keys"]').exists()).toBe(false)
+    expect(wrapper.find('a[href="/users"]').exists()).toBe(false)
+    await wrapper.get('header .dropdown:last-child button').trigger('click')
+    const menu = wrapper.get('.dropdown-content')
+    expect(menu.find(`.role-badge .${icon}`).exists()).toBe(true)
+    expect(menu.find('a[href="/keys"]').exists()).toBe(role === 'admin')
+    expect(menu.find('a[href="/users"]').exists()).toBe(role === 'admin')
+    expect(menu.get('button').text()).toBe('Sign out')
     wrapper.unmount()
   })
+  it.each([
+    ['en', 'Users', 'API keys', 'Admin'],
+    ['zh-CN', '用户管理', '全局密钥', '管理员'],
+  ])(
+    'puts localized admin navigation in the docs account menu for %s',
+    async (lang, users, keys, role) => {
+      const wrapper = mount(App, {
+        props: { data: { ...data, page: 'docs', docPage: 'api', lang } },
+        attachTo: document.body,
+      })
+      const header = wrapper.get('header')
+      expect(header.find('nav a[href="/keys"]').exists()).toBe(false)
+      expect(header.find('nav a[href="/users"]').exists()).toBe(false)
+      const trigger = header.get<HTMLButtonElement>(`button[aria-label="Admin ${role}"]`)
+      trigger.element.focus()
+      await trigger.trigger('click')
+      const menu = header.get('.dropdown-content')
+      expect(menu.get('a[href="/keys"]').text()).toBe(keys)
+      expect(menu.get('a[href="/users"]').text()).toBe(users)
+      expect(menu.get('.text-muted-foreground').text()).toBe(role)
+      await menu.get('a[href="/users"]').trigger('keydown', { key: 'Escape' })
+      expect(header.find('.dropdown-content').exists()).toBe(false)
+      expect(document.activeElement).toBe(trigger.element)
+      expect(trigger.attributes('aria-expanded')).toBe('false')
+      wrapper.unmount()
+    },
+  )
   it('uses the shared header and saved theme on public docs without workspace requests', async () => {
     localStorage.setItem('cc_theme', 'dark')
     vi.mocked(notify).mockClear()

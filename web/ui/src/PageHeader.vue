@@ -67,8 +67,6 @@ async function logout() {
     >
       <a v-if="data.loggedIn" class="btn-ghost" href="/projects">{{ msg('nav.projects') }}</a>
       <a v-if="data.isAdmin" class="btn-ghost" href="/settings">{{ msg('title.settings') }}</a>
-      <a v-if="data.isAdmin" class="btn-ghost" href="/keys">{{ msg('title.globalKeys') }}</a>
-      <a v-if="data.isAdmin" class="btn-ghost" href="/users">{{ msg('nav.users') }}</a>
       <a class="btn-ghost" href="/docs/">{{ msg('nav.docs') }}</a>
     </nav>
     <button
@@ -104,39 +102,50 @@ async function logout() {
             />
             <span v-else-if="avatarInitial" aria-hidden="true">{{ avatarInitial }}</span>
             <i v-else class="ri-user-line" aria-hidden="true"></i>
-            <span class="badge avatar-role" :data-role="data.me.role" aria-hidden="true">
-              <i :class="roleIcon" aria-hidden="true"></i>
-            </span>
           </div>
         </template>
-        <div class="flex w-64 max-w-full items-center gap-3 p-3">
-          <div class="user-avatar" role="img" :aria-label="identityLabel">
-            <img
-              v-if="showAvatar"
-              :src="avatarSource"
-              class="avatar-image"
-              alt=""
-              referrerpolicy="no-referrer"
-              @error="avatarFailed = true"
-            />
-            <span v-else-if="avatarInitial" aria-hidden="true">{{ avatarInitial }}</span>
-            <i v-else class="ri-user-line" aria-hidden="true"></i>
-            <span class="badge avatar-role" :data-role="data.me.role" aria-hidden="true">
-              <i :class="roleIcon" aria-hidden="true"></i>
-            </span>
+        <div class="w-56 max-w-full">
+          <div class="flex flex-col items-center gap-2 p-3 text-center">
+            <div class="user-avatar h-10 w-10" role="img" :aria-label="identityLabel">
+              <img
+                v-if="showAvatar"
+                :src="avatarSource"
+                class="avatar-image"
+                alt=""
+                referrerpolicy="no-referrer"
+                @error="avatarFailed = true"
+              />
+              <span v-else-if="avatarInitial" aria-hidden="true">{{ avatarInitial }}</span>
+              <i v-else class="ri-user-line" aria-hidden="true"></i>
+            </div>
+            <p class="w-full break-words text-sm font-semibold">{{ data.me.name }}</p>
+            <div class="flex items-center justify-center gap-1">
+              <span class="badge role-badge" :data-role="data.me.role" aria-hidden="true">
+                <i :class="roleIcon" aria-hidden="true"></i>
+              </span>
+              <p class="text-sm text-muted-foreground">{{ roleLabel }}</p>
+            </div>
           </div>
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-semibold">{{ data.me.name }}</p>
-            <p class="text-sm text-muted-foreground">{{ roleLabel }}</p>
+          <div v-if="data.isAdmin" class="border-t pt-1">
+            <a
+              class="btn-ghost w-full justify-start gap-1"
+              href="/keys"
+              :aria-label="msg('title.globalKeys')"
+            >
+              <i class="ri-key-2-line" aria-hidden="true"></i>
+              <span>{{ msg('nav.globalKeys') }}</span>
+            </a>
+            <a class="btn-ghost w-full justify-start gap-1" href="/users">
+              <i class="ri-group-line" aria-hidden="true"></i>
+              <span>{{ msg('nav.users') }}</span>
+            </a>
           </div>
-          <button
-            class="btn-ghost btn-icon"
-            type="button"
-            :aria-label="msg('nav.signOut')"
-            @click="logout"
-          >
-            <i class="ri-logout-box-r-line" aria-hidden="true"></i>
-          </button>
+          <div class="mt-1 border-t pt-1">
+            <button class="btn-ghost w-full justify-start gap-1" type="button" @click="logout">
+              <i class="ri-logout-box-r-line" aria-hidden="true"></i>
+              <span>{{ msg('nav.signOut') }}</span>
+            </button>
+          </div>
         </div>
       </DropdownMenu>
     </template>
