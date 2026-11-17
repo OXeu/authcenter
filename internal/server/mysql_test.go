@@ -22,7 +22,11 @@ func TestMySQLStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	client := store.OAuthClient{ID: rand.Text(), Name: "MySQL", Homepage: "https://app.example", RedirectURIs: []string{"https://app.example/cb"}, Scopes: []string{"profile", "offline_access"}}
+	user, err := st.UserByEmail(ctx, "admin@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := store.OAuthClient{ID: rand.Text(), Name: "MySQL", OwnerID: user.ID, Homepage: "https://app.example", RedirectURIs: []string{"https://app.example/cb"}, Scopes: []string{"profile", "offline_access"}}
 	if err := st.CreateOAuthClient(ctx, client); err != nil {
 		t.Fatal(err)
 	}
@@ -39,11 +43,11 @@ func TestMySQLStore(t *testing.T) {
 	if err != nil || len(loaded.RedirectURIs) != 2 {
 		t.Fatalf("callbacks: %v %v", loaded.RedirectURIs, err)
 	}
-	request := store.AuthorizationRequest{ID: rand.Text(), ClientID: client.ID, RedirectURI: client.RedirectURIs[0], ExpiresAt: time.Now().Add(time.Minute)}
+	request := store.AuthorizationRequest{ID: rand.Text(), ClientID: client.ID, UserID: user.ID, RedirectURI: client.RedirectURIs[0], ExpiresAt: time.Now().Add(time.Minute)}
 	if err := st.CreateAuthorizationRequest(ctx, request); err != nil {
 		t.Fatal(err)
 	}
-	grant := store.OAuthGrant{ID: rand.Text(), ClientID: client.ID, Scope: "profile offline_access"}
+	grant := store.OAuthGrant{ID: rand.Text(), ClientID: client.ID, UserID: user.ID, Scope: "profile offline_access"}
 	code := store.AuthorizationCode{Digest: digest(rand.Text()), GrantID: grant.ID, ClientID: client.ID, RedirectURI: request.RedirectURI, ExpiresAt: request.ExpiresAt}
 	if err := st.DecideAuthorization(ctx, request, grant, code, true); err != nil {
 		t.Fatal(err)
@@ -53,7 +57,11 @@ func TestMySQLStore(t *testing.T) {
 	if _, err := st.RedeemAuthorizationCode(ctx, code.Digest, client.ID, request.RedirectURI, "", "", token); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.AccessTokenGrant(ctx, token.AccessHash); err != nil {
+	loadedGrant, err := st.AccessTokenGrant(ctx, token.AccessHash)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if loadedGrant.UserID != user.ID || loadedGrant.ClientID != client.ID {
+		t.Fatal("access token resolved to a different user or client")
 	}
 }
