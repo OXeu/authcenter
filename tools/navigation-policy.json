@@ -1,0 +1,22 @@
+{
+  "documentNavigation": {
+    "web/ui/src/PageHeader.vue": [
+      {
+        "reason": "sign-out",
+        "target": "/login"
+      }
+    ],
+    "web/ui/src/ConsentPage.vue": [
+      {
+        "reason": "oauth-consent",
+        "serverRedirect": true
+      }
+    ],
+    "web/ui/src/LoginPanel.vue": [
+      {
+        "reason": "authentication",
+        "serverRedirect": true
+      }
+    ]
+  }
+}

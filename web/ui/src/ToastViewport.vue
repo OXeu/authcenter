@@ -4,7 +4,8 @@ import { onBeforeUnmount, onMounted, shallowRef } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
 import { bindToast, onToastKey, toast } from '@yusufceng1z/ding'
 import type { ToastItem } from '@yusufceng1z/ding'
-import { toastTarget } from './toast-host.ts'
+import { useToastHost } from '@oxeu/center-common/ui/toast-host.ts'
+const toastHost = useToastHost()
 
 const state = shallowRef(toast.getState())
 const bindings = new Map<string, () => void>()
@@ -41,7 +42,7 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <Teleport :to="toastTarget">
+  <Teleport :to="toastHost.target">
     <div
       class="tst-viewport"
       role="region"

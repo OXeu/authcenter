@@ -6,7 +6,7 @@ import DialogPanel from '../src/DialogPanel.vue'
 import { createForm } from '../src/forms.ts'
 import { createPage } from '../src/page.ts'
 import type { PageData } from '../src/data.ts'
-import { toastTarget } from '../src/toast-host.ts'
+import { useToastHost } from '@oxeu/center-common/ui/toast-host.ts'
 
 vi.mock('@yusufceng1z/ding', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@yusufceng1z/ding')>()),
@@ -37,7 +37,7 @@ it('keeps error toasts inside the modal, supports dismissal and restores the bod
   await flushPromises()
   await form.submit()
   await flushPromises()
-  expect(toastTarget.value).toBe(dialog.get('dialog').element)
+  expect(useToastHost().target).toBe(dialog.get('dialog').element)
   expect(dialog.get('.tst-desc').text()).toBe('Network error, try again.')
   expect(dialog.find('form .tst-desc').exists()).toBe(false)
   expect(form.open).toBe(true)
@@ -45,7 +45,7 @@ it('keeps error toasts inside the modal, supports dismissal and restores the bod
   expect(['closing', 'exit']).toContain(toast.getState().toasts[0].phase)
   dialog.unmount()
   await flushPromises()
-  expect(toastTarget.value).toBe('body')
+  expect(useToastHost().target).toBe('body')
   expect(document.body.querySelector(':scope > .tst-viewport')).not.toBeNull()
   viewport.unmount()
   expect(document.body.querySelector('.tst-viewport')).toBeNull()

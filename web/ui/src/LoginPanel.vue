@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Button from '@oxeu/center-common/ui/Button.vue'
+import { navigateDocument } from '@oxeu/center-common/ui/navigation.ts'
 import DialogPanel from './DialogPanel.vue'
 import { createForm } from './forms.ts'
 import { notify } from './toast.ts'
@@ -36,7 +37,7 @@ function secondFactor(methods: string[]) {
         csrf: props.data.csrf,
       })) as { redirect: string }
       form.keepOpen = false
-      location.assign(result.redirect)
+      navigateDocument(result.redirect, 'authentication')
     },
   )
   form.keepOpen = true
