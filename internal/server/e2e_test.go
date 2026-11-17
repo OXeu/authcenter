@@ -17,7 +17,7 @@ import (
 
 	"github.com/OXeu/authcenter/internal/auth"
 	"github.com/OXeu/authcenter/internal/config"
-	"github.com/OXeu/authcenter/internal/oauth"
+	"github.com/OXeu/center-common/oauth"
 )
 
 func TestMain(m *testing.M) {

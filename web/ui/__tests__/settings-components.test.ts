@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { flushPromises, mount } from '@vue/test-utils'
 import SettingsPage from '../src/SettingsPage.vue'
-import DropdownSelect from '../src/DropdownSelect.vue'
+import DropdownSelect from '@oxeu/center-common/ui/DropdownSelect.vue'
 import { createPage } from '../src/page.ts'
 import type { PageData } from '../src/data.ts'
 import { notify } from '../src/toast.ts'

@@ -3,6 +3,7 @@ module github.com/OXeu/authcenter
 go 1.26.10
 
 require (
+	github.com/OXeu/center-common v0.0.0
 	github.com/OXeu/configcenter/sdk/configcenter v0.0.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/glebarez/sqlite v1.11.0
@@ -67,3 +68,5 @@ require (
 )
 
 replace github.com/OXeu/configcenter/sdk/configcenter => ./sdk/configcenter
+
+replace github.com/OXeu/center-common => ./.tmp/common

@@ -1,7 +1,7 @@
 <script setup>
 import { onBeforeUnmount, ref, watch, nextTick, useId } from 'vue'
-import DropdownSelect from './DropdownSelect.vue'
-import CheckboxField from './CheckboxField.vue'
+import DropdownSelect from '@oxeu/center-common/ui/DropdownSelect.vue'
+import CheckboxField from '@oxeu/center-common/ui/CheckboxField.vue'
 import { attachToasts } from './toast-host.ts'
 const formId = useId()
 const props = defineProps({

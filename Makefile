@@ -1,46 +1,23 @@
-.PHONY: all build assets lint test check sdk-lint sdk-test run fmt scf-package
+PROJECT := authcenter
+SDK_DIR := sdk/configcenter
+COMMON_DIR ?= ../center-common
+.DEFAULT_GOAL := all
+.NOTPARALLEL:
+.PHONY: common common-local bootstrap all build assets lint test check sdk-lint sdk-test run fmt scf-package
 
-BIN ?= .tmp/bin/authcenter
-TMP_ROOT := $(CURDIR)/.tmp
-GO_TEST := mkdir -p $(TMP_ROOT) && TMPDIR=$(TMP_ROOT) go test
+common:
+	node tools/common.ts
 
-all: check build
+common-local:
+	node tools/common.ts --local "$(COMMON_DIR)"
 
-build: assets
-	mkdir -p $(TMP_ROOT)/bin
-	TMPDIR=$(TMP_ROOT) go build -o $(BIN) ./cmd/authcenter
+bootstrap: common
+	cd .tmp/common && npm ci
+	npm ci
 
-assets:
-	npm run --silent build
+all build assets lint test check sdk-lint sdk-test run fmt: common
+	$(MAKE) --no-print-directory -f .tmp/common/config/project.mk PROJECT=$(PROJECT) SDK_DIR=$(SDK_DIR) $@
 
-fmt: assets
-	golangci-lint fmt ./...
-	npm run fmt
-
-lint: assets
-	TMPDIR=$(TMP_ROOT) golangci-lint run ./...
-	npm run lint
-	npm run typecheck
-	npm test --silent
-
-test: assets
-	$(GO_TEST) ./...
-
-sdk-lint:
-	cd sdk/configcenter && TMPDIR=$(TMP_ROOT) golangci-lint run ./...
-
-sdk-test:
-	cd sdk/configcenter && $(GO_TEST) ./...
-
-check: assets lint sdk-lint test sdk-test
-
-# The binary reads configcenter connection settings from .env.local (AC_ENV_FILE).
-# Runtime settings are loaded through the configcenter SDK.
-run: build
-	exec ./$(BIN)
-
-scf-package: assets
-	mkdir -p $(TMP_ROOT)/scf
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 TMPDIR=$(TMP_ROOT) go build -trimpath -ldflags='-s -w' -o $(TMP_ROOT)/scf/authcenter ./cmd/authcenter
-	cp scf_bootstrap $(TMP_ROOT)/scf/scf_bootstrap
-	chmod 755 $(TMP_ROOT)/scf/scf_bootstrap
+scf-package:
+	node tools/common.ts --locked
+	$(MAKE) --no-print-directory -f .tmp/common/config/project.mk PROJECT=$(PROJECT) SDK_DIR=$(SDK_DIR) $@

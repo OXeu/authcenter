@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import DropdownMenu from './DropdownMenu.vue'
+import DropdownMenu from '@oxeu/center-common/ui/DropdownMenu.vue'
 import DangerActionButton from './DangerActionButton.vue'
 import type { DangerAction } from './danger.ts'
 defineProps<{ actions: DangerAction[]; label: string; disabled: boolean }>()

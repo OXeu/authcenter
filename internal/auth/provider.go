@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/OXeu/authcenter/internal/oauth"
 	"github.com/OXeu/authcenter/internal/store"
+	"github.com/OXeu/center-common/oauth"
 )
 
 // Provider abstracts OIDC and plain OAuth 2.0 identity servers.
@@ -27,12 +27,13 @@ func NewProvider(ctx context.Context, cfg Config) (Provider, error) {
 		return nil, nil //nolint:nilnil // a disabled provider is a valid, documented state
 	}
 	client := oauth.New(oauth.Config{
-		IssuerURL:    cfg.IssuerURL,
-		ClientID:     cfg.ClientID,
-		ClientSecret: cfg.ClientSecret,
-		Scopes:       cfg.Scopes,
-		RedirectURL:  cfg.RedirectURL,
-		GroupsClaim:  cfg.GroupsClaim,
+		VerifyGitHubEmail: true,
+		IssuerURL:         cfg.IssuerURL,
+		ClientID:          cfg.ClientID,
+		ClientSecret:      cfg.ClientSecret,
+		Scopes:            cfg.Scopes,
+		RedirectURL:       cfg.RedirectURL,
+		GroupsClaim:       cfg.GroupsClaim,
 	}, nil)
 	if _, err := client.Metadata(ctx); err != nil {
 		return nil, fmt.Errorf("oauth provider: %w", err)

@@ -1,5 +1,5 @@
 <script setup>
-import DropdownMenu from './DropdownMenu.vue'
+import DropdownMenu from '@oxeu/center-common/ui/DropdownMenu.vue'
 import DangerActionButton from './DangerActionButton.vue'
 import { computed, nextTick, ref, watch } from 'vue'
 import { api } from './core.ts'
