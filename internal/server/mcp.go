@@ -246,6 +246,9 @@ func (s *Server) callTool(c *gin.Context, name string, raw map[string]any) (any,
 func (s *Server) configTool(c *gin.Context, id auth.Identity, env store.Environment, name string, args toolArgs) (any, *rpcError) {
 	ctx := c.Request.Context()
 	projectID := id.Project.ID
+	if id.APIKey == nil && name != "list_config" && name != "get_config" {
+		return toolError("api key required for writes")
+	}
 	if name == "delete_config" && !id.Role.CanWrite() {
 		return toolError("this key is read-only")
 	}
