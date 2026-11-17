@@ -64,6 +64,8 @@ AC_BOOTSTRAP_ADMIN_EMAIL=admin@example.com
 
 腾讯 SCF 部署沿用仓库的打包流程；在配置中心将 `AC_ADDR` 设置为 `0.0.0.0:9000`，使用 MySQL 和 HTTPS 公网地址。部署文件仅包含配置中心引导参数，SCF 不覆盖运行配置。
 
+SCF 统一使用北京时间（`TZ=Asia/Shanghai`）、64MB 内存、单实例静态 100 并发和 1 秒请求队列缓冲。SCF 组件不透传 `IntranetConfig`，部署脚本会在更新函数后调用 `tools/scf-network.py authcenter` 启用固定内网出口 IP，并等待配置生效。本地部署需要 Python 3 及 venv；脚本在 `.tmp/scf-venv` 安装固定版本的腾讯云 SCF SDK。直接执行 `scf deploy` 时也必须补跑该网络配置步骤。
+
 ## 本地部署与 GitHub Actions
 
 `AC_CONFIGCENTER_API_KEY` 是连接密钥的标准变量名；旧名 `AC_CONFIGCENTER_KEY` 仅作为兼容别名，两个值同时存在时标准名优先。已废弃的 `AC_SESSION_SECRET` 不再使用。

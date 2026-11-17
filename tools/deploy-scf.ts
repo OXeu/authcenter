@@ -99,6 +99,13 @@ async function deploy() {
       ['deploy', '--stage', 'production'],
       projectPath,
     )
+    process.stdout.write('Configuring fixed intranet egress IP.\n')
+    await run('python3', ['-m', 'venv', resolve(scratch, 'scf-venv')])
+    await run(resolve(scratch, 'scf-venv/bin/pip'), [
+      'install',
+      'tencentcloud-sdk-python-scf==3.1.100',
+    ])
+    await run(resolve(scratch, 'scf-venv/bin/python'), ['tools/scf-network.py', 'authcenter'])
     process.stdout.write('SCF deployment completed.\n')
     rmSync(logPath)
   } finally {
