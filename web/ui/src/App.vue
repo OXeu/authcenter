@@ -10,6 +10,7 @@ import { useTheme } from './theme.ts'
 import { mountToasts, notify, setToastTheme } from './toast.ts'
 
 const WorkspacePage = defineAsyncComponent(() => import('./WorkspacePage.vue'))
+const KeysPage = defineAsyncComponent(() => import('./KeysPage.vue'))
 const SettingsPage = defineAsyncComponent(() => import('./SettingsPage.vue'))
 
 const props = defineProps({ data: { type: Object, required: true } })
@@ -57,6 +58,7 @@ onMounted(() => {
       <LoginPanel v-if="data.page === 'login'" :data="data" :page="page" />
       <ConsentPage v-if="data.page === 'consent'" :data="data" :page="page" />
       <AccountPage v-if="data.page === 'account'" :data="data" :page="page" />
+      <KeysPage v-if="data.page === 'keys'" :page="page" />
       <SettingsPage v-if="data.page === 'settings'" :page="page" />
       <WorkspacePage v-if="isWorkspace" :data="data" :page="page" :title="title" />
     </PageHeader>

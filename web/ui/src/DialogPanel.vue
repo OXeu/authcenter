@@ -1,6 +1,7 @@
 <script setup>
 import { onBeforeUnmount, ref, watch, nextTick, useId } from 'vue'
 import DropdownSelect from './DropdownSelect.vue'
+import CheckboxField from './CheckboxField.vue'
 import { attachToasts } from './toast-host.ts'
 const formId = useId()
 const props = defineProps({
@@ -59,9 +60,22 @@ async function upload(event, key) {
       <h2 class="text-base font-semibold">{{ form.title }}</h2>
       <template v-if="!form.token">
         <div v-for="field in form.fields" :key="field.key" class="field">
-          <label :for="`${formId}-${field.key}`">{{ msg(field.label) }}</label>
+          <label v-if="!field.multiOptions" :for="`${formId}-${field.key}`">{{
+            msg(field.label)
+          }}</label>
+          <fieldset v-if="field.multiOptions" :disabled="form.busy" class="space-y-2">
+            <legend>{{ msg(field.label) }}</legend>
+            <CheckboxField
+              v-for="option in field.multiOptions"
+              :key="option.value"
+              v-model="form.choices[field.key]"
+              :value="option.value"
+              :label="option.label"
+              :disabled="form.busy"
+            />
+          </fieldset>
           <DropdownSelect
-            v-if="field.options"
+            v-else-if="field.options"
             :id="`${formId}-${field.key}`"
             v-model="form.values[field.key]"
             :label="msg(field.label)"

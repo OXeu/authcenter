@@ -45,7 +45,7 @@ func Open(ctx context.Context, dialector gorm.Dialector, adminEmail, adminName s
 		pool.SetMaxOpenConns(1)
 	}
 	if err := db.WithContext(ctx).AutoMigrate(
-		&User{}, &Session{}, &LoginChallenge{}, &LoginLimit{}, &OAuthClient{}, &AuthorizationRequest{}, &OAuthGrant{}, &AuthorizationCode{}, &OAuthToken{},
+		&User{}, &Session{}, &APIKey{}, &LoginChallenge{}, &LoginLimit{}, &OAuthClient{}, &AuthorizationRequest{}, &OAuthGrant{}, &AuthorizationCode{}, &OAuthToken{},
 	); err != nil {
 		return nil, fmt.Errorf("migrate schema: %w", err)
 	}

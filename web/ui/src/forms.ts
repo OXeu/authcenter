@@ -22,6 +22,7 @@ export function createForm(page: import('./page.ts').PageContext) {
     busy: false,
     validationError: '',
     token: '',
+    choices: {} as Record<string, string[]>,
     fields: /** @type {any[]} */ ([]) as any[],
     values: /** @type {Record<string, string>} */ ({}) as Record<string, string>,
     action: /** @type {() => Promise<void>} */ (async () => {}) as () => Promise<void>,
@@ -43,6 +44,7 @@ export function createForm(page: import('./page.ts').PageContext) {
       this.action = action
       this.validationError = ''
       this.token = ''
+      this.choices = {}
       this.open = true
     },
     async submit() {

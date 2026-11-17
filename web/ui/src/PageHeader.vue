@@ -154,6 +154,10 @@ async function logout() {
               <i class="ri-key-2-line" aria-hidden="true"></i>
               <span>{{ msg('nav.account') }}</span>
             </a>
+            <a class="btn-ghost w-full justify-start gap-2" href="/keys">
+              <i class="ri-key-line" aria-hidden="true"></i>
+              <span>{{ msg('nav.keys') }}</span>
+            </a>
             <a v-if="data.isAdmin" class="btn-ghost w-full justify-start gap-2" href="/users">
               <i class="ri-group-line" aria-hidden="true"></i>
               <span>{{ msg('nav.users') }}</span>

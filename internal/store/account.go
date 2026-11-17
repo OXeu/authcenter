@@ -19,6 +19,9 @@ func (s *Store) lockUser(ctx context.Context, id uint) (User, error) {
 }
 
 func (s *Store) invalidateUserCredentials(ctx context.Context, id uint, session string) error {
+	if err := s.db.WithContext(ctx).Where("created_by = ?", id).Delete(&APIKey{}).Error; err != nil {
+		return queryErr("invalidate api keys", err)
+	}
 	if err := s.db.WithContext(ctx).Where("user_id = ? AND id <> ?", id, session).Delete(&Session{}).Error; err != nil {
 		return queryErr("invalidate sessions", err)
 	}

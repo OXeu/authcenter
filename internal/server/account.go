@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
+	"github.com/OXeu/authcenter/internal/auth"
 	"github.com/OXeu/authcenter/internal/credentials"
 	"github.com/OXeu/authcenter/internal/store"
 )
@@ -27,6 +28,9 @@ func (s *Server) verifyAccountPassword(c *gin.Context, user store.User, password
 }
 
 func sessionID(c *gin.Context) string {
+	if id, ok := auth.FromContext(c.Request.Context()); ok && id.APIKey != nil {
+		return "apikey:" + strconv.FormatUint(uint64(id.APIKey.ID), 10)
+	}
 	session, err := c.Cookie("ac_session")
 	if err != nil {
 		return ""

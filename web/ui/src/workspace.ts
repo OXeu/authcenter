@@ -167,3 +167,86 @@ export function createWorkspace(data: PageData, page: PageContext) {
   }
   return { state, form, refresh, select, edit, actionsFor }
 }
+
+export type APIKey = {
+  id: number
+  name: string
+  prefix: string
+  scopes: string[]
+  created_by: number
+  created_at: string
+  last_used_at: string | null
+  expires_at: string | null
+}
+export function createKeysWorkspace(page: PageContext) {
+  const form = createForm(page)
+  const state = reactive({ rows: [] as APIKey[], permissions: [] as string[], busy: false })
+  async function refresh() {
+    state.busy = true
+    try {
+      const [keys, scopes] = await Promise.all([api('/api/v1/keys'), api('/api/v1/key-scopes')])
+      state.rows = (keys as { keys: APIKey[] }).keys
+      state.permissions = (scopes as { permissions: string[] }).permissions
+    } catch (error) {
+      page.report(error)
+    } finally {
+      state.busy = false
+    }
+  }
+  async function mutate(path: string, method: string, body?: unknown) {
+    const result = (await api(path, { method, body, csrf: page.csrf })) as { token?: string } | null
+    if (result?.token) form.token = result.token
+    notify('success', page.msg('toast.saved'))
+    await refresh()
+  }
+  function edit(row?: APIKey) {
+    const fields = [
+      { key: 'name', label: 'common.name', required: true },
+      {
+        key: 'scopes',
+        label: 'keys.scopes',
+        multiOptions: state.permissions.map((value) => ({
+          value,
+          label: page.msg(`scope.${value}`),
+        })),
+      },
+      ...(!row ? [{ key: 'expires_at', label: 'keys.expires', datetime: true }] : []),
+    ]
+    form.show(
+      page.msg(row ? 'common.edit' : 'dialog.key'),
+      fields,
+      { name: row?.name ?? '', expires_at: '' },
+      async () => {
+        let expires_at: string | undefined
+        if (!row && form.values.expires_at) {
+          const expiry = Date.parse(form.values.expires_at)
+          if (!Number.isFinite(expiry) || expiry <= Date.now()) {
+            form.validationError = page.msg('keys.expiryRequired')
+            form.keepOpen = true
+            return
+          }
+          expires_at = new Date(expiry).toISOString()
+        }
+        form.keepOpen = false
+        await mutate(row ? `/api/v1/keys/${row.id}` : '/api/v1/keys', row ? 'PATCH' : 'POST', {
+          name: form.values.name,
+          scopes: form.choices.scopes,
+          ...(!row ? { expires_at } : {}),
+        })
+      },
+    )
+    form.choices.scopes = [...(row?.scopes ?? [])]
+    form.info = page.msg('keys.scopeHelp')
+  }
+  function actionsFor(row: APIKey) {
+    return [
+      dangerAction(form, 'rotateKey', page.msg('keys.rotate'), row.name, async () => {
+        await mutate(`/api/v1/keys/${row.id}/rotate`, 'POST')
+      }),
+      dangerAction(form, 'deleteKey', page.msg('common.delete'), row.name, async () => {
+        await mutate(`/api/v1/keys/${row.id}`, 'DELETE')
+      }),
+    ]
+  }
+  return { state, form, refresh, edit, actionsFor }
+}

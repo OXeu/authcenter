@@ -32,6 +32,9 @@ const (
 
 // Store is the subset of persistence the authenticator needs.
 type Store interface {
+	APIKeyByDigest(ctx context.Context, digest [32]byte) (store.APIKey, error)
+	TouchAPIKey(ctx context.Context, id uint) error
+	UserByID(ctx context.Context, id uint) (store.User, error)
 	SessionUser(ctx context.Context, id string) (store.Session, store.User, error)
 	CreateSession(ctx context.Context, sess store.Session) error
 	DeleteSession(ctx context.Context, id string) error
@@ -54,8 +57,9 @@ func (c Config) Enabled() bool {
 
 // Identity is the authenticated principal of a request.
 type Identity struct {
-	User *store.User
-	Role store.Role
+	APIKey *store.APIKey
+	User   *store.User
+	Role   store.Role
 }
 
 // CanWrite reports whether the principal may change configuration.
@@ -145,6 +149,12 @@ func RequireAdmin() gin.HandlerFunc {
 func (a *Authenticator) BrowserMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Cache-Control", "no-store")
+		if strings.HasPrefix(c.Request.URL.Path, "/api/v1/") && len(c.Request.Header.Values("Authorization")) > 0 {
+			if a.authenticateKey(c) {
+				c.Next()
+			}
+			return
+		}
 		raw, err := c.Cookie(sessionCookie)
 		if err == nil {
 			sess, user, sessErr := a.store.SessionUser(c.Request.Context(), raw)

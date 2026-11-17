@@ -10,7 +10,7 @@ export type User = {
 }
 
 export type PageData = {
-  page: 'login' | 'applications' | 'consent' | 'account' | 'users' | 'docs' | 'settings'
+  page: 'login' | 'applications' | 'consent' | 'account' | 'users' | 'docs' | 'settings' | 'keys'
   docPage?: string
   lang: string
   title: string
@@ -48,4 +48,5 @@ export const pages = [
   'users',
   'docs',
   'settings',
+  'keys',
 ]

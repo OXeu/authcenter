@@ -7,6 +7,8 @@ export const dangerOperations = {
   deleteUser: 'users.delete',
   banUser: 'users.ban',
   unbanUser: 'users.unban',
+  deleteKey: 'common.delete',
+  rotateKey: 'keys.rotate',
 } as const
 export type DangerOperation = keyof typeof dangerOperations
 const confirmedAction = Symbol('confirmedAction')

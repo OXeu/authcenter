@@ -12,30 +12,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// MountAPI registers session-authenticated management endpoints.
+// MountAPI registers management endpoints with shared operation permissions.
 func (s *Server) MountAPI(r *gin.Engine) {
 	api := r.Group("/api/v1", auth.RequireUser())
-	api.GET("/me", s.apiMe)
-	api.GET("/account/security", s.securitySettings)
-	api.PUT("/account/password", s.setPassword)
-	api.POST("/account/email", s.startEmailChange)
-	api.POST("/account/email/verify", s.verifyEmailChange)
-	api.DELETE("/account/totp", s.disableTOTP)
-	api.GET("/grants", s.apiGrants)
-	api.DELETE("/grants/:id", s.apiRevokeGrant)
-	admin := api.Group("", auth.RequireAdmin())
-	api.GET("/clients", s.apiClients)
-	api.POST("/clients", s.apiCreateClient)
-	api.PATCH("/clients/:id", s.apiUpdateClient)
-	api.DELETE("/clients/:id", s.apiDeleteClient)
-	admin.GET("/users", s.apiListUsers)
-	admin.PATCH("/users/:id", s.apiSetRole)
-	admin.PUT("/users/:id/ban", s.apiBanUser)
-	admin.DELETE("/users/:id/ban", s.apiUnbanUser)
-	admin.DELETE("/users/:id", s.apiDeleteUser)
-	admin.GET("/settings", s.apiSettings)
-	admin.PUT("/settings", s.apiSaveSettings)
-	admin.POST("/settings/refresh", s.apiRefreshSettings)
+	for _, op := range s.apiOperations() {
+		api.Handle(op.Method, op.Path, op.authorize, op.Handler)
+	}
 }
 
 func (s *Server) apiMe(c *gin.Context) {
@@ -50,6 +32,8 @@ func (s *Server) fail(c *gin.Context, err error) {
 		status = http.StatusNotFound
 	case errors.Is(err, errBadRequest):
 		status = http.StatusBadRequest
+	case errors.Is(err, store.ErrKeyChanged):
+		status = http.StatusConflict
 	case errors.Is(err, store.ErrProtectedUser):
 		status = http.StatusForbidden
 	}
