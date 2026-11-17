@@ -70,16 +70,25 @@ curl https://auth.example/oauth/revoke -u 'CLIENT_ID:CLIENT_SECRET' -d token=TOK
 
 管理 API 只接受浏览器登录会话。写请求需要 `/api/v1/me` 返回的 `csrf` 作为 `X-CSRF-Token`。访问令牌不能代替管理会话。
 
-| 方法           | 路径                     | 作用            |
-| -------------- | ------------------------ | --------------- |
-| GET            | `/api/v1/me`             | 当前用户与 CSRF |
-| GET / POST     | `/api/v1/clients`        | 列出 / 注册应用 |
-| PATCH / DELETE | `/api/v1/clients/:id`    | 编辑 / 删除应用 |
-| GET            | `/applications/:id/logo` | 应用 Logo       |
-| GET            | `/api/v1/grants`         | 当前用户的授权  |
-| DELETE         | `/api/v1/grants/:id`     | 撤销自己的授权  |
-| GET            | `/api/v1/users`          | 管理员列出用户  |
-| PATCH          | `/api/v1/users/:id`      | 管理员修改角色  |
+| 方法           | 路径                           | 作用                                                                             |
+| -------------- | ------------------------------ | -------------------------------------------------------------------------------- |
+| GET            | `/api/v1/me`                   | 当前用户与 CSRF                                                                  |
+| GET / POST     | `/api/v1/clients`              | 列出 / 注册应用                                                                  |
+| PATCH / DELETE | `/api/v1/clients/:id`          | 编辑 / 删除应用                                                                  |
+| GET            | `/applications/:id/logo`       | 应用 Logo                                                                        |
+| GET            | `/api/v1/grants`               | 当前用户的授权                                                                   |
+| DELETE         | `/api/v1/grants/:id`           | 撤销自己的授权                                                                   |
+| GET            | `/api/v1/users`                | 管理员列出用户                                                                   |
+| PATCH          | `/api/v1/users/:id`            | 管理员修改角色                                                                   |
+| DELETE         | `/api/v1/users/:id`            | 管理员删除用户及其应用                                                           |
+| PUT / DELETE   | `/api/v1/users/:id/ban`        | 封禁 / 解封用户；封禁 JSON 为 `{"until":"2026-12-01T00:00:00Z"}`，时间必须在未来 |
+| GET            | `/api/v1/account/security`     | 当前账号安全状态                                                                 |
+| PUT            | `/api/v1/account/password`     | 设置密码：`current_password`、`password`                                         |
+| POST           | `/api/v1/account/email`        | 发起邮箱修改：`email`、`password`，返回 `request`                                |
+| POST           | `/api/v1/account/email/verify` | 确认邮箱修改：`request`、`code`                                                  |
+| DELETE         | `/api/v1/account/totp`         | 停用身份验证器：`password`、`code`                                               |
+| GET / PUT      | `/api/v1/settings`             | 管理员读取脱敏配置 / 保存 `{"values":{"AC_ALLOW_REGISTRATION":"false"}}`         |
+| POST           | `/api/v1/settings/refresh`     | 管理员刷新当前实例配置，返回 `restart_required` 列表                             |
 
 创建应用 JSON：
 

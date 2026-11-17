@@ -187,7 +187,7 @@
   "login.verifyHelp": "输入身份验证器的六位验证码，或发送邮箱验证码。邮箱验证码五分钟内有效。",
   "account.enabled": "已启用身份验证器",
   "account.disabled": "尚未启用身份验证器",
-  "account.help": "密码账户通过身份验证器或邮箱进行两步验证。GitHub 账户使用 GitHub 身份认证。",
+  "account.help": "身份验证器可作为密码登录的第二因素。配置邮件服务后也可使用邮箱验证码。",
   "account.enable": "绑定身份验证器",
   "account.verify": "验证身份验证器",
   "account.secret": "在身份验证器中手动输入此密钥",

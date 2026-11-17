@@ -187,7 +187,7 @@
   "login.verifyHelp": "Enter the six-digit authenticator code, or request a code by email. Codes expire after five minutes.",
   "account.enabled": "Authenticator enabled",
   "account.disabled": "Authenticator not enabled",
-  "account.help": "Password accounts use an authenticator or email as a second factor. GitHub accounts use GitHub authentication.",
+  "account.help": "Use an authenticator as a second factor for password login. Email verification remains available when configured.",
   "account.enable": "Set up authenticator",
   "account.verify": "Verify authenticator",
   "account.secret": "Enter this key in your authenticator",
