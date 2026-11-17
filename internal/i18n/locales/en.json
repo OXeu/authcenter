@@ -21,7 +21,7 @@
   "error.network": "Network error, try again.",
   "error.500": "Server error, try again.",
   "error.502": "Server error, try again.",
-  "error.conflict": "That name is already taken.",
+  "error.conflict": "This record changed or conflicts with an existing record. Refresh and try again.",
   "confirm.ok": "OK",
   "language": "English",
   "app.name": "configcenter",

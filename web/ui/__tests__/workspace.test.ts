@@ -73,7 +73,9 @@ describe('workspace mutations', () => {
     })
     await w.form.submit()
     expect(w.form.open).toBe(true)
-    expect(w.form.error).toBe('That name is already taken.')
+    expect(w.form.error).toBe(
+      'This record changed or conflicts with an existing record. Refresh and try again.',
+    )
   })
   it('requires confirmation before deleting or reviewing a proposal', async () => {
     const w = createWorkspace(data, createPage(data))
