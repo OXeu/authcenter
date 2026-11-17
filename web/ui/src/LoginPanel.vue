@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Button from '@oxeu/center-common/ui/Button.vue'
 import DialogPanel from './DialogPanel.vue'
 import { createForm } from './forms.ts'
 import { notify } from './toast.ts'
@@ -69,12 +70,14 @@ function open(register: boolean) {
 </script>
 <template>
   <div class="mt-4 flex flex-wrap gap-2">
-    <a v-if="data.oauthEnabled" class="btn" href="/auth/login">{{ msg('login.github') }}</a>
+    <Button v-if="data.oauthEnabled" href="/auth/login" variant="primary">{{
+      msg('login.github')
+    }}</Button>
     <template v-if="data.localLogin">
-      <button class="btn-outline" @click="open(false)">{{ msg('login.passwordLogin') }}</button>
-      <button v-if="data.registration && data.emailLogin" class="btn-ghost" @click="open(true)">
+      <Button @click="open(false)" variant="secondary">{{ msg('login.passwordLogin') }}</Button>
+      <Button v-if="data.registration && data.emailLogin" @click="open(true)" variant="ghost">
         {{ msg('login.register') }}
-      </button>
+      </Button>
     </template>
   </div>
   <DialogPanel v-if="form.open" :form="form" :msg="msg" />

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Button from '@oxeu/center-common/ui/Button.vue'
 import { computed, defineAsyncComponent, onMounted, watch } from 'vue'
 import LoginPanel from './LoginPanel.vue'
 import ConsentPage from './ConsentPage.vue'
@@ -67,16 +68,17 @@ onMounted(() => {
       class="mx-auto flex max-w-6xl flex-wrap gap-2 px-4 py-4 sm:px-6 sm:py-6"
       :aria-label="msg('docs.navigation')"
     >
-      <a
+      <Button
         v-for="link in docsLinks"
         :key="link.page"
         :href="link.href"
-        class="tabs-trigger inline-flex items-center"
         :data-active="data.docPage === link.page"
         :aria-current="data.docPage === link.page ? 'page' : undefined"
-        >{{ msg(link.label) }}</a
+        variant="ghost"
+        size="sm"
+        >{{ msg(link.label) }}</Button
       >
-      <a class="btn-ghost ml-auto" :href="rawDocument">{{ msg('docs.raw') }}</a>
+      <Button class="ml-auto" :href="rawDocument" variant="ghost">{{ msg('docs.raw') }}</Button>
     </nav>
   </div>
 </template>

@@ -1,15 +1,18 @@
 <script setup lang="ts">
+import Button from '@oxeu/center-common/ui/Button.vue'
 import type { DangerAction } from './danger.ts'
 defineProps<{ action: DangerAction; disabled: boolean }>()
 </script>
 <template>
-  <button
+  <Button
     type="button"
-    class="btn-danger"
     :disabled="disabled"
     :data-danger-action="action.id"
     @click="action.request()"
+    variant="danger"
+    block
+    align="start"
   >
     {{ action.label }}
-  </button>
+  </Button>
 </template>

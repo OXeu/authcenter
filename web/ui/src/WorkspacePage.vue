@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Button from '@oxeu/center-common/ui/Button.vue'
 import { computed, onMounted } from 'vue'
 import DangerActions from './DangerActions.vue'
 import DialogPanel from './DialogPanel.vue'
@@ -54,29 +55,31 @@ onMounted(refresh)
   </p>
   <div class="my-4 flex flex-wrap gap-2">
     <template v-if="applications">
-      <button
-        class="tabs-trigger"
+      <Button
         :data-active="clients"
         :disabled="state.busy"
         @click="select('clients')"
+        variant="ghost"
+        size="sm"
       >
         {{ msg('apps.clients') }}
-      </button>
-      <button
-        class="tabs-trigger"
+      </Button>
+      <Button
         :data-active="!clients"
         :disabled="state.busy"
         @click="select('grants')"
+        variant="ghost"
+        size="sm"
       >
         {{ msg('apps.grants') }}
-      </button>
+      </Button>
     </template>
-    <button class="btn-outline" :disabled="state.busy" @click="refresh">
+    <Button :disabled="state.busy" @click="refresh" variant="secondary">
       {{ msg('common.refresh') }}
-    </button>
-    <button v-if="clients" class="btn" :disabled="state.busy" @click="edit()">
+    </Button>
+    <Button v-if="clients" :disabled="state.busy" @click="edit()" variant="primary">
       {{ msg('common.create') }}
-    </button>
+    </Button>
   </div>
   <div class="table-scroll">
     <table class="table" :aria-label="title" :aria-busy="state.busy">
@@ -100,9 +103,9 @@ onMounted(refresh)
             <span class="whitespace-pre-wrap break-all">{{ cell(row, column) }}</span>
           </td>
           <td :data-label="msg('common.actions')">
-            <button v-if="canEdit(row)" class="btn-ghost" :disabled="state.busy" @click="edit(row)">
+            <Button v-if="canEdit(row)" :disabled="state.busy" @click="edit(row)" variant="ghost">
               {{ msg('common.edit') }}
-            </button>
+            </Button>
             <DangerActions
               :actions="actionsFor(row)"
               :label="msg('common.more')"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Button from '@oxeu/center-common/ui/Button.vue'
 import { onMounted } from 'vue'
 import DialogPanel from './DialogPanel.vue'
 import DangerActions from './DangerActions.vue'
@@ -12,9 +13,9 @@ onMounted(load)
 </script>
 <template>
   <div class="mt-4 space-y-4" :aria-busy="state.busy">
-    <button class="btn-outline" :disabled="state.busy" @click="load">
+    <Button :disabled="state.busy" @click="load" variant="secondary">
       {{ msg('common.refresh') }}
-    </button>
+    </Button>
     <template v-if="state.ready">
       <section class="card space-y-3">
         <h2 class="font-semibold">{{ msg('account.password') }}</h2>
@@ -22,9 +23,9 @@ onMounted(load)
         <p v-if="!state.local_login" class="text-sm text-muted-foreground">
           {{ msg('account.localDisabled') }}
         </p>
-        <button v-if="state.local_login" class="btn" :disabled="state.busy" @click="password">
+        <Button v-if="state.local_login" :disabled="state.busy" @click="password" variant="primary">
           {{ msg('account.setPassword') }}
-        </button>
+        </Button>
       </section>
       <section class="card space-y-3">
         <h2 class="font-semibold">{{ msg('users.email') }}</h2>
@@ -32,22 +33,27 @@ onMounted(load)
         <p v-if="!state.email_available" class="text-sm text-muted-foreground">
           {{ msg('account.emailUnavailable') }}
         </p>
-        <button v-if="state.email_available" class="btn" :disabled="state.busy" @click="email">
+        <Button
+          v-if="state.email_available"
+          :disabled="state.busy"
+          @click="email"
+          variant="primary"
+        >
           {{ msg('account.changeEmail') }}
-        </button>
+        </Button>
       </section>
       <section class="card space-y-3">
         <h2 class="font-semibold">{{ msg('account.authenticator') }}</h2>
         <p>{{ msg(state.totp_enabled ? 'account.enabled' : 'account.disabled') }}</p>
         <p class="text-sm text-muted-foreground">{{ msg('account.help') }}</p>
-        <button
+        <Button
           v-if="state.local_login && !state.totp_enabled"
-          class="btn"
           :disabled="state.busy"
           @click="enroll"
+          variant="primary"
         >
           {{ msg('account.enable') }}
-        </button>
+        </Button>
         <DangerActions :actions="actions()" :label="msg('common.more')" :disabled="state.busy" />
       </section>
     </template>

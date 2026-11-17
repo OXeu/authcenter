@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Button from '@oxeu/center-common/ui/Button.vue'
 import { onBeforeUnmount, ref, watch, nextTick, useId } from 'vue'
 import DropdownSelect from '@oxeu/center-common/ui/DropdownSelect.vue'
 import CheckboxField from '@oxeu/center-common/ui/CheckboxField.vue'
@@ -154,26 +155,26 @@ async function upload(event: Event, key: string) {
       </p>
       <p v-if="form.validationError" class="field">{{ form.validationError }}</p>
       <div class="flex flex-wrap justify-end gap-2">
-        <button
+        <Button
           v-if="form.secondaryLabel"
-          class="btn-outline"
           type="button"
           :disabled="form.busy"
-          @click="form.secondary"
+          @click="form.secondary()"
+          variant="secondary"
         >
           {{ form.secondaryLabel }}
-        </button>
-        <button class="btn-ghost" type="button" :disabled="form.busy" @click="form.open = false">
+        </Button>
+        <Button type="button" :disabled="form.busy" @click="form.open = false" variant="ghost">
           {{ msg('common.cancel') }}
-        </button>
-        <button
+        </Button>
+        <Button
           v-if="!form.token"
-          :class="form.danger ? 'btn-danger' : 'btn'"
+          :variant="form.danger ? 'danger' : 'primary'"
           type="submit"
           :disabled="form.busy"
         >
           {{ msg('confirm.ok') }}
-        </button>
+        </Button>
       </div>
     </form>
   </dialog>

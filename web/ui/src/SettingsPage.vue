@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Button from '@oxeu/center-common/ui/Button.vue'
 import { onMounted, reactive } from 'vue'
 import DialogPanel from './DialogPanel.vue'
 import { createForm } from './forms.ts'
@@ -95,15 +96,15 @@ onMounted(load)
 <template>
   <p class="mt-2 text-sm text-muted-foreground">{{ msg('settings.help') }}</p>
   <div class="my-4 flex flex-wrap gap-2">
-    <button class="btn" :disabled="state.busy" @click="edit()">
+    <Button :disabled="state.busy" @click="edit()" variant="primary">
       {{ msg('settings.configure') }}
-    </button>
-    <button class="btn-outline" :disabled="state.busy" @click="refreshConfig">
+    </Button>
+    <Button :disabled="state.busy" @click="refreshConfig" variant="secondary">
       {{ msg('settings.refresh') }}
-    </button>
-    <button class="btn-ghost" :disabled="state.busy" @click="load">
+    </Button>
+    <Button :disabled="state.busy" @click="load" variant="ghost">
       {{ msg('common.refresh') }}
-    </button>
+    </Button>
   </div>
   <div class="table-scroll">
     <table class="table" :aria-label="msg('title.settings')" :aria-busy="state.busy">
@@ -130,9 +131,9 @@ onMounted(load)
             {{ msg(item.pending ? 'settings.pending' : 'settings.active') }}
           </td>
           <td :data-label="msg('common.actions')">
-            <button class="btn-ghost" :disabled="state.busy" @click="edit(item)">
+            <Button :disabled="state.busy" @click="edit(item)" variant="ghost">
               {{ msg('common.edit') }}
-            </button>
+            </Button>
           </td>
         </tr>
       </tbody>

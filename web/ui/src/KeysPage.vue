@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Button from '@oxeu/center-common/ui/Button.vue'
 import { onMounted } from 'vue'
 import DangerActions from './DangerActions.vue'
 import DialogPanel from './DialogPanel.vue'
@@ -18,10 +19,12 @@ onMounted(refresh)
 <template>
   <p class="mt-2 text-sm text-muted-foreground">{{ msg('keys.description') }}</p>
   <div class="my-4 flex flex-wrap gap-2">
-    <button class="btn" :disabled="state.busy" @click="edit()">{{ msg('common.create') }}</button>
-    <button class="btn-outline" :disabled="state.busy" @click="refresh">
+    <Button :disabled="state.busy" @click="edit()" variant="primary">{{
+      msg('common.create')
+    }}</Button>
+    <Button :disabled="state.busy" @click="refresh" variant="secondary">
       {{ msg('common.refresh') }}
-    </button>
+    </Button>
   </div>
   <div class="table-scroll">
     <table class="table" :aria-label="msg('title.keys')" :aria-busy="state.busy">
@@ -45,9 +48,9 @@ onMounted(refresh)
           <td>{{ date(row.last_used_at) }}</td>
           <td>{{ date(row.expires_at) }}</td>
           <td>
-            <button class="btn-ghost" :disabled="state.busy" @click="edit(row)">
+            <Button :disabled="state.busy" @click="edit(row)" variant="ghost">
               {{ msg('common.edit') }}
-            </button>
+            </Button>
             <DangerActions
               :actions="actionsFor(row)"
               :label="msg('common.more')"

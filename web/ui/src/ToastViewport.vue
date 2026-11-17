@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Button from '@oxeu/center-common/ui/Button.vue'
 import { onBeforeUnmount, onMounted, shallowRef } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
 import { bindToast, onToastKey, toast } from '@yusufceng1z/ding'
@@ -82,16 +83,19 @@ onBeforeUnmount(() => {
               </div>
               <div v-if="item.description" class="tst-desc">{{ item.description }}</div>
             </div>
-            <button
+            <Button
               v-if="dismissible(item)"
-              class="tst-close"
               type="button"
               :aria-label="state.labels.dismiss"
               :tabindex="item.phase === 'open' ? 0 : -1"
               @click="toast.dismiss(item.id)"
+              variant="ghost"
+              size="sm"
+              data-toast-dismiss
+              content="icon"
+              icon="ri-close-line"
             >
-              <i class="ri-close-line" aria-hidden="true"></i>
-            </button>
+            </Button>
           </div>
         </div>
       </div>
