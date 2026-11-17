@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/xeu/configcenter/internal/config"
-	"github.com/xeu/configcenter/internal/server"
+	"github.com/OXeu/configcenter/internal/config"
+	"github.com/OXeu/configcenter/internal/server"
 )
 
 func main() {

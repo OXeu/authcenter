@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/xeu/configcenter/internal/apikey"
-	"github.com/xeu/configcenter/internal/store"
+	"github.com/OXeu/configcenter/internal/apikey"
+	"github.com/OXeu/configcenter/internal/store"
 )
 
 // ActorID returns the account responsible for a session or API key operation.

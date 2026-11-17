@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/xeu/configcenter/internal/i18n"
+	"github.com/OXeu/configcenter/internal/i18n"
 )
 
 const (

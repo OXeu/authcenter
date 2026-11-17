@@ -1,4 +1,4 @@
-module github.com/xeu/configcenter
+module github.com/OXeu/configcenter
 
 go 1.26.10
 

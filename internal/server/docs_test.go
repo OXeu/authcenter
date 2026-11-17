@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xeu/configcenter"
+	"github.com/OXeu/configcenter"
 )
 
 func TestDocumentation(t *testing.T) {

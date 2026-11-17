@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/OXeu/configcenter/internal/apikey"
+	"github.com/OXeu/configcenter/internal/auth"
+	"github.com/OXeu/configcenter/internal/store"
 	"github.com/gin-gonic/gin"
-	"github.com/xeu/configcenter/internal/apikey"
-	"github.com/xeu/configcenter/internal/auth"
-	"github.com/xeu/configcenter/internal/store"
 )
 
 func (s *Server) allowProject(c *gin.Context, project store.Project) bool {

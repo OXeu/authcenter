@@ -16,9 +16,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/xeu/configcenter/internal/auth"
-	"github.com/xeu/configcenter/internal/config"
-	"github.com/xeu/configcenter/internal/oauth"
+	"github.com/OXeu/configcenter/internal/auth"
+	"github.com/OXeu/configcenter/internal/config"
+	"github.com/OXeu/configcenter/internal/oauth"
 )
 
 func TestMain(m *testing.M) {

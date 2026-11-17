@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/xeu/configcenter"
+	"github.com/OXeu/configcenter"
 )
 
 func (s *Server) mountDocs(r *gin.Engine) {

@@ -11,7 +11,7 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 
-	"github.com/xeu/configcenter/internal/auth"
+	"github.com/OXeu/configcenter/internal/auth"
 )
 
 // Config holds every runtime setting of the server.

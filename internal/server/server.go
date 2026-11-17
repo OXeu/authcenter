@@ -19,11 +19,11 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
-	"github.com/xeu/configcenter"
-	"github.com/xeu/configcenter/internal/auth"
-	"github.com/xeu/configcenter/internal/config"
-	"github.com/xeu/configcenter/internal/i18n"
-	"github.com/xeu/configcenter/internal/store"
+	"github.com/OXeu/configcenter"
+	"github.com/OXeu/configcenter/internal/auth"
+	"github.com/OXeu/configcenter/internal/config"
+	"github.com/OXeu/configcenter/internal/i18n"
+	"github.com/OXeu/configcenter/internal/store"
 )
 
 //go:embed templates/shell/vue.html

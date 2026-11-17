@@ -14,7 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/xeu/configcenter/internal/store"
+	"github.com/OXeu/configcenter/internal/store"
 )
 
 // Authenticator resolves browser sessions and API keys.

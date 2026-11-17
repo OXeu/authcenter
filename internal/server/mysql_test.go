@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xeu/configcenter/internal/config"
-	"github.com/xeu/configcenter/internal/store"
+	"github.com/OXeu/configcenter/internal/config"
+	"github.com/OXeu/configcenter/internal/store"
 )
 
 func TestMySQLStore(t *testing.T) {

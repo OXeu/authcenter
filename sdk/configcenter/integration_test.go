@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xeu/configcenter/sdk/configcenter"
+	"github.com/OXeu/configcenter/sdk/configcenter"
 )
 
 // TestAgainstRunningServer exercises the SDK against a live server. Set

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/xeu/configcenter/internal/apikey"
+	"github.com/OXeu/configcenter/internal/apikey"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

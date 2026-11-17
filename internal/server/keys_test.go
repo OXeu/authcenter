@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xeu/configcenter/internal/apikey"
-	"github.com/xeu/configcenter/internal/store"
+	"github.com/OXeu/configcenter/internal/apikey"
+	"github.com/OXeu/configcenter/internal/store"
 )
 
 func keyRequest(t *testing.T, router http.Handler, token, method, path string, body any, want int) *httptest.ResponseRecorder {

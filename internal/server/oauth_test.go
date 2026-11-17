@@ -21,9 +21,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/xeu/configcenter/internal/auth"
-	"github.com/xeu/configcenter/internal/config"
-	"github.com/xeu/configcenter/internal/store"
+	"github.com/OXeu/configcenter/internal/auth"
+	"github.com/OXeu/configcenter/internal/config"
+	"github.com/OXeu/configcenter/internal/store"
 )
 
 type fakeIdP struct {
