@@ -32,7 +32,7 @@ describe('Vue template rules', () => {
     it(`validates ${file}`, () => {
       const source = readFileSync(`web/ui/src/${file}`, 'utf8')
       const { descriptor } = parse(source)
-      expect(checkTemplate(descriptor.template!.content)).toEqual([])
+      expect(checkTemplate(descriptor.template!.content, `web/ui/src/${file}`)).toEqual([])
       expect(
         checkIconLabels(
           descriptor.template!.content,

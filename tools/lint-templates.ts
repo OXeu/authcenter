@@ -4,6 +4,7 @@ import { parse } from '@vue/compiler-sfc'
 import { checkIconLabels } from './oxlint/icon-labels.ts'
 import { checkTemplate } from './oxlint/templates.ts'
 import { checkDangerTemplate } from './oxlint/danger.ts'
+import { checkDropdownStyles } from './oxlint/dropdown.ts'
 
 const catalogs = Object.fromEntries(
   readdirSync('internal/i18n/locales')
@@ -25,7 +26,8 @@ function check(directory: string): void {
       const { descriptor } = parse(readFileSync(path, 'utf8'))
       const source = descriptor.template?.content ?? ''
       const errors = [
-        ...checkTemplate(source),
+        ...checkTemplate(source, path),
+        ...descriptor.styles.flatMap((style) => checkDropdownStyles(style.content)),
         ...checkDangerTemplate(source, path),
         ...checkIconLabels(source, descriptor.scriptSetup?.content ?? '', catalogs),
       ]
@@ -34,3 +36,5 @@ function check(directory: string): void {
   }
 }
 check('web/ui/src')
+const styleErrors = checkDropdownStyles(readFileSync('web/ui/theme.css', 'utf8'), true)
+if (styleErrors.length) throw new Error(`web/ui/theme.css: ${styleErrors.join(', ')}`)

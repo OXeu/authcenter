@@ -84,23 +84,21 @@
   .table-scroll {
     @apply overflow-x-auto;
   }
-  .table-scroll:has(.dropdown-content) {
-    overflow: visible;
-  }
   .dropdown {
     @apply relative inline-block;
   }
+  .dropdown-panel {
+    position: fixed;
+    @apply z-30 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-md border bg-card p-1 text-foreground shadow-lg;
+  }
   .dropdown-content {
-    @apply absolute right-0 z-30 mt-1 min-w-40 max-w-[calc(100vw-2rem)] rounded-md border bg-card p-1 shadow-lg;
+    @apply min-w-40;
   }
   .dropdown-content .btn-danger {
     @apply w-full justify-start;
   }
   .dropdown-select {
     @apply min-w-0;
-  }
-  .dropdown-options {
-    @apply mt-1 max-h-48 overflow-y-auto rounded-md border bg-card p-1 text-foreground;
   }
   .dropdown-option {
     @apply cursor-pointer break-words rounded-sm px-3 py-3 text-sm hover:bg-muted data-[active=true]:bg-muted aria-selected:font-semibold;
@@ -110,6 +108,18 @@
   }
   .field {
     @apply flex flex-col gap-2 text-sm text-muted-foreground;
+  }
+  .checkbox-field {
+    @apply flex min-h-10 items-center gap-2 text-sm;
+  }
+  .checkbox {
+    @apply inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border bg-background text-primary-foreground focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 aria-checked:border-primary aria-checked:bg-primary;
+  }
+  .checkbox + label {
+    @apply cursor-pointer;
+  }
+  .checkbox:disabled + label {
+    @apply cursor-not-allowed opacity-50;
   }
   .input {
     @apply h-9 w-full rounded-md border bg-transparent px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/50;
@@ -130,7 +140,7 @@
     @apply fixed inset-0 z-40 bg-black/60;
   }
   .dialog-panel {
-    @apply fixed left-1/2 top-1/2 z-50 w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 max-h-[calc(100dvh-2rem)] overflow-y-auto space-y-3 rounded-lg border bg-card p-5 shadow-lg;
+    @apply fixed inset-0 z-50 w-[min(28rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-y-auto space-y-3 rounded-lg border bg-card p-5 shadow-lg;
   }
   .tabs-trigger {
     @apply h-8 rounded-md border border-transparent px-3 text-sm text-muted-foreground data-[active=true]:border-border data-[active=true]:bg-muted data-[active=true]:text-foreground;
@@ -141,7 +151,7 @@ dialog::backdrop {
   background: rgb(0 0 0 / 60%);
 }
 dialog.dialog-panel {
-  margin: 0;
+  margin: auto;
   color: inherit;
 }
 
@@ -265,8 +275,5 @@ dialog.dialog-panel {
   }
   .table td .dropdown {
     justify-self: start;
-  }
-  .table .dropdown-content {
-    @apply static mt-1;
   }
 }

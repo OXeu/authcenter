@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, useId, watch } from 'vue'
+import { useDropdownPosition } from './dropdown.ts'
 
 const props = defineProps<{
   id: string
@@ -13,6 +14,8 @@ const listId = useId()
 const open = ref(false)
 const active = ref(0)
 const trigger = ref<HTMLButtonElement | null>(null)
+const panel = ref<HTMLElement | null>(null)
+const position = useDropdownPosition(trigger, panel, open, true)
 const optionRefs = ref<HTMLElement[]>([])
 const selected = computed(() => props.options.find((option) => option.value === model.value))
 const activeId = computed(() => (open.value ? `${listId}-${active.value}` : undefined))
@@ -92,7 +95,7 @@ function keydown(event: KeyboardEvent) {
       :id="props.id"
       ref="trigger"
       type="button"
-      class="input text-left"
+      class="input h-auto min-h-9 break-words py-2 text-left"
       role="combobox"
       aria-haspopup="listbox"
       :aria-label="props.label"
@@ -107,7 +110,15 @@ function keydown(event: KeyboardEvent) {
     >
       {{ selected?.label ?? props.label }}
     </button>
-    <div v-if="open" :id="listId" role="listbox" :aria-label="props.label" class="dropdown-options">
+    <div
+      v-if="open"
+      :id="listId"
+      ref="panel"
+      role="listbox"
+      :aria-label="props.label"
+      class="dropdown-panel dropdown-options"
+      :style="position"
+    >
       <div
         v-for="(option, index) in props.options"
         :id="`${listId}-${index}`"

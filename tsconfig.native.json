@@ -7,7 +7,7 @@
   "include": ["web/ui/src/**/*.ts", "tools/**/*.ts", "vite.config.ts", "web/ui/__tests__/**/*.ts"],
   "exclude": [
     "web/ui/src/main.ts",
-    "web/ui/__tests__/components.test.ts",
+    "web/ui/__tests__/*components.test.ts",
     "web/ui/__tests__/dropdown.test.ts"
   ]
 }

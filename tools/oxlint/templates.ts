@@ -1,7 +1,6 @@
 import { parse } from '@vue/compiler-dom'
 
-/** @param {string} source @returns {string[]} */
-export function checkTemplate(source: string): string[] {
+export function checkTemplate(source: string, filename = ''): string[] {
   const errors: string[] = []
   const emoji = /\p{Extended_Pictographic}/u
   /** @param {any} node @param {boolean} dialog */
@@ -18,12 +17,61 @@ export function checkTemplate(source: string): string[] {
         ['dialog', 'alertdialog'].includes(attrs.role) ||
         attrs['aria-modal'] === 'true'
       if (
-        ['input', 'select', 'textarea', 'DropdownSelect', 'dropdown-select'].includes(node.tag) &&
+        [
+          'input',
+          'select',
+          'textarea',
+          'DropdownSelect',
+          'dropdown-select',
+          'CheckboxField',
+          'checkbox-field',
+        ].includes(node.tag) &&
         !dialog
       )
         errors.push('input-outside-dialog')
       const element = node.tag.toLowerCase()
       const dynamicTag = node.props.find((p: any) => p.arg?.content === 'is')?.exp?.content
+      const input =
+        element === 'input' ||
+        attrs.is?.toLowerCase() === 'input' ||
+        /^['"]input['"]$/iu.test(dynamicTag ?? '')
+      const boundType = node.props.find((p: any) => p.arg?.content === 'type')
+      const spread = node.props.some((p: any) => p.type === 7 && p.name === 'bind' && !p.arg)
+      if (
+        input &&
+        (attrs.type?.toLowerCase() === 'checkbox' ||
+          (boundType &&
+            !/^['"](?:text|password|email|number|url|tel|search|date|time|hidden)['"]$/iu.test(
+              boundType.exp?.content ?? '',
+            )) ||
+          spread)
+      )
+        errors.push('no-native-checkbox: use CheckboxField instead')
+      if (attrs.role === 'checkbox' && filename !== 'web/ui/src/CheckboxField.vue')
+        errors.push('checkbox-use-shared-component')
+      const classes = (attrs.class ?? '').split(/\s+/u)
+      const panel =
+        classes.some((name: string) =>
+          ['dropdown-panel', 'dropdown-content', 'dropdown-options'].includes(name),
+        ) || ['listbox', 'menu'].includes(attrs.role)
+      if (panel) {
+        if (!['web/ui/src/DropdownMenu.vue', 'web/ui/src/DropdownSelect.vue'].includes(filename))
+          errors.push('dropdown-use-shared-component')
+        if (!classes.includes('dropdown-panel')) errors.push('dropdown-requires-overlay')
+        if (
+          classes.some((name: string) =>
+            /(?:^|:|!)(?:static|relative|absolute|sticky)(?:!|$)/u.test(name),
+          ) ||
+          attrs.style !== undefined ||
+          node.props.some(
+            (p: any) =>
+              p.type === 7 &&
+              (p.arg?.content === 'class' ||
+                (p.arg?.content === 'style' && p.exp?.content !== 'position')),
+          )
+        )
+          errors.push('dropdown-no-position-override')
+      }
       if (
         ['select', 'option', 'optgroup', 'selector'].includes(element) ||
         attrs.is?.toLowerCase() === 'select' ||

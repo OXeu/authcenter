@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { nextTick, ref, useId } from 'vue'
+import { useDropdownPosition } from './dropdown.ts'
 const props = defineProps<{ label: string; disabled?: boolean; compact?: boolean }>()
 const open = ref(false)
 const trigger = ref<HTMLButtonElement | null>(null)
+const panel = ref<HTMLElement | null>(null)
+const position = useDropdownPosition(trigger, panel, open)
 const id = useId()
 function select(event: MouseEvent) {
   if (!(event.target instanceof Element)) return
@@ -38,7 +41,15 @@ function blur(event: FocusEvent) {
     >
       <slot name="trigger">{{ props.label }}</slot>
     </button>
-    <div v-if="open" :id="id" class="dropdown-content" tabindex="-1" @click="select">
+    <div
+      v-if="open"
+      :id="id"
+      ref="panel"
+      class="dropdown-panel dropdown-content"
+      :style="position"
+      tabindex="-1"
+      @click="select"
+    >
       <slot />
     </div>
   </div>
