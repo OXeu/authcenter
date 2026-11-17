@@ -70,7 +70,12 @@ function cancel(event) {
         <section v-if="form.scopes !== null" class="space-y-3">
           <h3 class="text-sm font-medium">{{ msg('keys.scopes') }}</h3>
           <p class="field">{{ msg('keys.scopeHelp') }}</p>
-          <fieldset v-for="scope in form.scopes" :key="scope.id" class="card space-y-3">
+          <fieldset
+            v-for="scope in form.scopes"
+            :key="scope.id"
+            class="card space-y-3"
+            :aria-label="msg('keys.scopeProject')"
+          >
             <div class="flex items-center gap-2">
               <DropdownSelect
                 :id="`${formId}-scope-${scope.id}`"
