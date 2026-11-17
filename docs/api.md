@@ -64,7 +64,7 @@ curl https://auth.example/oauth/revoke -u 'CLIENT_ID:CLIENT_SECRET' -d token=TOK
 
 用户信息始终包含稳定的 `sub` 和数值 `id`；按 scope 返回 `name`、`picture`、`avatar_url`、`email`。撤销接口接受访问令牌或刷新令牌并撤销整组授权；未知令牌也返回 200。令牌只在它所属的客户端下可撤销。用户也可在“我的授权”撤销访问；删除应用立即使其令牌失效。
 
-`GET /.well-known/oauth-authorization-server` 提供 OAuth 授权服务器元数据，供支持发现的客户端选用。
+`GET /.well-known/oauth-authorization-server` 和 `GET /.well-known/openid-configuration` 提供相同的 OAuth 授权服务器元数据，包括授权、注册、令牌、撤销和用户信息端点，以及支持的 scope、授权类型、客户端认证方法和 S256 PKCE。两个发现端点均支持匿名访问和 CORS 预检。`openid-configuration` 用于发现兼容，不声明 `openid` scope、ID Token 签名算法或 JWKS。
 
 ## 管理 API
 
