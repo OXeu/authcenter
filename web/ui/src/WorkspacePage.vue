@@ -112,7 +112,7 @@ onMounted(refresh)
       </thead>
       <tbody>
         <tr v-for="row in state.rows" :key="row.id ?? row.slug ?? row.key">
-          <td v-for="column in columns" :key="column">
+          <td v-for="column in columns" :key="column" :data-label="msg(labels[column])">
             <a
               v-if="data.page === 'projects' && column === 'name'"
               :href="`/projects/${encodeURIComponent(row.slug)}`"
@@ -120,7 +120,7 @@ onMounted(refresh)
             >
             <span v-else class="whitespace-pre-wrap break-all">{{ cell(row, column) }}</span>
           </td>
-          <td v-if="data.canWrite || data.isAdmin">
+          <td v-if="data.canWrite || data.isAdmin" :data-label="msg('common.actions')">
             <button
               v-if="!reviewing && state.tab !== 'keys'"
               class="btn-ghost"

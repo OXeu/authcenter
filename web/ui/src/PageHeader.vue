@@ -57,11 +57,14 @@ async function logout() {
 
 <template>
   <a class="sr-only" href="#main">{{ msg('nav.skip') }}</a>
-  <header class="flex flex-wrap items-center gap-4 border-b px-6 py-3">
-    <a class="btn-ghost btn-icon" href="/projects" :aria-label="msg('app.name')">
+  <header class="flex flex-wrap items-center gap-2 border-b px-4 py-3 sm:gap-4 sm:px-6">
+    <a class="btn-ghost btn-icon mr-auto sm:mr-0" href="/projects" :aria-label="msg('app.name')">
       <img :src="brandIcon.src" :srcset="brandIcon.srcset" width="32" height="32" alt="" />
     </a>
-    <nav class="flex flex-1 gap-1" :aria-label="msg('nav.main')">
+    <nav
+      class="order-last flex w-full flex-wrap gap-1 sm:order-none sm:w-auto sm:flex-1"
+      :aria-label="msg('nav.main')"
+    >
       <a v-if="data.loggedIn" class="btn-ghost" href="/projects">{{ msg('nav.projects') }}</a>
       <a v-if="data.isAdmin" class="btn-ghost" href="/settings">{{ msg('title.settings') }}</a>
       <a v-if="data.isAdmin" class="btn-ghost" href="/users">{{ msg('nav.users') }}</a>
@@ -105,7 +108,7 @@ async function logout() {
             </span>
           </div>
         </template>
-        <div class="flex min-w-64 items-center gap-3 p-3">
+        <div class="flex w-64 max-w-full items-center gap-3 p-3">
           <div class="user-avatar" role="img" :aria-label="identityLabel">
             <img
               v-if="showAvatar"
@@ -137,8 +140,8 @@ async function logout() {
       </DropdownMenu>
     </template>
   </header>
-  <main v-if="!headerOnly" id="main" class="mx-auto max-w-6xl px-6 py-8">
-    <h1 class="text-xl font-semibold">{{ title }}</h1>
+  <main v-if="!headerOnly" id="main" class="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+    <h1 class="break-words text-xl font-semibold">{{ title }}</h1>
     <p v-if="subtitle" class="text-sm text-muted-foreground">{{ subtitle }}</p>
     <slot />
   </main>

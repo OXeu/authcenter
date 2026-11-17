@@ -57,10 +57,10 @@ function cancel(event) {
         </label>
       </template>
       <p v-if="form.token" class="field">
-        {{ msg('projects.tokenIssued') }}<code>{{ form.token }}</code>
+        {{ msg('projects.tokenIssued') }}<code class="break-all">{{ form.token }}</code>
       </p>
       <p v-if="form.error" class="field">{{ form.error }}</p>
-      <div class="flex justify-end gap-2">
+      <div class="flex flex-wrap justify-end gap-2">
         <button class="btn-ghost" type="button" :disabled="form.busy" @click="form.open = false">
           {{ msg('common.cancel') }}
         </button>

@@ -52,7 +52,7 @@ onMounted(() => {
     </PageHeader>
     <nav
       v-if="isDocs"
-      class="mx-auto flex max-w-6xl flex-wrap gap-2 px-6 py-6"
+      class="mx-auto flex max-w-6xl flex-wrap gap-2 px-4 py-4 sm:px-6 sm:py-6"
       :aria-label="msg('docs.navigation')"
     >
       <a
