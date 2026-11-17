@@ -25,6 +25,7 @@ import (
 	"github.com/OXeu/authcenter/internal/credentials"
 	"github.com/OXeu/authcenter/internal/i18n"
 	"github.com/OXeu/authcenter/internal/store"
+	"github.com/OXeu/center-common/httpui"
 )
 
 //go:embed templates/shell/vue.html
@@ -212,6 +213,9 @@ func (s *Server) render(c *gin.Context, status int, data gin.H) {
 	if err != nil {
 		s.log.Error("encode page data", "error", err)
 		c.Status(http.StatusInternalServerError)
+		return
+	}
+	if httpui.ServePageData(c, status, fmt.Sprint(withCommon["Title"]), encoded) {
 		return
 	}
 	withCommon["PageJSON"] = template.JS(encoded) //nolint:gosec // json.Marshal escapes HTML delimiters before insertion into the inert script.
