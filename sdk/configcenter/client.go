@@ -3,12 +3,11 @@
 // The client authenticates with an API key issued for one project. It carries
 // no project name: the key itself is bound to a project, so a key can never
 // read another project's configuration. Without a server URL and API key,
-// the client uses a local bbolt database.
+// the client uses memory, dotenv files and application defaults.
 package configcenter
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,18 +28,15 @@ var (
 	ErrKeyNotFound = errors.New("configcenter: key not found")
 )
 
-// Config selects the remote, KV, dotenv and default configuration sources.
+// Config selects the memory cache, remote, dotenv and default configuration sources.
 type Config struct {
-	// LocalPath selects the fallback bbolt file, relative to the working directory.
-	// Empty uses DefaultLocalPath. Remote values are cached in this file too.
-	LocalPath string
-	// LocalDefaults initializes missing keys atomically in the local environment.
-	// Existing values and remote configuration are never overwritten.
-	LocalDefaults map[string]string
+	// CacheTTL bounds the lifetime of cached reads and writes without extending on hits.
+	// Zero uses DefaultCacheTTL; negative durations are invalid.
+	CacheTTL time.Duration
 	// DotenvFiles lists dotenv files in priority order. Nil reads an optional .env;
 	// an empty slice disables dotenv. Explicit files must exist.
 	DotenvFiles []string
-	// Defaults supplies non-persistent values below KV and dotenv values.
+	// Defaults supplies values below memory, remote and dotenv values.
 	Defaults map[string]string
 	// BaseURL is the server root, for example http://127.0.0.1:8080.
 	BaseURL string
@@ -69,30 +65,35 @@ type WatchOptions struct {
 	OnError func(error)
 }
 
-// Client accesses a remote project or an environment in a local KV database.
+// Client accesses a remote project with an isolated, expiring memory cache.
 type Client struct {
-	local    *localStore
-	cache    *localStore
 	sources  Sources
 	endpoint string
 	apiKey   string
 	env      string
 	http     *http.Client
 
-	mu     sync.RWMutex
-	items  map[string]string
-	order  []Item
-	prefix string
+	opMu      sync.Mutex
+	mu        sync.RWMutex
+	cache     memoryCache
+	fallbacks map[string]Item
+	prefix    string
 }
 
 // New validates cfg and returns a client.
 func New(cfg Config) (*Client, error) {
+	if cfg.CacheTTL < 0 {
+		return nil, errors.New("configcenter: CacheTTL must not be negative")
+	}
+	if cfg.CacheTTL == 0 {
+		cfg.CacheTTL = DefaultCacheTTL
+	}
 	env := cfg.Environment
 	if env == "" {
 		env = "production"
 	}
 	if cfg.BaseURL == "" && cfg.APIKey == "" {
-		return newClient(cfg, env, "", nil)
+		return newClient(cfg, env, "", nil), nil
 	}
 	if cfg.BaseURL == "" {
 		return nil, errors.New("configcenter: BaseURL is required")
@@ -112,41 +113,31 @@ func New(cfg Config) (*Client, error) {
 		}
 		client = &http.Client{Timeout: timeout}
 	}
-	return newClient(cfg, env, base.String()+"/api/v1/agent", client)
+	return newClient(cfg, env, base.String()+"/api/v1/agent", client), nil
 }
 
-func newClient(cfg Config, env, endpoint string, client *http.Client) (*Client, error) {
-	local, err := newLocalStore(cfg.LocalPath, env, cfg.LocalDefaults)
-	if err != nil {
-		return nil, err
-	}
+func newClient(cfg Config, env, endpoint string, client *http.Client) *Client {
 	c := &Client{
-		local:    local,
 		endpoint: endpoint,
 		apiKey:   cfg.APIKey,
 		env:      env,
 		http:     client,
-		items:    map[string]string{},
-	}
-	if endpoint != "" {
-		cache, err := newLocalStore(cfg.LocalPath, env, nil)
-		if err != nil {
-			return nil, err
-		}
-		identity := sha256.Sum256([]byte(endpoint + "\x00" + cfg.APIKey))
-		cache.namespace = fmt.Sprintf("configcenter.cache.v1.%x", identity)
-		c.cache = cache
-		c.sources = append(c.sources, remoteSource{client: c}, cache)
+		cache: memoryCache{
+			entries:  make(map[string]cacheEntry),
+			prefixes: make(map[string]time.Time),
+			ttl:      cfg.CacheTTL,
+		},
+		fallbacks: make(map[string]Item),
 	}
 	var files []string
 	if cfg.DotenvFiles != nil {
 		files = append([]string{}, cfg.DotenvFiles...)
 	}
-	c.sources = append(c.sources, local, DotenvSource{Files: files}, MapSource(maps.Clone(cfg.Defaults)))
-	return c, nil
+	c.sources = Sources{DotenvSource{Files: files}, MapSource(maps.Clone(cfg.Defaults))}
+	return c
 }
 
-// IsLocal reports whether no remote server is configured; writes then use local KV.
+// IsLocal reports whether no remote server is configured; writes then use memory with TTL.
 func (c *Client) IsLocal() bool { return c.endpoint == "" }
 
 // Environment returns the environment slug the client reads.
@@ -166,17 +157,41 @@ func (c *Client) LoadPrefix(ctx context.Context, prefix string) error {
 }
 
 func (c *Client) load(ctx context.Context, prefix string) error {
-	c.local.mu.Lock()
-	defer c.local.mu.Unlock()
-	return c.loadSnapshot(ctx, prefix)
+	c.opMu.Lock()
+	defer c.opMu.Unlock()
+	return c.loadSnapshot(ctx, prefix, false)
 }
 
-func (c *Client) loadSnapshot(ctx context.Context, prefix string) error {
-	items, err := c.sources.Read(ctx, prefix)
-	if ctx.Err() == nil && (err == nil || len(items) > 0) {
-		c.replace(items, prefix)
+func (c *Client) loadSnapshot(ctx context.Context, prefix string, refresh bool) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("configcenter: load cancelled: %w", err)
 	}
-	return err
+	c.mu.Lock()
+	c.cache.prune(time.Now())
+	covered := c.cache.covers(prefix)
+	c.mu.Unlock()
+	var remote []Item
+	var remoteErr error
+	fetch := !c.IsLocal() && (refresh || !covered)
+	if fetch {
+		remote, remoteErr = (remoteSource{client: c}).Read(ctx, prefix)
+	}
+	fetchedAt := time.Now()
+	fallbacks, fallbackErr := c.sources.Read(ctx, prefix)
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("configcenter: load cancelled: %w", err)
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if fetch && remoteErr == nil {
+		c.cache.store(prefix, remote, fetchedAt, refresh)
+	}
+	c.fallbacks = make(map[string]Item, len(fallbacks))
+	for _, item := range fallbacks {
+		c.fallbacks[item.Key] = item
+	}
+	c.prefix = prefix
+	return errors.Join(remoteErr, fallbackErr)
 }
 
 func (c *Client) get(ctx context.Context, path string, query url.Values, out any) error {
@@ -208,23 +223,18 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, out any
 	return nil
 }
 
-func (c *Client) replace(items []Item, prefix string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.items = make(map[string]string, len(items))
-	c.order = items
-	c.prefix = prefix
-	for _, item := range items {
-		c.items[item.Key] = item.Value
-	}
-}
-
-// Get returns the value of key from the snapshot.
+// Get returns an unexpired cached value or the loaded fallback without network I/O.
 func (c *Client) Get(key string) (string, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	value, ok := c.items[key]
-	return value, ok
+	if !strings.HasPrefix(key, c.prefix) {
+		return "", false
+	}
+	if item, ok := c.cache.get(key, time.Now()); ok {
+		return item.Value, true
+	}
+	item, ok := c.fallbacks[key]
+	return item.Value, ok
 }
 
 // GetDefault returns the snapshot value of key or fallback.
@@ -253,11 +263,21 @@ func (c *Client) Bool(key string, fallback bool) bool {
 	return b
 }
 
-// All returns the snapshot sorted by key.
+// All returns unexpired cached values and loaded fallbacks sorted by key.
 func (c *Client) All() []Item {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	out := append([]Item(nil), c.order...)
+	values := maps.Clone(c.fallbacks)
+	now := time.Now()
+	for key := range c.cache.entries {
+		if item, ok := c.cache.get(key, now); ok && strings.HasPrefix(key, c.prefix) {
+			values[key] = item
+		}
+	}
+	out := make([]Item, 0, len(values))
+	for _, item := range values {
+		out = append(out, item)
+	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
 	return out
 }

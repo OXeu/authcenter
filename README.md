@@ -95,7 +95,7 @@ MCP exposes every API operation: project and environment management, configurati
 
 ## Go SDK
 
-`sdk/configcenter` is a separate module (`github.com/OXeu/configcenter/sdk/configcenter`) with bbolt-backed fallback/cache and godotenv support:
+`sdk/configcenter` is a separate module (`github.com/OXeu/configcenter/sdk/configcenter`) with a TTL-based memory cache and godotenv support:
 
 ```go
 client, err := configcenter.New(configcenter.Config{
@@ -109,7 +109,7 @@ if err := client.Watch(ctx, configcenter.WatchOptions{Interval: 30 * time.Second
 
 The key decides the project, so the SDK never takes a project name.
 
-Reads resolve each key from ConfigCenter, then the local fallback/cache KV, then godotenv files, then `Config.Defaults` or the getter's default. Empty strings count as configured values. Successful remote reads and writes persist in the same KV file, isolated by server, API key and environment. `LocalPath` defaults to `.tmp/configcenter.kv`; `DotenvFiles` defaults to an optional `.env` without changing process environment variables. Source failures return errors while exposing available fallback values. When both remote connection fields are empty, `Put` writes locally; partial remote configuration is rejected. See the [SDK guide](docs/sdk.md) for initialization, source composition and error handling.
+Reads resolve each key from unexpired memory cache, then ConfigCenter, then godotenv files, then `Config.Defaults` or the getter's default. Empty strings count as configured values. Each client has an isolated memory map; `CacheTTL` defaults to 30 seconds and cache hits never extend it. `Load` and `Watch` skip remote requests when their full scope is cached, and refresh after expiry. Getters reject expired entries and use loaded fallbacks without network requests. No cache is persisted to disk. `DotenvFiles` defaults to an optional `.env` without changing process environment variables. Source failures return errors while exposing available fallback values. When both remote connection fields are empty, `Put` writes only to memory with the same TTL; partial remote configuration is rejected. See the [SDK guide](docs/sdk.md) for initialization, source composition and error handling.
 
 ## Development
 

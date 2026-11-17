@@ -10,7 +10,7 @@ import (
 )
 
 // DataSource reads a snapshot restricted to prefix. Empty values are present values.
-// A source may return usable items alongside an error, for example a cache write failure.
+// A source may return usable items alongside an error.
 type DataSource interface {
 	Read(ctx context.Context, prefix string) ([]Item, error)
 }
@@ -92,5 +92,5 @@ func (s remoteSource) Read(ctx context.Context, prefix string) ([]Item, error) {
 			items = append(items, item)
 		}
 	}
-	return items, s.client.cache.cache(ctx, items)
+	return items, nil
 }

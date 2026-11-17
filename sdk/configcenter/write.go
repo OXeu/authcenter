@@ -8,15 +8,26 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
 
-// Put persists a value and updates the loaded snapshot if its prefix includes key.
+var keyPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/-]{0,190}$`)
+
+func validateKey(key string) error {
+	if !keyPattern.MatchString(key) {
+		return errors.New("configcenter: key must be 1-191 letters, digits or . _ : / - and start with a letter or digit")
+	}
+	return nil
+}
+
+// Put writes to the remote server when configured, then caches the value with TTL.
+// Without a remote server it writes only to this client's memory cache.
 // Remote writes need projects:read, environments:read and config:write permissions.
 func (c *Client) Put(ctx context.Context, key, value string) error {
-	c.local.mu.Lock()
-	defer c.local.mu.Unlock()
+	c.opMu.Lock()
+	defer c.opMu.Unlock()
 	if err := c.put(ctx, key, value); err != nil {
 		return fmt.Errorf("write configuration key %q: %w", key, err)
 	}
@@ -24,15 +35,14 @@ func (c *Client) Put(ctx context.Context, key, value string) error {
 }
 
 func (c *Client) put(ctx context.Context, key, value string) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("configcenter: write cancelled: %w", err)
+	}
 	if err := validateKey(key); err != nil {
 		return err
 	}
 	if c.IsLocal() {
-		item, err := c.local.put(ctx, key, value)
-		if err != nil {
-			return err
-		}
-		c.cachePut(item)
+		c.cachePut(Item{Key: key, Value: value, UpdatedAt: time.Now().UTC()})
 		return nil
 	}
 	path, err := c.environmentPath(ctx)
@@ -62,9 +72,6 @@ func (c *Client) put(ctx context.Context, key, value string) error {
 	}
 	item := Item{Key: key, Value: value, UpdatedAt: time.Now().UTC()}
 	c.cachePut(item)
-	if err := c.cache.cache(ctx, []Item{item}); err != nil {
-		return fmt.Errorf("configcenter: remote write succeeded but caching failed: %w", err)
-	}
 	return nil
 }
 
@@ -86,15 +93,7 @@ func (c *Client) environmentPath(ctx context.Context) (string, error) {
 func (c *Client) cachePut(item Item) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if !strings.HasPrefix(item.Key, c.prefix) {
-		return
-	}
-	c.items[item.Key] = item.Value
-	for i := range c.order {
-		if c.order[i].Key == item.Key {
-			c.order[i] = item
-			return
-		}
-	}
-	c.order = append(c.order, item)
+	now := time.Now()
+	c.cache.prune(now)
+	c.cache.put(item, now)
 }

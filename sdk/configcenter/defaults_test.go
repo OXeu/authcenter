@@ -46,7 +46,7 @@ func TestEnsureDefaultsRemoteUsesAtomicInitialization(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	client := localClient(t, Config{BaseURL: server.URL, APIKey: "cc_test", LocalPath: localTestPath(t), DotenvFiles: []string{}, Defaults: map[string]string{"new": "fallback"}})
+	client := testClient(t, Config{BaseURL: server.URL, APIKey: "cc_test", DotenvFiles: []string{}, Defaults: map[string]string{"new": "fallback"}})
 	defaults := map[string]string{"keep": "default", "new": "new-default"}
 	if err := client.Load(t.Context()); err != nil {
 		t.Fatal(err)
@@ -84,7 +84,7 @@ func TestEnsureDefaultsErrorsIdentifyKeys(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			client := localClient(t, Config{BaseURL: server.URL, APIKey: "cc_test", LocalPath: localTestPath(t), DotenvFiles: []string{}})
+			client := testClient(t, Config{BaseURL: server.URL, APIKey: "cc_test", DotenvFiles: []string{}})
 			err := client.EnsureDefaults(t.Context(), map[string]string{"certcenter.server": "secret-value"})
 			if err == nil || !strings.Contains(err.Error(), "certcenter.server") || strings.Contains(err.Error(), "secret-value") {
 				t.Fatal("missing key context or leaked value", err)
@@ -94,7 +94,7 @@ func TestEnsureDefaultsErrorsIdentifyKeys(t *testing.T) {
 }
 
 func TestEnsureDefaultsLocalPreservesExistingValues(t *testing.T) {
-	client := localClient(t, Config{LocalPath: localTestPath(t)})
+	client := testClient(t, Config{DotenvFiles: []string{}})
 	if err := client.Put(t.Context(), "keep", "operator-value"); err != nil {
 		t.Fatal(err)
 	}

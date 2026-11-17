@@ -10,15 +10,17 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	bolt "go.etcd.io/bbolt"
 )
 
-// EnsureDefaults atomically creates missing keys in the selected backend and reloads the snapshot.
+// EnsureDefaults creates missing keys on the remote server or in memory with TTL.
+// It preserves existing backend values and reloads the snapshot, bypassing cached reads.
 // Remote initialization requires a server with the defaults endpoint and config:write permission.
 func (c *Client) EnsureDefaults(ctx context.Context, defaults map[string]string) error {
-	c.local.mu.Lock()
-	defer c.local.mu.Unlock()
+	c.opMu.Lock()
+	defer c.opMu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("configcenter: initialize defaults cancelled: %w", err)
+	}
 	keys := make([]string, 0, len(defaults))
 	for key := range defaults {
 		if err := validateKey(key); err != nil {
@@ -38,20 +40,16 @@ func (c *Client) EnsureDefaults(ctx context.Context, defaults map[string]string)
 
 func (c *Client) ensureDefaults(ctx context.Context, defaults map[string]string) error {
 	if c.IsLocal() {
-		if err := c.local.transaction(ctx, func(bucket *bolt.Bucket) error {
-			for key, value := range defaults {
-				if bucket.Get([]byte(key)) != nil {
-					continue
-				}
-				if err := writeLocalItem(bucket, Item{Key: key, Value: value, UpdatedAt: time.Now().UTC()}); err != nil {
-					return err
-				}
+		c.mu.Lock()
+		now := time.Now()
+		c.cache.prune(now)
+		for key, value := range defaults {
+			if _, exists := c.cache.get(key, now); !exists {
+				c.cache.put(Item{Key: key, Value: value, UpdatedAt: now.UTC()}, now)
 			}
-			return nil
-		}); err != nil {
-			return err
 		}
-		return c.loadSnapshot(ctx, "")
+		c.mu.Unlock()
+		return c.loadSnapshot(ctx, "", false)
 	}
 	items, err := (remoteSource{client: c}).Read(ctx, "")
 	if err != nil {
@@ -62,7 +60,7 @@ func (c *Client) ensureDefaults(ctx context.Context, defaults map[string]string)
 		delete(missing, item.Key)
 	}
 	if len(missing) == 0 {
-		return c.loadSnapshot(ctx, "")
+		return c.loadSnapshot(ctx, "", true)
 	}
 	path, err := c.environmentPath(ctx)
 	if err != nil {
@@ -88,5 +86,5 @@ func (c *Client) ensureDefaults(ctx context.Context, defaults map[string]string)
 	if resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("configcenter defaults endpoint: status %d (requires config:write and a server supporting initialization)", resp.StatusCode)
 	}
-	return c.loadSnapshot(ctx, "")
+	return c.loadSnapshot(ctx, "", true)
 }

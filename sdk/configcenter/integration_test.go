@@ -2,9 +2,7 @@ package configcenter_test
 
 import (
 	"context"
-	"crypto/rand"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -23,16 +21,7 @@ func TestAgainstRunningServer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	path, err := filepath.Abs(filepath.Join("..", "..", ".tmp", "sdk-live-"+rand.Text()))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := os.RemoveAll(path); err != nil {
-			t.Error(err)
-		}
-	})
-	client, err := configcenter.New(configcenter.Config{LocalPath: filepath.Join(path, "cache.kv"), DotenvFiles: []string{}, BaseURL: baseURL, APIKey: key, Environment: "production"})
+	client, err := configcenter.New(configcenter.Config{DotenvFiles: []string{}, BaseURL: baseURL, APIKey: key, Environment: "production"})
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}

@@ -6,7 +6,7 @@ SDK 使用只授权一个具体项目的 API Key，配置读取需要 `config:re
 
 ## 安装
 
-SDK 是独立 Go 模块，需要 Go 1.26 或更高版本。本地存储使用 [bbolt](https://github.com/etcd-io/bbolt)，dotenv 文件使用 [godotenv](https://github.com/joho/godotenv) 解析。在调用方 Go 模块目录执行：
+SDK 是独立 Go 模块，需要 Go 1.26 或更高版本。缓存使用带 TTL 的内存 map，dotenv 文件使用 godotenv 解析，不依赖本地 KV 数据库。在调用方 Go 模块目录执行：
 
 ```sh
 go get github.com/OXeu/configcenter/sdk/configcenter
@@ -52,8 +52,8 @@ func LoadPool(ctx context.Context, baseURL, apiKey string) (int, error) {
 
 SDK 按键合并数据源，优先级依次为：
 
-1. ConfigCenter 当前返回的配置。
-2. `LocalPath` 指定的 fallback KV：优先使用最近成功读取或写入的远程缓存，其次使用本地配置。
+1. 尚未过期的内存缓存。
+2. ConfigCenter 当前返回的配置。
 3. godotenv 解析的 dotenv 文件。
 4. `Config.Defaults`；仍不存在时使用 `GetDefault`、`Int`、`Bool` 的调用方默认值。
 
@@ -64,7 +64,7 @@ client, err := configcenter.New(configcenter.Config{
     BaseURL: baseURL,
     APIKey: apiKey,
     Environment: "production",
-    LocalPath: ".tmp/app-config.kv",
+    CacheTTL: 30 * time.Second,
     DotenvFiles: []string{".env.local", ".env"},
     Defaults: map[string]string{"db.pool": "10"},
 })
@@ -75,19 +75,19 @@ if err := client.Load(ctx); err != nil {
 pool := client.Int("db.pool", 10)
 ```
 
-此片段放在持有 `ctx`、`baseURL`、`apiKey` 和 `logger` 的调用方函数中。发生数据源错误时，`Load` 仍合并可用来源并提供快照，同时返回错误，调用方可自行决定是否允许降级启动。所有来源都未提供值且有错误时保留旧快照；context 取消时也保留旧快照。部分失败的快照不会混入旧的内存值，持久化的远程缓存除外。
+此片段放在持有 `ctx`、`baseURL`、`apiKey` 和 `logger` 的调用方函数中。发生数据源错误时，`Load` 仍合并可用来源并提供快照，同时返回错误，调用方可自行决定是否允许降级启动。过期缓存不会用于降级；没有可用来源时快照为空。context 取消时保留原加载范围和 fallback，但缓存仍按原 TTL 到期。
 
 `BaseURL` 和 `APIKey` 同时为空时跳过远端；仅填其中一个仍报错。远程请求失败不会将写操作转存到本地。
 
-### KV 存储和缓存
+### 内存缓存与 TTL
 
-`LocalPath` 为空时使用当前工作目录下 `.tmp/configcenter.kv`；可指定固定路径供生产持久化。文件首次读取或写入时创建，权限为 `0600`。每次操作使用 bbolt 事务并关闭文件，不需要额外调用 Close。并发进程竞争文件锁时最多等待一秒，context 截止时间更短则优先使用它。
+`CacheTTL` 为零时使用 `DefaultCacheTTL`（30 秒），也可指定正的 `time.Duration`，负值会在 `New` 时返回错误。TTL 从成功读取或写入开始计算，命中缓存不会续期。每个客户端持有独立的 map，缓存不落盘，不跨客户端或进程重启共享，也不需要 Close。
 
-本地值按 `Environment` 隔离。远程缓存也存放在同一个 KV 文件中，另外按服务地址和 API Key 的哈希隔离，防止不同项目相互读取缓存。复用缓存需要相同的服务地址、API Key、环境和 `LocalPath`；更换密钥或移除远端配置不会读到旧远端的缓存。不同应用应使用不同 `LocalPath`。
+`Load` / `LoadPrefix` 先检查请求范围是否有完整且有效的缓存；命中时跳过 ConfigCenter。缓存缺失或过期时请求远端，用返回值补齐缓存；已有的未过期值仍优先。完整快照可以覆盖更窄的前缀，前缀快照不能代替完整加载。成功返回的空快照也按 TTL 缓存，避免反复请求缺失的配置。更大范围的加载不会延长已有条目的 TTL。
 
-远程读取和 `Put` 成功后更新缓存，包括空字符串和配置元数据。远端未返回的键保留最近成功缓存的值；前缀刷新也不会删除其他前缀的缓存。dotenv 和 `Defaults` 不写入 KV。缓存保存失败会返回错误，已读取的远程值或已成功写入的值仍可从当前快照读取。
+远程读取和 `Put` 成功后缓存空字符串及配置元数据；失败的写入不改动缓存。过期后远端已删除的键、远端不可用时的旧值均不会继续返回，而是使用 dotenv 或默认值。加载和写入会清理过期条目；`Get`、`GetDefault`、`Int`、`Bool` 和 `All` 也会检查有效期。
 
-`LocalDefaults` 是兼容的 KV 初始化选项：在事务中只创建缺失的本地键，已有值不会在重启时被覆盖；配置远端时也会生效。这些值处于 KV 层，高于 dotenv。需要最低优先级且不持久化的默认值时，使用 `Defaults`。
+dotenv 和 `Defaults` 仅作为读取 fallback，不会写入远程缓存。读取方法不发网络请求：缓存过期时使用最近一次加载的 fallback，需要调用 `Load` 或启用 `Watch` 获取最新远程值。原有 `LocalPath`、`LocalDefaults` 和 `DefaultLocalPath` 已移除；应用默认值改用 `Defaults`，持久化配置写入 ConfigCenter。
 
 ### dotenv 文件
 
@@ -97,13 +97,13 @@ pool := client.Int("db.pool", 10)
 
 ### 写入和默认值初始化
 
-`Put(ctx, key, value)` 在有远端配置时写入远端，否则写入本地 KV，并更新匹配当前加载前缀的快照。远端写入需要 `projects:read`、`environments:read` 和 `config:write`。`IsLocal()` 表示是否未配置远端。配置键遵循服务端的 1–191 字符规则。
+`Put(ctx, key, value)` 在有远端配置时写入远端，成功后更新内存缓存；未配置远端时仅写入当前客户端的内存，同样受 TTL 限制。匹配当前加载前缀的写入可立即读取，其他前缀需重新加载对应范围。远端写入需要 `projects:read`、`environments:read` 和 `config:write`。`IsLocal()` 表示是否未配置远端。配置键遵循服务端的 1–191 字符规则。
 
-`EnsureDefaults(ctx, defaults)` 在当前写入后端中原子初始化缺失的键，然后重新加载多级快照；已有值不会被覆盖。远端初始化需要支持 `/defaults` 接口的服务器，以及 `config:read`、`projects:read`、`environments:read` 和 `config:write` 权限。低优先级来源已有值不会阻止初始化远端缺失项。它会持久化值，作用不同于只参与读取的 `Config.Defaults`。
+`EnsureDefaults(ctx, defaults)` 在当前写入后端中原子初始化缺失的键，然后重新加载多级快照；已有值不会被覆盖。配置远端时绕过缓存检查和刷新，避免缓存掩盖初始化结果；需要支持 `/defaults` 接口的服务器，以及 `config:read`、`projects:read`、`environments:read` 和 `config:write` 权限。低优先级来源已有值不会阻止初始化远端缺失项。未配置远端时只初始化当前客户端中缺失或已过期的内存条目，仍受 TTL 限制；长期 fallback 应使用 `Config.Defaults`。
 
 ## 统一数据源抽象
 
-远端、KV、dotenv 和默认值均使用同一个接口：
+远端、dotenv 和默认值使用同一个读取接口，客户端在远端请求前检查内存缓存：
 
 ```go
 type DataSource interface {
@@ -111,7 +111,7 @@ type DataSource interface {
 }
 ```
 
-公开的 `Sources` 可组合任意实现该接口的数据源，按顺序为每个键选取第一个值，并聚合各来源错误。来源可以同时返回可用数据和错误。`MapSource` 提供内存配置，`DotenvSource` 提供文件配置；SDK 内部用相同机制组合远端和 KV。
+公开的 `Sources` 可组合任意实现该接口的数据源，按顺序为每个键选取第一个值，并聚合各来源错误。来源可以同时返回可用数据和错误。`MapSource` 提供静态内存配置（自身不带 TTL），`DotenvSource` 提供文件配置；SDK 内部使用它们组合 fallback，TTL 由客户端缓存管理。
 
 ```go
 var source configcenter.DataSource = configcenter.Sources{
@@ -127,16 +127,16 @@ items, err := source.Read(ctx, "db.")
 
 | 方法                        | 行为                                               |
 | --------------------------- | -------------------------------------------------- |
-| `Load(ctx)`                 | 合并所有来源，提供可用快照并返回来源错误                       |
-| `LoadPrefix(ctx, "db.")`    | 逐层合并匹配前缀的配置，替换整个快照         |
-| `Get(key)`                  | 返回字符串和是否存在，不发网络请求                 |
+| `Load(ctx)`                 | 合并所有来源，提供可用快照并返回来源错误           |
+| `LoadPrefix(ctx, "db.")`    | 逐层合并匹配前缀的配置，替换整个快照               |
+| `Get(key)`                  | 返回未过期缓存或已加载的 fallback，不发网络请求    |
 | `GetDefault(key, fallback)` | 缺失时返回默认值；空字符串仍是有效值               |
 | `Int(key, fallback)`        | 去除两端空白后解析整数，缺失或解析失败时返回默认值 |
 | `Bool(key, fallback)`       | 使用 Go `strconv.ParseBool`，失败时返回默认值      |
 | `All()`                     | 返回按 key 排序的配置项副本                        |
 | `Environment()`             | 返回当前客户端环境 slug                            |
 
-首次 Load 前快照为空。读取和快照替换受锁保护，可并发调用。来源失败时可使用其他来源的值；存在来源错误且没有可用值、或 context 取消时保留已有快照。需要区分缺失和无效值时，使用 `Get` 后自行解析。配置中的 JSON 也需要调用方自行反序列化。
+新建客户端的快照为空；首次 `Load` 加载 fallback，成功的 `Put` 也可立即提供缓存值。读取和快照替换受锁保护，可并发调用。来源失败时可使用其他来源的值，过期缓存始终不可见；context 取消时保留原加载范围和 fallback。需要区分缺失和无效值时，使用 `Get` 后自行解析。配置中的 JSON 也需要调用方自行反序列化。
 
 ## 自动刷新
 
@@ -155,7 +155,7 @@ if err := client.Watch(watchCtx, configcenter.WatchOptions{
 
 此片段放在持有 `client`、`ctx` 和 `logger` 的长生命周期函数中，并在该函数结束前运行应用。Watch 会同步执行首次完整 Load；首次失败会返回错误，不启动后台循环。成功后启动后台定时轮询，Interval 小于等于零时使用 30 秒。后续错误调用 OnError，未提供回调时静默重试；有可用 fallback 时快照仍会更新。
 
-取消 context 可停止轮询。一个客户端通常只启动一次 Watch。Watch 每次加载全部配置，因此会覆盖 LoadPrefix 得到的过滤快照；它不提供前缀订阅、变更回调或服务端推送。
+取消 context 可停止轮询。一个客户端通常只启动一次 Watch。Watch 每次加载全部配置，因此会覆盖 LoadPrefix 得到的过滤快照；它不提供前缀订阅、变更回调或服务端推送。轮询遵守 `CacheTTL`：缓存有效时跳过远端，过期后的下一次轮询才请求远端；在此间隙读取方法使用已加载的 fallback。
 
 ## 错误处理
 
