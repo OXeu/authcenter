@@ -13,7 +13,7 @@ const applications = computed(() => data.page === 'applications')
 const clients = computed(() => applications.value && state.tab === 'clients')
 const columns = computed(() =>
   !applications.value
-    ? ['name', 'email', 'role']
+    ? ['name', 'email', 'role', 'banned', 'banned_until']
     : clients.value
       ? ['name', 'id', 'homepage', 'redirect_uris']
       : ['client_id', 'scope'],
@@ -27,8 +27,13 @@ const labels: Record<string, string> = {
   scope: 'apps.scopes',
   email: 'users.email',
   role: 'users.role',
+  banned: 'users.status',
+  banned_until: 'users.bannedUntil',
 }
 function cell(row: Record<string, any>, column: string) {
+  if (column === 'banned') return msg(row.banned ? 'users.banned' : 'users.active')
+  if (column === 'banned_until')
+    return row.banned_until ? new Date(row.banned_until).toLocaleString() : '—'
   if (column === 'role') return msg(`role.${row[column]}`)
   return Array.isArray(row[column]) ? row[column].join('\n') : row[column]
 }
@@ -98,7 +103,6 @@ onMounted(refresh)
               {{ msg('common.edit') }}
             </button>
             <DangerActions
-              v-if="applications"
               :actions="actionsFor(row)"
               :label="msg('common.more')"
               :disabled="state.busy"

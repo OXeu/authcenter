@@ -71,3 +71,32 @@ it('revokes grants through the scoped grants endpoint', async () => {
     expect.objectContaining({ method: 'DELETE' }),
   )
 })
+it('confirms user bans with a future expiry and offers unban and deletion', async () => {
+  const w = createWorkspace({ ...data, page: 'users', me: { id: 1 } } as PageData, createPage(data))
+  const row = { id: 2, name: 'User', email: 'user@example.com', banned: false }
+  expect(w.actionsFor({ ...row, id: 1 })).toEqual([])
+  w.actionsFor(row)[0].request()
+  expect(fetch).not.toHaveBeenCalled()
+  w.form.values.until = '2000-01-01T00:00'
+  await w.form.submit()
+  expect(fetch).not.toHaveBeenCalled()
+  expect(w.form.open).toBe(true)
+  w.form.values.until = '2099-01-01T00:00'
+  await w.form.submit()
+  expect(fetch).toHaveBeenCalledWith(
+    '/api/v1/users/2/ban',
+    expect.objectContaining({ method: 'PUT' }),
+  )
+  w.actionsFor({ ...row, banned: true })[0].request()
+  await w.form.submit()
+  expect(fetch).toHaveBeenCalledWith(
+    '/api/v1/users/2/ban',
+    expect.objectContaining({ method: 'DELETE' }),
+  )
+  w.actionsFor(row)[1].request()
+  await w.form.submit()
+  expect(fetch).toHaveBeenCalledWith(
+    '/api/v1/users/2',
+    expect.objectContaining({ method: 'DELETE' }),
+  )
+})

@@ -12,7 +12,10 @@ import (
 func (s *Store) lockUser(ctx context.Context, id uint) (User, error) {
 	var user User
 	err := s.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&user, id).Error
-	return user, queryErr("lock user", err)
+	if err != nil {
+		return User{}, queryErr("lock user", err)
+	}
+	return user, nil
 }
 
 func (s *Store) invalidateUserCredentials(ctx context.Context, id uint, session string) error {
@@ -32,7 +35,7 @@ func (s *Store) SetPassword(ctx context.Context, expected User, hash, session st
 		if err != nil {
 			return err
 		}
-		if user.PasswordHash != expected.PasswordHash {
+		if !user.Active() || user.PasswordHash != expected.PasswordHash {
 			return ErrInvalidGrant
 		}
 		if err := tx.db.WithContext(ctx).Model(&user).Update("password_hash", hash).Error; err != nil {
@@ -49,7 +52,7 @@ func (s *Store) DisableTOTP(ctx context.Context, expected User, step int64, sess
 		if err != nil {
 			return err
 		}
-		if user.PasswordHash != expected.PasswordHash || user.TOTPSecret == "" || user.TOTPSecret != expected.TOTPSecret || user.TOTPStep >= step {
+		if !user.Active() || user.PasswordHash != expected.PasswordHash || user.TOTPSecret == "" || user.TOTPSecret != expected.TOTPSecret || user.TOTPStep >= step {
 			return ErrInvalidGrant
 		}
 		if err := tx.db.WithContext(ctx).Model(&user).Updates(map[string]any{"totp_secret": "", "totp_step": 0}).Error; err != nil {
@@ -76,7 +79,7 @@ func (s *Store) VerifyEmailChange(ctx context.Context, userID uint, id, sessionH
 		if err != nil {
 			return err
 		}
-		if user.PasswordHash != challenge.PasswordHash || user.Email != challenge.PreviousEmail {
+		if !user.Active() || user.PasswordHash != challenge.PasswordHash || user.Email != challenge.PreviousEmail {
 			return ErrInvalidGrant
 		}
 		if err := tx.db.WithContext(ctx).Model(&user).Updates(map[string]any{"email": challenge.Email, "email_verified": true}).Error; err != nil {

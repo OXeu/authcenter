@@ -81,6 +81,10 @@ func (s *Server) passwordLogin(c *gin.Context) {
 		return
 	}
 	challenge := store.LoginChallenge{ID: rand.Text() + rand.Text(), Email: in.Email, UserID: user.ID, PasswordHash: user.PasswordHash, Secret: user.TOTPSecret, Purpose: "login", ExpiresAt: time.Now().UTC().Add(5 * time.Minute)}
+	if userErr == nil && !user.Active() {
+		oauthError(c, 401, "invalid_credentials")
+		return
+	}
 	if in.Register {
 		if !s.cfg.AllowRegistration || s.cfg.ResendKey == "" || s.cfg.ResendFrom == "" {
 			oauthError(c, 403, "registration_unavailable")

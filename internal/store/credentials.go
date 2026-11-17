@@ -50,7 +50,18 @@ func (s *Store) AllowAttempt(ctx context.Context, key string, limit int, window 
 
 // CreateLoginChallenge saves a pending login without creating a session.
 func (s *Store) CreateLoginChallenge(ctx context.Context, c LoginChallenge) error {
-	return queryErr("create login challenge", s.db.WithContext(ctx).Create(&c).Error)
+	return s.Transaction(ctx, func(tx *Store) error {
+		if c.UserID != 0 {
+			user, err := tx.lockUser(ctx, c.UserID)
+			if err != nil {
+				return err
+			}
+			if !user.Active() {
+				return ErrInvalidGrant
+			}
+		}
+		return queryErr("create login challenge", tx.db.WithContext(ctx).Create(&c).Error)
+	})
 }
 
 // LoginChallengeByID returns a live challenge.
@@ -81,9 +92,12 @@ func (s *Store) VerifyLoginChallenge(ctx context.Context, id, emailHash string, 
 		}
 		if challenge.UserID != 0 {
 			var err error
-			user, err = tx.UserByID(ctx, challenge.UserID)
+			user, err = tx.lockUser(ctx, challenge.UserID)
 			if err != nil {
 				return err
+			}
+			if !user.Active() {
+				return ErrInvalidGrant
 			}
 		}
 		switch challenge.Purpose {

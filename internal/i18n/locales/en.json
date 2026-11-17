@@ -222,5 +222,13 @@
   "authError.invalid_email": "Enter a different valid email address.",
   "authError.email_in_use": "This email is already in use.",
   "authError.local_login_disabled": "Password login is disabled.",
-  "authError.enrollment_unavailable": "Authenticator enrollment is unavailable."
+  "authError.enrollment_unavailable": "Authenticator enrollment is unavailable.",
+  "users.delete": "Delete user",
+  "users.ban": "Ban user",
+  "users.unban": "Unban user",
+  "users.status": "Status",
+  "users.bannedUntil": "Ban expires at",
+  "users.expiryRequired": "Choose a future expiry time.",
+  "users.banned": "Banned",
+  "users.active": "Active"
 }

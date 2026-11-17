@@ -30,6 +30,9 @@ func (s *Server) MountAPI(r *gin.Engine) {
 	api.DELETE("/clients/:id", s.apiDeleteClient)
 	admin.GET("/users", s.apiListUsers)
 	admin.PATCH("/users/:id", s.apiSetRole)
+	admin.PUT("/users/:id/ban", s.apiBanUser)
+	admin.DELETE("/users/:id/ban", s.apiUnbanUser)
+	admin.DELETE("/users/:id", s.apiDeleteUser)
 }
 
 func (s *Server) apiMe(c *gin.Context) {
@@ -44,6 +47,8 @@ func (s *Server) fail(c *gin.Context, err error) {
 		status = http.StatusNotFound
 	case errors.Is(err, errBadRequest):
 		status = http.StatusBadRequest
+	case errors.Is(err, store.ErrProtectedUser):
+		status = http.StatusForbidden
 	}
 	if status == http.StatusInternalServerError {
 		s.log.Error("request failed", "path", c.Request.URL.Path, "error", err)
@@ -70,6 +75,8 @@ type userJSON struct {
 	Role        store.Role `json:"role"`
 	CreatedAt   time.Time  `json:"created_at"`
 	LastLoginAt *time.Time `json:"last_login_at"`
+	BannedUntil *time.Time `json:"banned_until"`
+	Banned      bool       `json:"banned"`
 }
 
 func (s *Server) apiListUsers(c *gin.Context) {
@@ -80,7 +87,7 @@ func (s *Server) apiListUsers(c *gin.Context) {
 	}
 	out := make([]userJSON, 0, len(users))
 	for _, u := range users {
-		out = append(out, userJSON{ID: u.ID, Name: u.Name, AvatarURL: u.AvatarURL, Email: u.Email, Role: u.Role, CreatedAt: u.CreatedAt, LastLoginAt: u.LastLoginAt})
+		out = append(out, userJSON{ID: u.ID, Name: u.Name, AvatarURL: u.AvatarURL, Email: u.Email, Role: u.Role, CreatedAt: u.CreatedAt, LastLoginAt: u.LastLoginAt, BannedUntil: u.BannedUntil, Banned: !u.Active()})
 	}
 	c.JSON(http.StatusOK, gin.H{"users": out})
 }
@@ -107,7 +114,11 @@ func (s *Server) apiSetRole(c *gin.Context) {
 		c.Status(http.StatusBadRequest)
 		return
 	}
-	if err := s.store.SetUserRole(c.Request.Context(), uint(id), in.Role); err != nil {
+	if uint(id) == actor.User.ID {
+		c.Status(204)
+		return
+	}
+	if err := s.store.ManageUserRole(c.Request.Context(), actor.User.ID, uint(id), in.Role); err != nil {
 		s.fail(c, err)
 		return
 	}

@@ -5,6 +5,8 @@ export type User = {
   email: string
   role: string
   last_login_at?: string | null
+  banned?: boolean
+  banned_until?: string | null
 }
 
 export type PageData = {

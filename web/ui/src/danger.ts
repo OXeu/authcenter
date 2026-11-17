@@ -4,6 +4,9 @@ export const dangerOperations = {
   deleteClient: 'common.delete',
   revokeGrant: 'apps.revoke',
   disableTOTP: 'account.disable',
+  deleteUser: 'users.delete',
+  banUser: 'users.ban',
+  unbanUser: 'users.unban',
 } as const
 export type DangerOperation = keyof typeof dangerOperations
 const confirmedAction = Symbol('confirmedAction')

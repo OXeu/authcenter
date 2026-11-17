@@ -222,5 +222,13 @@
   "authError.invalid_email": "请输入有效的新邮箱地址。",
   "authError.email_in_use": "该邮箱已被使用。",
   "authError.local_login_disabled": "密码登录已关闭。",
-  "authError.enrollment_unavailable": "当前无法启用身份验证器。"
+  "authError.enrollment_unavailable": "当前无法启用身份验证器。",
+  "users.delete": "删除用户",
+  "users.ban": "封禁用户",
+  "users.unban": "解封用户",
+  "users.status": "状态",
+  "users.bannedUntil": "封禁截止时间",
+  "users.expiryRequired": "请选择未来的截止时间。",
+  "users.banned": "已封禁",
+  "users.active": "正常"
 }

@@ -16,7 +16,17 @@ var ErrInvalidGrant = errors.New("invalid grant")
 func (s *Store) lockGrant(ctx context.Context, id, clientID string) (OAuthGrant, error) {
 	var grant OAuthGrant
 	err := s.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&grant, "id = ? AND client_id = ? AND revoked = ?", id, clientID, false).Error
-	return grant, queryErr("lock grant", err)
+	if err != nil {
+		return OAuthGrant{}, queryErr("lock grant", err)
+	}
+	user, err := s.UserByID(ctx, grant.UserID)
+	if err != nil {
+		return OAuthGrant{}, err
+	}
+	if !user.Active() {
+		return OAuthGrant{}, ErrInvalidGrant
+	}
+	return grant, nil
 }
 
 // RedeemAuthorizationCode atomically consumes a code and issues its tokens.
@@ -117,7 +127,17 @@ func (s *Store) revokeGrant(ctx context.Context, id string) error {
 func (s *Store) AccessTokenGrant(ctx context.Context, digest string) (OAuthGrant, error) {
 	var grant OAuthGrant
 	err := s.db.WithContext(ctx).Model(&OAuthGrant{}).Select("oauth_grants.*").Joins("JOIN oauth_tokens ON oauth_tokens.grant_id = oauth_grants.id").Joins("JOIN oauth_clients ON oauth_clients.id = oauth_grants.client_id").Where("oauth_tokens.access_hash = ? AND oauth_tokens.expires_at > ? AND oauth_grants.revoked = ? AND oauth_clients.disabled = ?", digest, time.Now().UTC(), false, false).First(&grant).Error
-	return grant, queryErr("authenticate access token", err)
+	if err != nil {
+		return OAuthGrant{}, queryErr("authenticate access token", err)
+	}
+	user, err := s.UserByID(ctx, grant.UserID)
+	if err != nil {
+		return OAuthGrant{}, err
+	}
+	if !user.Active() {
+		return OAuthGrant{}, ErrInvalidGrant
+	}
+	return grant, nil
 }
 
 // RevokeOAuthToken revokes a token family only when it belongs to the requesting client.

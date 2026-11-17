@@ -116,6 +116,42 @@ export function createWorkspace(data: PageData, page: PageContext) {
     )
   }
   function actionsFor(row: Record<string, any>) {
+    if (data.page === 'users') {
+      if (row.id === data.me?.id) return []
+      const target = `${row.name} (${row.email})`
+      const url = `/api/v1/users/${row.id}`
+      const until = new Date(Date.now() + 86400000 - new Date().getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16)
+      const ban = row.banned
+        ? dangerAction(form, 'unbanUser', page.msg('users.unban'), target, async () => {
+            await mutate(`${url}/ban`, 'DELETE')
+          })
+        : dangerAction(
+            form,
+            'banUser',
+            page.msg('users.ban'),
+            target,
+            async () => {
+              const expiry = Date.parse(form.values.until)
+              if (!Number.isFinite(expiry) || expiry <= Date.now()) {
+                form.validationError = page.msg('users.expiryRequired')
+                form.keepOpen = true
+                return
+              }
+              form.keepOpen = false
+              await mutate(`${url}/ban`, 'PUT', { until: new Date(expiry).toISOString() })
+            },
+            [{ key: 'until', label: 'users.bannedUntil', datetime: true, required: true }],
+            { until },
+          )
+      return [
+        ban,
+        dangerAction(form, 'deleteUser', page.msg('users.delete'), target, async () => {
+          await mutate(url, 'DELETE')
+        }),
+      ]
+    }
     const id = state.tab === 'grants' ? 'revokeGrant' : 'deleteClient'
     return [
       dangerAction(

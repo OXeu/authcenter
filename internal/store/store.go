@@ -125,6 +125,9 @@ func (s *Store) LinkOAuthUser(ctx context.Context, identity Identity) (User, err
 		"email_verified": u.EmailVerified || (identity.Email == u.Email && identity.EmailVerified),
 		"last_login_at":  identity.Now,
 	}
+	if !u.Active() {
+		return User{}, ErrInvalidGrant
+	}
 	if err := s.db.WithContext(ctx).Model(&u).Updates(updates).Error; err != nil {
 		return User{}, fmt.Errorf("update oauth user: %w", err)
 	}
@@ -184,10 +187,16 @@ func (s *Store) SetUserRole(ctx context.Context, id uint, role Role) error {
 
 // CreateSession persists a browser session.
 func (s *Store) CreateSession(ctx context.Context, sess Session) error {
-	if err := s.db.WithContext(ctx).Create(&sess).Error; err != nil {
-		return fmt.Errorf("create session: %w", err)
-	}
-	return nil
+	return s.Transaction(ctx, func(tx *Store) error {
+		user, err := tx.lockUser(ctx, sess.UserID)
+		if err != nil {
+			return err
+		}
+		if !user.Active() {
+			return ErrInvalidGrant
+		}
+		return queryErr("create session", tx.db.WithContext(ctx).Create(&sess).Error)
+	})
 }
 
 // SessionUser joins a session with its user and deletes expired sessions.
@@ -199,6 +208,9 @@ func (s *Store) SessionUser(ctx context.Context, id string) (Session, User, erro
 	u, err := s.UserByID(ctx, sess.UserID)
 	if err != nil {
 		return Session{}, User{}, err
+	}
+	if !u.Active() {
+		return Session{}, User{}, ErrNotFound
 	}
 	return sess, u, nil
 }

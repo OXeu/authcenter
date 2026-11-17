@@ -26,6 +26,13 @@ func (s *Store) BindAuthorizationRequest(ctx context.Context, id, csrfHash strin
 // DecideAuthorization consumes a consent request and optionally issues a code atomically.
 func (s *Store) DecideAuthorization(ctx context.Context, request AuthorizationRequest, grant OAuthGrant, code AuthorizationCode, approve bool) error {
 	return s.Transaction(ctx, func(tx *Store) error {
+		user, err := tx.lockUser(ctx, request.UserID)
+		if err != nil {
+			return err
+		}
+		if !user.Active() {
+			return ErrInvalidGrant
+		}
 		if err := tx.lockOAuthClient(ctx, request.ClientID); err != nil {
 			return err
 		}

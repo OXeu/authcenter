@@ -40,7 +40,11 @@ type User struct {
 	OAuthSub      string     `gorm:"column:oauth_sub;index"`
 	CreatedAt     time.Time  `gorm:"not null"`
 	LastLoginAt   *time.Time `gorm:""`
+	BannedUntil   *time.Time
 }
+
+// Active reports whether the account can authenticate at the current time.
+func (u User) Active() bool { return u.BannedUntil == nil || !u.BannedUntil.After(time.Now().UTC()) }
 
 // Session is a browser login session.
 type Session struct {

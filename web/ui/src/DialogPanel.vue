@@ -78,6 +78,15 @@ async function upload(event, key) {
             :disabled="form.busy"
           ></textarea>
           <input
+            v-else-if="field.datetime"
+            :id="`${formId}-${field.key}`"
+            v-model="form.values[field.key]"
+            type="datetime-local"
+            class="input"
+            :required="field.required"
+            :disabled="form.busy"
+          />
+          <input
             v-else-if="field.password"
             :id="`${formId}-${field.key}`"
             v-model="form.values[field.key]"
