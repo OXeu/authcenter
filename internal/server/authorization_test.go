@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -236,6 +237,35 @@ func TestCallbacksConsentAndEditableApplications(t *testing.T) {
 	old := f.request("GET", "/oauth/authorize?client_id="+id+"&redirect_uri=https://app.example/callback", nil)
 	if old.Code != 400 {
 		t.Fatal("removed callback accepted")
+	}
+}
+
+func TestClientRegistrationPreservesCallbackValues(t *testing.T) {
+	f := newFlows(t)
+	redirects := []string{
+		"different-app://unrestricted-host/custom/path?context=one#section",
+		"http://remote.example/callback", "relative/callback", "not a URI", "",
+		"https://example.com/callback?code=old&error=old&state=old&iss=old",
+	}
+	body := clientBody(t)
+	body["redirect_uris"] = redirects
+	response := f.request("POST", "/api/v1/clients", body)
+	if response.Code != 201 {
+		t.Fatal("manual registration restricted callback values", response.Code, response.Body.String())
+	}
+	clientID := responseJSON(t, response)["client"].(map[string]any)["id"].(string)
+	client, err := f.srv.store.OAuthClientByID(t.Context(), clientID)
+	if err != nil || !slices.Equal(client.RedirectURIs, redirects) {
+		t.Fatal("manual registration changed callbacks", err)
+	}
+	redirects = append(redirects, "another-app:/callback")
+	body["redirect_uris"] = redirects
+	if response := f.request("PATCH", "/api/v1/clients/"+clientID, body); response.Code != 200 {
+		t.Fatal("callback update rejected", response.Code, response.Body.String())
+	}
+	client, err = f.srv.store.OAuthClientByID(t.Context(), clientID)
+	if err != nil || !slices.Equal(client.RedirectURIs, redirects) {
+		t.Fatal("callback update changed values", err)
 	}
 }
 

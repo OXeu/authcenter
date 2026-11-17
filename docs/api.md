@@ -2,7 +2,7 @@
 
 ## 应用注册
 
-登录 `/applications`，创建应用，填写名称、主页、多个回调 URL（每行一个）和 Logo。Logo 支持 PNG/JPEG，最大 512 KiB、1024 × 1024 像素。回调和主页支持 HTTPS；本机开发可使用 localhost、127.0.0.1、::1 的 HTTP 地址。
+登录 `/applications`，创建应用，填写名称、主页、多个回调 URL（每行一个）和 Logo。Logo 支持 PNG/JPEG，最大 512 KiB、1024 × 1024 像素。主页支持 HTTPS；本机开发可使用 localhost、127.0.0.1、::1 的 HTTP 地址。回调 URI 不做格式、协议、域名或路径校验，按客户端提交的原值保存。
 
 机密应用保存创建时返回的 `client_secret`。公开客户端没有密钥，只能通过 PKCE 兑换授权码。创建后可以编辑名称、主页、Logo 和回调列表。
 

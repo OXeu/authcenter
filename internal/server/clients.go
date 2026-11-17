@@ -48,25 +48,7 @@ func clientFields(in clientInput, previous store.OAuthClient) (store.OAuthClient
 	if strings.TrimSpace(in.Name) == "" || len(in.Name) > 100 || !validAppURL(in.Homepage) || len(in.RedirectURIs) == 0 || len(in.RedirectURIs) > 20 {
 		return store.OAuthClient{}, fmt.Errorf("%w: name, homepage and 1–20 callback URLs are required", errBadRequest)
 	}
-	redirects := []string{}
-	for _, uri := range in.RedirectURIs {
-		if !validAppURL(uri) {
-			return store.OAuthClient{}, fmt.Errorf("%w: invalid callback URL", errBadRequest)
-		}
-		u, err := url.Parse(uri)
-		if err != nil {
-			return store.OAuthClient{}, fmt.Errorf("parse callback: %w", err)
-		}
-		for _, key := range []string{"code", "error", "state"} {
-			if u.Query().Has(key) {
-				return store.OAuthClient{}, fmt.Errorf("%w: callback contains reserved OAuth parameter", errBadRequest)
-			}
-		}
-		if !slices.Contains(redirects, uri) {
-			redirects = append(redirects, uri)
-		}
-	}
-	previous.Name, previous.Homepage, previous.RedirectURIs = strings.TrimSpace(in.Name), in.Homepage, redirects
+	previous.Name, previous.Homepage, previous.RedirectURIs = strings.TrimSpace(in.Name), in.Homepage, slices.Clone(in.RedirectURIs)
 	if in.Logo != "" {
 		logo, err := base64.StdEncoding.DecodeString(in.Logo)
 		if err != nil || len(logo) > 512*1024 {

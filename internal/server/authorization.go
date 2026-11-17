@@ -37,15 +37,21 @@ func oauthError(c *gin.Context, status int, code string) {
 	c.JSON(status, gin.H{"error": code})
 }
 
-func authorizeRedirect(uri, state, key, value string) string {
+func authorizeRedirect(uri, state, key, value, issuer string) string {
 	parsed, err := url.Parse(uri)
 	if err != nil {
 		return "/login"
 	}
 	q := parsed.Query()
+	for _, parameter := range []string{"code", "error", "state", "iss"} {
+		q.Del(parameter)
+	}
 	q.Set(key, value)
 	if state != "" {
 		q.Set("state", state)
+	}
+	if issuer != "" {
+		q.Set("iss", issuer)
 	}
 	parsed.RawQuery = q.Encode()
 	return parsed.String()
@@ -225,9 +231,9 @@ func (s *Server) consent(c *gin.Context) {
 }
 
 func (s *Server) resourceRedirect(uri, state, key, value, resource string) string {
-	redirect := authorizeRedirect(uri, state, key, value)
+	issuer := ""
 	if resource != "" {
-		return authorizeRedirect(redirect, state, "iss", s.cfg.PublicURL)
+		issuer = s.cfg.PublicURL
 	}
-	return redirect
+	return authorizeRedirect(uri, state, key, value, issuer)
 }

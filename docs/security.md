@@ -21,7 +21,7 @@ GitHub OAuth 使用 GitHub 的 access token 和用户接口识别用户，不依
 
 ## OAuth 边界
 
-普通 OAuth 2.0 客户端无需 nonce 或 issuer 校验。机密客户端可选择 S256 PKCE，公开客户端必须使用。回调 URL 完整匹配，不支持通配符；不接受 `javascript:`、凭据 URL 或 fragment。
+普通 OAuth 2.0 客户端无需 nonce 或 issuer 校验。机密客户端可选择 S256 PKCE，公开客户端必须使用。注册时不校验回调 URI 的格式、协议、域名或路径；授权时按注册的原始字符串完整匹配，没有通配符匹配。授权码兑换仍绑定原始回调值，注册不会授予任何用户权限。
 
 ```text
 业务应用 → /oauth/authorize → 登录 → 用户同意 → 已登记回调
