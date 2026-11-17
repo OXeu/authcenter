@@ -2,22 +2,24 @@
 
 [文档首页](/docs/) · [Go SDK](/docs/sdk) · [MCP 接口](/docs/mcp) · [Markdown 原文](/docs/api.md)
 
-## 初始化默认配置
+## 批量读写配置
 
-`POST /api/v1/projects/:project/environments/:env/defaults` 需要对应项目的 `config:write`。请求示例：
+批量读取使用 `GET /api/v1/projects/:project/environments/:env/items?keys=certcenter.server&keys=certcenter.providers`，需要 `config:read`。SDK 路径 `/api/v1/agent/environments/:env/values` 同样接受重复的 `keys` 参数。返回 `items` 数组和 `missing_keys` 数组；不存在的键不会使整个请求失败。不传 `keys` 时仍按原有列表方式读取，可用 `prefix` 筛选；`keys` 与 `prefix` 不能同时使用。
+
+批量写入使用 `PUT /api/v1/projects/:project/environments/:env/items`，只需要对应项目的 `config:write`。请求示例：
 
 ```json
 {
-  "defaults": {
-    "certcenter.server": "{\"addr\":\"127.0.0.1:8081\"}",
-    "feature.enabled": "false"
-  }
+  "items": [
+    {"key": "feature.enabled", "value": "false"},
+    {"key": "db.pool", "value": "10", "description": "连接池大小"}
+  ]
 }
 ```
 
-参数是 1–500 个配置键到字符串值的映射。服务端在一个事务中创建缺失的键，已存在的值、说明和更新时间不变；并发初始化由数据库唯一键约束保护。返回 `204`，不返回已有配置值。项目和环境须预先存在，非法键会使整个请求失败。
+每批接受 1–500 个不重复的键，写入请求体上限为 1 MiB。值必须是字符串，允许空字符串；省略 description 时按空字符串保存。全部验证通过后，在一个事务中创建或更新所有项，任何失败都会回滚整批。成功返回 `204`，不返回配置值。项目和环境须预先存在。原有单项 GET、PUT 和 DELETE 接口保持兼容。
 
-SDK 的 `EnsureDefaults(ctx, defaults)` 使用此接口，MCP 对应工具为 `initialize_config`。普通更新仍使用配置项 PUT 接口。
+MCP 的 `list_config` 和 `list_values` 接受 `keys` 字符串数组，`set_configs` 接受上述 `items` 数组。SDK 提供 `ReadMany` 和 `PutMany`；`EnsureDefaults` 先批量读，再批量写入缺失项，不使用独立初始化 API。远端首次初始化应由一个实例完成，读写之间不提供跨请求并发保护。
 
 ## 认证与 scope
 

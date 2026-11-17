@@ -282,12 +282,7 @@ func (s *Server) apiListItems(c *gin.Context, project store.Project) {
 	if !ok {
 		return
 	}
-	items, err := s.store.ListItems(c.Request.Context(), project.ID, env.ID, c.Query("prefix"))
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	s.itemsResponse(c, project, env, items)
+	s.readItems(c, project, env)
 }
 
 type itemInput struct {
@@ -376,12 +371,7 @@ func (s *Server) apiProgrammaticItems(c *gin.Context) {
 	if !ok {
 		return
 	}
-	items, err := s.store.ListItems(c.Request.Context(), id.Project.ID, env.ID, c.Query("prefix"))
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	s.itemsResponse(c, *id.Project, env, items)
+	s.readItems(c, *id.Project, env)
 }
 
 type userJSON struct {

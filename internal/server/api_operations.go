@@ -58,11 +58,15 @@ func (s *Server) apiOperations() []apiOperation {
 	prefix := argument("prefix", "query", false)
 	newKey := argument("new_key", "body", false)
 	newKey.Target = "key"
-	defaults := typedArgument("defaults", "object", true)
-	defaults.Schema["properties"] = map[string]any{}
-	defaults.Schema["required"] = []string{}
-	defaults.Schema["additionalProperties"] = map[string]any{"type": "string"}
-	defaults.Schema["minProperties"], defaults.Schema["maxProperties"] = 1, 500
+	keys := argument("keys", "query", false)
+	keys.Schema = map[string]any{"type": "array", "minItems": 1, "maxItems": 500, "items": map[string]any{"type": "string"}}
+	batch := typedArgument("items", "array", true)
+	batch.Schema["minItems"], batch.Schema["maxItems"] = 1, 500
+	batch.Schema["items"] = schema(map[string]any{
+		"key":         map[string]any{"type": "string"},
+		"value":       map[string]any{"type": "string"},
+		"description": map[string]any{"type": "string"},
+	}, "key", "value")
 	scopes := typedArgument("scopes", "array", true)
 	permissions := make([]string, 0, len(store.KeyPermissions()))
 	for _, permission := range store.KeyPermissions() {
@@ -95,10 +99,10 @@ func (s *Server) apiOperations() []apiOperation {
 		{Name: "list_environments", Description: "List a project's environments.", Method: http.MethodGet, Path: envs, Permissions: []store.Permission{store.EnvironmentsRead}, ProjectHandler: s.apiListEnvironments, Arguments: []mcpArgument{project}},
 		{Name: "create_environment", Description: "Create an environment in a project.", Method: http.MethodPost, Path: envs, Permissions: []store.Permission{store.EnvironmentsWrite}, ProjectHandler: s.apiCreateEnvironment, Arguments: []mcpArgument{project, slug, name}},
 		{Name: "delete_environment", Description: "Delete an environment and its configuration.", Method: http.MethodDelete, Path: envs + "/:env", Permissions: []store.Permission{store.EnvironmentsDelete}, ProjectHandler: s.apiDeleteEnvironment, Arguments: []mcpArgument{project, env}},
-		{Name: "list_config", Description: "List configuration items, optionally filtered by key prefix.", Method: http.MethodGet, Path: items, Permissions: []store.Permission{store.ConfigRead}, ProjectHandler: s.apiListItems, Arguments: []mcpArgument{project, env, prefix}},
+		{Name: "list_config", Description: "Read configuration items, optionally filtered by keys or a key prefix.", Method: http.MethodGet, Path: items, Permissions: []store.Permission{store.ConfigRead}, ProjectHandler: s.apiListItems, Arguments: []mcpArgument{project, env, prefix, keys}},
 		{Name: "get_config", Description: "Read one configuration item.", Method: http.MethodGet, Path: items + "/:key", Permissions: []store.Permission{store.ConfigRead}, ProjectHandler: s.apiGetItem, Arguments: []mcpArgument{project, env, key}},
 		{Name: "set_config", Description: "Create or update a configuration item immediately; optionally rename its key.", Method: http.MethodPut, Path: items + "/:key", Permissions: []store.Permission{store.ConfigWrite}, ProjectHandler: s.apiPutItem, Arguments: []mcpArgument{project, env, key, argument("value", "body", true), description, newKey}},
-		{Name: "initialize_config", Description: "Atomically create missing configuration keys without overwriting existing values.", Method: http.MethodPost, Path: envs + "/:env/defaults", Permissions: []store.Permission{store.ConfigWrite}, ProjectHandler: s.apiInitializeItems, Arguments: []mcpArgument{project, env, defaults}},
+		{Name: "set_configs", Description: "Atomically create or update multiple configuration items.", Method: http.MethodPut, Path: items, Permissions: []store.Permission{store.ConfigWrite}, ProjectHandler: s.apiPutItems, Arguments: []mcpArgument{project, env, batch}},
 		{Name: "delete_config", Description: "Delete a configuration item immediately.", Method: http.MethodDelete, Path: items + "/:key", Permissions: []store.Permission{store.ConfigDelete}, ProjectHandler: s.apiDeleteItem, Arguments: []mcpArgument{project, env, key}},
 		{Name: "list_proposals", Description: "List project change proposals, optionally filtered by status.", Method: http.MethodGet, Path: proposals, Permissions: []store.Permission{store.ProposalsRead}, ProjectHandler: s.apiListProposals, Arguments: []mcpArgument{project, argument("status", "query", false)}},
 		{Name: "propose_config", Description: "Submit a configuration change for review. Set actions require a value.", Method: http.MethodPost, Path: proposals, Permissions: []store.Permission{store.ProposalsWrite}, ProjectHandler: s.apiCreateProposal, Arguments: []mcpArgument{project, argument("environment", "body", true), argument("key", "body", true), enumArgument("action", store.ActionSet, store.ActionDelete), argument("value", "body", false), argument("reason", "body", false)}},
@@ -109,7 +113,7 @@ func (s *Server) apiOperations() []apiOperation {
 		{Name: "get_settings", Description: "Read system settings. Requires global settings:read.", Method: http.MethodGet, Path: "/settings", Permissions: []store.Permission{store.SettingsRead}, Global: true, Handler: s.apiSettings},
 		{Name: "update_settings", Description: "Update system registration settings. Requires global settings:write.", Method: http.MethodPut, Path: "/settings", Permissions: []store.Permission{store.SettingsWrite}, Global: true, Handler: s.apiSaveSettings, Arguments: []mcpArgument{typedArgument("allow_registration", "boolean", true)}},
 		{Name: "get_project", Description: "Read project metadata and environments using an API key.", Method: http.MethodGet, Path: "/agent/project", Permissions: []store.Permission{store.ProjectsRead, store.EnvironmentsRead}, Agent: true, Handler: s.apiProgrammaticProject, Arguments: []mcpArgument{argument("project", "query", true)}},
-		{Name: "list_values", Description: "Read environment configuration using the SDK API.", Method: http.MethodGet, Path: "/agent/environments/:env/values", Permissions: []store.Permission{store.ConfigRead}, Agent: true, Handler: s.apiProgrammaticItems, Arguments: []mcpArgument{argument("project", "query", true), env, prefix}},
+		{Name: "list_values", Description: "Read environment configuration using the SDK API.", Method: http.MethodGet, Path: "/agent/environments/:env/values", Permissions: []store.Permission{store.ConfigRead}, Agent: true, Handler: s.apiProgrammaticItems, Arguments: []mcpArgument{argument("project", "query", true), env, prefix, keys}},
 	}
 }
 

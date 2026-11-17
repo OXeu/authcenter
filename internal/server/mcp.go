@@ -211,7 +211,13 @@ func (s *Server) executeTool(c *gin.Context, op apiOperation, args map[string]an
 		case "path":
 			parameters[":"+arg.Target] = url.PathEscape(argumentText(value))
 		case "query":
-			query.Set(arg.Target, argumentText(value))
+			if values, ok := value.([]any); ok {
+				for _, entry := range values {
+					query.Add(arg.Target, argumentText(entry))
+				}
+			} else {
+				query.Set(arg.Target, argumentText(value))
+			}
 		case "body":
 			body[arg.Target] = value
 		}

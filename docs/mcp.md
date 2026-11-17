@@ -77,9 +77,10 @@ curl --fail-with-body --silent --show-error \
 | `list_environments`  | `project`                                 | 无                                           | `environments:read`                    |
 | `create_environment` | `project`、`slug`、`name`                 | 无                                           | `environments:write`                   |
 | `delete_environment` | `project`、`environment`                  | 无                                           | `environments:delete`                  |
-| `list_config`        | `project`、`environment`                  | `prefix`                                     | `config:read`                          |
+| `list_config`        | `project`、`environment`                  | `prefix`、`keys`                           | `config:read`                          |
 | `get_config`         | `project`、`environment`、`key`           | 无                                           | `config:read`                          |
 | `set_config`         | `project`、`environment`、`key`、`value`  | `description`、`new_key`                     | `config:write`                         |
+| `set_configs`        | `project`、`environment`、`items`          | —                                            | `config:write`                         |
 | `delete_config`      | `project`、`environment`、`key`           | 无                                           | `config:delete`                        |
 | `list_proposals`     | `project`                                 | `status`（`pending`、`applied`、`rejected`） | `proposals:read`                       |
 | `propose_config`     | `project`、`environment`、`key`、`action` | `value`（`set` 时必填）、`reason`            | `proposals:write`                      |
@@ -95,7 +96,7 @@ curl --fail-with-body --silent --show-error \
 | `get_settings`       | 无                                        | 无                                           | `*` 的 `settings:read`                 |
 | `update_settings`    | `allow_registration`                      | 无                                           | `*` 的 `settings:write`                |
 | `get_project`        | `project`                                 | 无                                           | `projects:read` 与 `environments:read` |
-| `list_values`        | `project`、`environment`                  | `prefix`                                     | `config:read`                          |
+| `list_values`        | `project`、`environment`                  | `prefix`、`keys`                           | `config:read`                          |
 
 工具执行与 HTTP API 使用同一套处理逻辑和权限检查。创建项目会自动创建 `production` 环境。删除项目或环境会级联清理其内容。Key 管理只能授予或操作自身 scope 覆盖的权限，不能通过创建、编辑或轮换扩大权限。用户不能通过自己的会话或 Key 删除自己的账号或将自己降级；删除其他用户会撤销其会话和 Key，并将项目转交给调用者账号。
 
