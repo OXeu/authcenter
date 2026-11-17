@@ -105,14 +105,14 @@ describe('Vue pages', () => {
     )
     wrapper.unmount()
   })
-  it('hides writer actions for viewers and preserves language links', async () => {
+  it('hides writer actions without write permission and preserves language links', async () => {
     const wrapper = mount(App, {
       props: {
         data: {
           ...data,
           canWrite: false,
           isAdmin: false,
-          me: { id: 1, email: '', name: 'Viewer', role: 'viewer' },
+          me: { id: 1, email: '', name: 'User', role: 'user' },
         },
       },
     })
@@ -188,8 +188,6 @@ describe('Vue pages', () => {
   })
   it.each([
     ['admin', 'ri-vip-crown-line'],
-    ['editor', 'ri-edit-line'],
-    ['viewer', 'ri-eye-line'],
     ['user', 'ri-eye-line'],
   ])('shows the %s badge and limits account links to admins', async (role, icon) => {
     const wrapper = mount(App, {

@@ -5,18 +5,11 @@ import (
 	"fmt"
 )
 
-// initializeOwnership upgrades legacy accounts and projects.
-func (s *Store) initializeOwnership(ctx context.Context) error {
+func (s *Store) ensureSystemProject(ctx context.Context) error {
 	return s.Transaction(ctx, func(tx *Store) error {
-		if err := tx.db.Model(&User{}).Where("role IN ?", []Role{RoleEditor, RoleViewer}).Update("role", RoleUser).Error; err != nil {
-			return fmt.Errorf("migrate roles: %w", err)
-		}
 		var admin User
 		if err := tx.db.Where("role = ?", RoleAdmin).Order("id").First(&admin).Error; err != nil {
 			return fmt.Errorf("find administrator: %w", err)
-		}
-		if err := tx.db.Model(&Project{}).Where("owner_id = 0").Update("owner_id", admin.ID).Error; err != nil {
-			return fmt.Errorf("assign projects: %w", err)
 		}
 		var count int64
 		if err := tx.db.Model(&Project{}).Where("slug = ?", "configcenter").Count(&count).Error; err != nil {

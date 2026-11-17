@@ -75,9 +75,6 @@
   .role-badge[data-role='admin'] {
     @apply border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-600 dark:bg-amber-900 dark:text-amber-200;
   }
-  .role-badge[data-role='editor'] {
-    @apply border-sky-300 bg-sky-100 text-sky-800 dark:border-sky-600 dark:bg-sky-900 dark:text-sky-200;
-  }
   .btn-danger {
     @apply inline-flex h-9 items-center justify-center rounded-md px-3 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-destructive;
   }

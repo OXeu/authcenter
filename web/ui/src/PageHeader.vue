@@ -40,7 +40,6 @@ watch(avatarSource, () => {
 })
 const roleIcon = computed(() => {
   if (data.me?.role === 'admin') return 'ri-vip-crown-line'
-  if (data.me?.role === 'editor') return 'ri-edit-line'
   return 'ri-eye-line'
 })
 const avatarInitial = computed(() => {

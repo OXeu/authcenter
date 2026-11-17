@@ -95,11 +95,11 @@ describe('workspace mutations', () => {
   })
   it('updates user roles through the admin API', async () => {
     const w = createWorkspace({ ...data, page: 'users' }, createPage(data))
-    w.edit({ id: 9, role: 'viewer' })
-    w.form.values.role = 'editor'
+    w.edit({ id: 9, role: 'user' })
+    w.form.values.role = 'admin'
     await w.form.submit()
     expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/users/9')
-    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'PATCH', body: '{"role":"editor"}' })
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'PATCH', body: '{"role":"admin"}' })
   })
   it('accepts empty successful deletion responses', async () => {
     fetchMock.mockResolvedValueOnce({ ok: true, status: 204 })

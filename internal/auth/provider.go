@@ -81,12 +81,12 @@ func (p GroupPolicy) AdminIn(groups []string) bool {
 	return false
 }
 
-// RoleFor returns the highest mapped role, defaulting to viewer.
+// RoleFor returns the highest mapped role, defaulting to user.
 func (p GroupPolicy) RoleFor(groups []string) store.Role {
-	best := store.RoleViewer
+	best := store.RoleUser
 	for _, g := range groups {
 		candidate := store.Role(p.Mapping[g])
-		if candidate == store.RoleAdmin || (candidate == store.RoleEditor && best == store.RoleViewer) {
+		if candidate == store.RoleAdmin {
 			best = candidate
 		}
 	}

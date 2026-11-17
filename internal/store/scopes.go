@@ -86,21 +86,6 @@ func (k APIKey) Covers(scopes []KeyScope) bool {
 	return true
 }
 
-// LegacyKeyScopes translates the previous project and role model without changing tokens.
-func LegacyKeyScopes(projectID uint, role Role) []KeyScope {
-	if projectID == 0 {
-		if role == RoleAdmin {
-			return []KeyScope{{Permissions: KeyPermissions()}}
-		}
-		return []KeyScope{}
-	}
-	permissions := []Permission{ProjectsRead, EnvironmentsRead, ConfigRead, ProposalsRead}
-	if role.CanWrite() {
-		permissions = append(permissions, ConfigWrite, ConfigDelete, ProposalsWrite)
-	}
-	return []KeyScope{{ProjectID: projectID, Permissions: permissions}}
-}
-
 // HasPermission reports whether any project scope contains an operation.
 func (k APIKey) HasPermission(permission Permission) bool {
 	for _, scope := range k.Scopes {

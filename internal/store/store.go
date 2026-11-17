@@ -45,10 +45,7 @@ func Open(ctx context.Context, dialector gorm.Dialector, adminEmail, adminName s
 	if err := s.ensureAdmin(ctx, adminEmail, adminName); err != nil {
 		return nil, err
 	}
-	if err := s.initializeOwnership(ctx); err != nil {
-		return nil, err
-	}
-	if err := s.migrateKeyScopes(ctx); err != nil {
+	if err := s.ensureSystemProject(ctx); err != nil {
 		return nil, err
 	}
 	return s, nil

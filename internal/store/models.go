@@ -6,16 +6,14 @@ import "time"
 type Role string
 
 const (
-	RoleUser   Role = "user"
-	RoleAdmin  Role = "admin"
-	RoleEditor Role = "editor"
-	RoleViewer Role = "viewer"
+	RoleUser  Role = "user"
+	RoleAdmin Role = "admin"
 )
 
 // Valid reports whether r is a known role.
 func (r Role) Valid() bool {
 	switch r {
-	case RoleUser, RoleAdmin, RoleEditor, RoleViewer:
+	case RoleUser, RoleAdmin:
 		return true
 	default:
 		return false
@@ -24,7 +22,7 @@ func (r Role) Valid() bool {
 
 // CanWrite reports whether the role may modify projects.
 func (r Role) CanWrite() bool {
-	return r == RoleUser || r == RoleAdmin || r == RoleEditor
+	return r == RoleUser || r == RoleAdmin
 }
 
 // User is a human account, optionally linked to an OAuth subject.
@@ -101,18 +99,16 @@ type MCPProposal struct {
 
 // APIKey authenticates a client with explicitly granted project permissions.
 type APIKey struct {
-	ID              uint       `gorm:"primaryKey"`
-	LegacyProjectID uint       `gorm:"column:project_id;index;not null;default:0"`
-	Scopes          []KeyScope `gorm:"serializer:json;type:text"`
-	Revision        uint64     `gorm:"not null;default:1"`
-	Name            string     `gorm:"not null"`
-	Digest          []byte     `gorm:"uniqueIndex;size:32;not null"`
-	Prefix          string     `gorm:"not null"`
-	LegacyRole      Role       `gorm:"column:role;not null;default:viewer"`
-	CreatedBy       uint       `gorm:"not null"`
-	CreatedAt       time.Time  `gorm:"not null"`
-	LastUsedAt      *time.Time `gorm:""`
-	ExpiresAt       *time.Time `gorm:""`
+	ID         uint       `gorm:"primaryKey"`
+	Scopes     []KeyScope `gorm:"serializer:json;type:text"`
+	Revision   uint64     `gorm:"not null;default:1"`
+	Name       string     `gorm:"not null"`
+	Digest     []byte     `gorm:"uniqueIndex;size:32;not null"`
+	Prefix     string     `gorm:"not null"`
+	CreatedBy  uint       `gorm:"not null"`
+	CreatedAt  time.Time  `gorm:"not null"`
+	LastUsedAt *time.Time `gorm:""`
+	ExpiresAt  *time.Time `gorm:""`
 }
 
 // Proposal statuses.

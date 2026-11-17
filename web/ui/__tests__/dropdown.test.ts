@@ -6,13 +6,13 @@ import DropdownMenu from '../src/DropdownMenu.vue'
 function dropdown() {
   return mount(DropdownSelect, {
     props: {
-      id: 'role',
-      label: 'Role',
-      modelValue: 'viewer',
+      id: 'environment',
+      label: 'Environment',
+      modelValue: 'development',
       options: [
-        { value: 'viewer', label: 'Viewer' },
-        { value: 'editor', label: 'Editor' },
-        { value: 'admin', label: 'Administrator' },
+        { value: 'development', label: 'Development' },
+        { value: 'staging', label: 'Staging' },
+        { value: 'production', label: 'Production' },
       ],
     },
   })
@@ -23,12 +23,12 @@ describe('dropdown selection', () => {
     const wrapper = dropdown()
     const trigger = wrapper.get('[role="combobox"]')
     expect(trigger.attributes('type')).toBe('button')
-    expect(trigger.text()).toBe('Viewer')
+    expect(trigger.text()).toBe('Development')
     await trigger.trigger('keydown', { key: 'ArrowDown' })
     expect(trigger.attributes('aria-expanded')).toBe('true')
     await trigger.trigger('keydown', { key: 'ArrowDown' })
     await trigger.trigger('keydown', { key: 'Enter' })
-    expect(wrapper.emitted('update:modelValue')).toEqual([['editor']])
+    expect(wrapper.emitted('update:modelValue')).toEqual([['staging']])
     expect(trigger.attributes('aria-expanded')).toBe('false')
     wrapper.unmount()
   })
@@ -37,11 +37,11 @@ describe('dropdown selection', () => {
     const wrapper = dropdown()
     const trigger = wrapper.get('[role="combobox"]')
     await trigger.trigger('keydown', { key: 'End' })
-    expect(wrapper.get('[data-active="true"]').text()).toBe('Administrator')
+    expect(wrapper.get('[data-active="true"]').text()).toBe('Production')
     await trigger.trigger('keydown', { key: 'Home' })
-    expect(wrapper.get('[data-active="true"]').text()).toBe('Viewer')
-    await trigger.trigger('keydown', { key: 'e' })
-    expect(wrapper.get('[data-active="true"]').text()).toBe('Editor')
+    expect(wrapper.get('[data-active="true"]').text()).toBe('Development')
+    await trigger.trigger('keydown', { key: 's' })
+    expect(wrapper.get('[data-active="true"]').text()).toBe('Staging')
     await trigger.trigger('keydown', { key: 'Escape' })
     expect(wrapper.find('[role="listbox"]').exists()).toBe(false)
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
@@ -55,9 +55,9 @@ describe('dropdown selection', () => {
     const wrapper = dropdown()
     const trigger = wrapper.get('[role="combobox"]')
     await trigger.trigger('click')
-    expect(wrapper.get('[aria-selected="true"]').text()).toBe('Viewer')
+    expect(wrapper.get('[aria-selected="true"]').text()).toBe('Development')
     await wrapper.findAll('[role="option"]')[1].trigger('click')
-    expect(wrapper.emitted('update:modelValue')).toEqual([['editor']])
+    expect(wrapper.emitted('update:modelValue')).toEqual([['staging']])
     await trigger.trigger('click')
     await trigger.trigger('blur')
     expect(wrapper.find('[role="listbox"]').exists()).toBe(false)

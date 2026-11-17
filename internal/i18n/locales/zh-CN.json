@@ -9,8 +9,6 @@
   "dialog.environment": "新建环境",
   "common.editDialog": "编辑",
   "role.admin": "管理员",
-  "role.editor": "编辑者",
-  "role.viewer": "只读者",
   "error.title": "出错了",
   "toast.region": "通知",
   "toast.dismiss": "关闭通知",

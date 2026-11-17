@@ -9,21 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-func (s *Store) migrateKeyScopes(ctx context.Context) error {
-	return s.Transaction(ctx, func(tx *Store) error {
-		var keys []APIKey
-		if err := tx.db.WithContext(ctx).Where("scopes IS NULL OR scopes = ?", "null").Find(&keys).Error; err != nil {
-			return fmt.Errorf("load legacy key scopes: %w", err)
-		}
-		for _, key := range keys {
-			if err := tx.UpdateAPIKey(ctx, key.ID, key.Revision, key.Name, LegacyKeyScopes(key.LegacyProjectID, key.LegacyRole)); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-}
-
 // APIKeyByID loads a key for authorized administration.
 func (s *Store) APIKeyByID(ctx context.Context, id uint) (APIKey, error) {
 	var key APIKey
@@ -33,9 +18,9 @@ func (s *Store) APIKeyByID(ctx context.Context, id uint) (APIKey, error) {
 
 // UpdateAPIKey changes a key's name and scopes without replacing its credential.
 func (s *Store) UpdateAPIKey(ctx context.Context, id uint, revision uint64, name string, scopes []KeyScope) error {
-	key := APIKey{Name: name, Scopes: scopes, LegacyRole: RoleViewer, Revision: revision + 1}
+	key := APIKey{Name: name, Scopes: scopes, Revision: revision + 1}
 	return keyMutation(s.db.WithContext(ctx).Model(&APIKey{}).Where("id = ? AND revision = ?", id, revision).
-		Select("name", "scopes", "project_id", "role", "revision").Updates(&key), "update api key")
+		Select("name", "scopes", "revision").Updates(&key), "update api key")
 }
 
 func (s *Store) removeProjectKeyScopes(ctx context.Context, projectID uint) error {

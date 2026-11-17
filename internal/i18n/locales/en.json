@@ -9,8 +9,6 @@
   "dialog.environment": "New environment",
   "common.editDialog": "Edit",
   "role.admin": "Admin",
-  "role.editor": "Editor",
-  "role.viewer": "Viewer",
   "error.title": "Something went wrong",
   "toast.region": "Notifications",
   "toast.dismiss": "Dismiss notification",

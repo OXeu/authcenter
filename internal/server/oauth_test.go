@@ -210,7 +210,7 @@ func TestOAuthLoginCreatesAdminSession(t *testing.T) {
 		t.Fatalf("me = %+v", body)
 	}
 	for _, avatar := range []string{"https://images.example.com/updated.png", ""} {
-		updated, updateErr := srv.store.LinkOAuthUser(context.Background(), store.Identity{Issuer: idp.server.URL, Sub: "u-1", Email: body.Email, Name: "Dana", AvatarURL: avatar, Role: store.RoleViewer, Now: time.Now().UTC()})
+		updated, updateErr := srv.store.LinkOAuthUser(context.Background(), store.Identity{Issuer: idp.server.URL, Sub: "u-1", Email: body.Email, Name: "Dana", AvatarURL: avatar, Role: store.RoleUser, Now: time.Now().UTC()})
 		if updateErr != nil {
 			t.Fatal(updateErr)
 		}
