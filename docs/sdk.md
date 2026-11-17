@@ -99,7 +99,16 @@ dotenv 和 `Defaults` 仅作为读取 fallback，不会写入远程缓存。读�
 
 `Put(ctx, key, value)` 在有远端配置时写入远端，成功后更新内存缓存；未配置远端时仅写入当前客户端的内存，同样受 TTL 限制。匹配当前加载前缀的写入可立即读取，其他前缀需重新加载对应范围。远端写入需要 `projects:read`、`environments:read` 和 `config:write`。`IsLocal()` 表示是否未配置远端。配置键遵循服务端的 1–191 字符规则。
 
-`EnsureDefaults(ctx, defaults)` 在当前写入后端中原子初始化缺失的键，然后重新加载多级快照；已有值不会被覆盖。配置远端时绕过缓存检查和刷新，避免缓存掩盖初始化结果；需要支持 `/defaults` 接口的服务器，以及 `config:read`、`projects:read`、`environments:read` 和 `config:write` 权限。低优先级来源已有值不会阻止初始化远端缺失项。未配置远端时只初始化当前客户端中缺失或已过期的内存条目，仍受 TTL 限制；长期 fallback 应使用 `Config.Defaults`。
+`ReadMany(ctx, keys)` 一次请求读取指定键，返回 `map[string]string`，缺失键不在结果中。它直接读取后端，绕过远端缓存和 fallback，不替换加载快照。`PutMany(ctx, values)` 在一个事务中创建或更新所有指定键，并更新缓存；需要的远端权限与 `Put` 相同。每批 1–500 个键，写入请求体最多 1 MiB。
+
+`EnsureDefaults(ctx, defaults)` 批量读取后端，再通过 `PutMany` 写入缺失项，最后刷新快照；已读取到的值保持不变。它使用现有 `config:read`、`config:write` 权限，SDK 项目定位还需 `projects:read`、`environments:read`。远端首次初始化应由一个实例完成，先读后写不是跨请求事务。低优先级来源已有值不会阻止初始化远端缺失项。未配置远端时只初始化当前客户端中缺失或已过期的内存条目，仍受 TTL 限制；长期 fallback 应使用 `Config.Defaults`。
+
+```go
+if err := client.PutMany(ctx, map[string]string{"db.pool": "10", "feature.enabled": "false"}); err != nil {
+    return err
+}
+values, err := client.ReadMany(ctx, []string{"db.pool", "feature.enabled"})
+```
 
 ## 统一数据源抽象
 
