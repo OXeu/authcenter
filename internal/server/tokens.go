@@ -70,7 +70,7 @@ func (s *Server) authenticateClient(c *gin.Context) (store.OAuthClient, bool) {
 			return store.OAuthClient{}, false
 		}
 	}
-	client, err := s.store.OAuthClientByID(c.Request.Context(), id)
+	client, err := s.store.AuthorizationClientByID(c.Request.Context(), id)
 	valid := err == nil
 	if valid && client.Public {
 		valid = secret == "" && c.GetHeader("Authorization") == ""

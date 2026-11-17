@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
-
-	"gorm.io/gorm/clause"
 )
 
 // CreateOAuthClient registers an application.
@@ -20,20 +18,14 @@ func (s *Store) CreateOAuthClient(ctx context.Context, client OAuthClient) error
 // OAuthClientByID loads an enabled application.
 func (s *Store) OAuthClientByID(ctx context.Context, id string) (OAuthClient, error) {
 	var client OAuthClient
-	err := s.db.WithContext(ctx).First(&client, "id = ? AND disabled = ?", id, false).Error
+	err := s.db.WithContext(ctx).First(&client, "id = ? AND disabled = ? AND dynamic = ?", id, false, false).Error
 	return client, queryErr("load oauth client", err)
-}
-
-func (s *Store) lockOAuthClient(ctx context.Context, id string) error {
-	var client OAuthClient
-	err := s.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&client, "id = ? AND disabled = ?", id, false).Error
-	return queryErr("lock oauth client", err)
 }
 
 // ListOAuthClients lists active applications without exposing secrets.
 func (s *Store) ListOAuthClients(ctx context.Context) ([]OAuthClient, error) {
 	clients := []OAuthClient{}
-	err := s.db.WithContext(ctx).Where("disabled = ?", false).Order("created_at DESC").Find(&clients).Error
+	err := s.db.WithContext(ctx).Where("disabled = ? AND dynamic = ?", false, false).Order("created_at DESC").Find(&clients).Error
 	return clients, queryErr("list oauth clients", err)
 }
 
@@ -51,7 +43,13 @@ func (s *Store) ListOAuthGrants(ctx context.Context, userID uint) ([]OAuthGrant,
 
 // RevokeOAuthGrant revokes a user's own authorization and all its tokens.
 func (s *Store) RevokeOAuthGrant(ctx context.Context, userID uint, id string) error {
-	return s.mustAffect(ctx, s.db.WithContext(ctx).Model(&OAuthGrant{}).Where("id = ? AND user_id = ?", id, userID).Update("revoked", true), "revoke grant")
+	return s.Transaction(ctx, func(tx *Store) error {
+		var grant OAuthGrant
+		if err := tx.db.WithContext(ctx).First(&grant, "id = ? AND user_id = ?", id, userID).Error; err != nil {
+			return queryErr("find user grant", err)
+		}
+		return tx.revokeGrant(ctx, grant.ID)
+	})
 }
 
 // UpdateOAuthClient updates editable application metadata without changing credentials.
@@ -64,7 +62,7 @@ func (s *Store) UpdateOAuthClient(ctx context.Context, client OAuthClient) error
 }
 
 func (s *Store) validateOAuthRedirect(ctx context.Context, clientID, redirect string) error {
-	client, err := s.OAuthClientByID(ctx, clientID)
+	client, err := s.AuthorizationClientByID(ctx, clientID)
 	if err != nil {
 		return err
 	}

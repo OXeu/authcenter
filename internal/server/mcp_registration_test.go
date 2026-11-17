@@ -3,12 +3,15 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/OXeu/authcenter/internal/store"
 )
 
 func registerMCPClient(t *testing.T, f *flows, redirects []string) map[string]any {
@@ -26,9 +29,18 @@ func registerMCPClient(t *testing.T, f *flows, redirects []string) map[string]an
 	if response.Header().Get("Cache-Control") != "no-store" || registered["client_secret"] != nil || registered["token_endpoint_auth_method"] != "none" {
 		t.Fatal("invalid public registration response")
 	}
-	client, err := f.srv.store.OAuthClientByID(t.Context(), registered["client_id"].(string))
+	client, err := f.srv.store.AuthorizationClientByID(t.Context(), registered["client_id"].(string))
 	if err != nil || !slices.Equal(client.RedirectURIs, redirects) || !client.Public || !client.Dynamic || client.SecretHash != "" || client.OwnerID != 0 {
 		t.Fatal("registration did not preserve the public client metadata", err)
+	}
+	if _, err := f.srv.store.OAuthClientByID(t.Context(), client.ID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatal("registration created an application", err)
+	}
+	listed := responseJSON(t, f.request("GET", "/api/v1/clients", nil))["clients"].([]any)
+	for _, item := range listed {
+		if item.(map[string]any)["id"] == client.ID {
+			t.Fatal("registration appeared in application management")
+		}
 	}
 	return registered
 }
@@ -135,14 +147,31 @@ func TestMCPCursorRegistration(t *testing.T) {
 	if rotated.Code != 200 {
 		t.Fatal("registered client refresh failed", rotated.Body.String())
 	}
-	if f.request("PATCH", "/api/v1/clients/"+client, clientBody(t)).Code != 403 {
+	if f.request("PATCH", "/api/v1/clients/"+client, clientBody(t)).Code != 404 {
 		t.Fatal("dynamic registration was edited through management API")
 	}
-	if f.request("DELETE", "/api/v1/clients/"+client, nil).Code != 204 {
-		t.Fatal("administrator cannot revoke registered client")
+	if f.request("DELETE", "/api/v1/clients/"+client, nil).Code != 404 {
+		t.Fatal("dynamic registration was treated as an application")
+	}
+	grants := responseJSON(t, f.request("GET", "/api/v1/grants", nil))["grants"].([]any)
+	if len(grants) != len(redirects)+1 {
+		t.Fatal("dynamic client grants missing from authorization management")
+	}
+	for _, item := range grants {
+		grant := item.(map[string]any)
+		if f.request("DELETE", "/api/v1/grants/"+grant["id"].(string), nil).Code != 204 {
+			t.Fatal("user cannot revoke registered client authorization")
+		}
 	}
 	if mcpRequest(t, f.router, responseJSON(t, rotated)["access_token"].(string), "tools/list", nil).Code != 401 {
-		t.Fatal("disabled dynamic client remains authorized")
+		t.Fatal("revoked dynamic client remains authorized")
+	}
+	refresh.Set("refresh_token", responseJSON(t, rotated)["refresh_token"].(string))
+	if tokenRequest(f.router, refresh).Code != 401 {
+		t.Fatal("revoked dynamic client can refresh tokens")
+	}
+	if _, err := f.srv.store.AuthorizationClientByID(t.Context(), client); !errors.Is(err, store.ErrNotFound) {
+		t.Fatal("revoked registration was retained", err)
 	}
 }
 

@@ -45,11 +45,14 @@ func Open(ctx context.Context, dialector gorm.Dialector, adminEmail, adminName s
 		pool.SetMaxOpenConns(1)
 	}
 	if err := db.WithContext(ctx).AutoMigrate(
-		&User{}, &Session{}, &APIKey{}, &LoginChallenge{}, &LoginLimit{}, &OAuthClient{}, &AuthorizationRequest{}, &OAuthGrant{}, &AuthorizationCode{}, &OAuthToken{},
+		&User{}, &Session{}, &APIKey{}, &LoginChallenge{}, &LoginLimit{}, &OAuthClient{}, &OAuthRegistration{}, &AuthorizationRequest{}, &OAuthGrant{}, &AuthorizationCode{}, &OAuthToken{},
 	); err != nil {
 		return nil, fmt.Errorf("migrate schema: %w", err)
 	}
 	s := &Store{db: db, registrationAllowed: true}
+	if err := s.migrateOAuthRegistrations(ctx); err != nil {
+		return nil, err
+	}
 	if err := s.ensureAdmin(ctx, adminEmail, adminName); err != nil {
 		return nil, err
 	}

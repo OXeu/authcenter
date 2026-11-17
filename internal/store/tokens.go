@@ -34,7 +34,7 @@ func (s *Store) RedeemAuthorizationCode(ctx context.Context, digest, clientID, r
 	var grant OAuthGrant
 	replay := false
 	err := s.Transaction(ctx, func(tx *Store) error {
-		if err := tx.lockOAuthClient(ctx, clientID); err != nil {
+		if err := tx.lockAuthorizationClient(ctx, clientID); err != nil {
 			return err
 		}
 		if err := tx.validateOAuthRedirect(ctx, clientID, redirectURI); err != nil {
@@ -86,7 +86,7 @@ func (s *Store) RotateOAuthToken(ctx context.Context, digest, clientID, resource
 	var grant OAuthGrant
 	replay := false
 	err := s.Transaction(ctx, func(tx *Store) error {
-		if err := tx.lockOAuthClient(ctx, clientID); err != nil {
+		if err := tx.lockAuthorizationClient(ctx, clientID); err != nil {
 			return err
 		}
 		var previous OAuthToken
@@ -126,15 +126,28 @@ func (s *Store) RotateOAuthToken(ctx context.Context, digest, clientID, resource
 }
 
 func (s *Store) revokeGrant(ctx context.Context, id string) error {
-	return queryErr("revoke token family", s.db.WithContext(ctx).Model(&OAuthGrant{}).Where("id = ?", id).Update("revoked", true).Error)
+	var grant OAuthGrant
+	if err := s.db.WithContext(ctx).First(&grant, "id = ?", id).Error; err != nil {
+		return queryErr("find revoked grant", err)
+	}
+	if err := s.lockOAuthRegistration(ctx, grant.ClientID); err != nil {
+		return err
+	}
+	if err := s.db.WithContext(ctx).Model(&OAuthGrant{}).Where("id = ?", id).Update("revoked", true).Error; err != nil {
+		return queryErr("revoke token family", err)
+	}
+	return s.deleteUnboundOAuthRegistration(ctx, grant.ClientID)
 }
 
 // AccessTokenGrant authenticates an unexpired token against live grant and client state.
 func (s *Store) AccessTokenGrant(ctx context.Context, digest string) (OAuthGrant, error) {
 	var grant OAuthGrant
-	err := s.db.WithContext(ctx).Model(&OAuthGrant{}).Select("oauth_grants.*").Joins("JOIN oauth_tokens ON oauth_tokens.grant_id = oauth_grants.id").Joins("JOIN oauth_clients ON oauth_clients.id = oauth_grants.client_id").Where("oauth_tokens.access_hash = ? AND oauth_tokens.expires_at > ? AND oauth_grants.revoked = ? AND oauth_clients.disabled = ?", digest, time.Now().UTC(), false, false).First(&grant).Error
+	err := s.db.WithContext(ctx).Model(&OAuthGrant{}).Select("oauth_grants.*").Joins("JOIN oauth_tokens ON oauth_tokens.grant_id = oauth_grants.id").Where("oauth_tokens.access_hash = ? AND oauth_tokens.expires_at > ? AND oauth_grants.revoked = ?", digest, time.Now().UTC(), false).First(&grant).Error
 	if err != nil {
 		return OAuthGrant{}, queryErr("authenticate access token", err)
+	}
+	if _, err := s.AuthorizationClientByID(ctx, grant.ClientID); err != nil {
+		return OAuthGrant{}, err
 	}
 	user, err := s.UserByID(ctx, grant.UserID)
 	if err != nil {
@@ -148,13 +161,15 @@ func (s *Store) AccessTokenGrant(ctx context.Context, digest string) (OAuthGrant
 
 // RevokeOAuthToken revokes a token family only when it belongs to the requesting client.
 func (s *Store) RevokeOAuthToken(ctx context.Context, digest, clientID string) error {
-	var token OAuthToken
-	err := s.db.WithContext(ctx).First(&token, "access_hash = ? OR refresh_hash = ?", digest, digest).Error
-	if errors.Is(queryErr("token", err), ErrNotFound) {
-		return nil
-	}
-	if err != nil {
-		return queryErr("find token", err)
-	}
-	return queryErr("revoke token", s.db.WithContext(ctx).Model(&OAuthGrant{}).Where("id = ? AND client_id = ?", token.GrantID, clientID).Update("revoked", true).Error)
+	return s.Transaction(ctx, func(tx *Store) error {
+		var grant OAuthGrant
+		err := tx.db.WithContext(ctx).Model(&OAuthGrant{}).Select("oauth_grants.*").Joins("JOIN oauth_tokens ON oauth_tokens.grant_id = oauth_grants.id").Where("oauth_grants.client_id = ? AND (oauth_tokens.access_hash = ? OR oauth_tokens.refresh_hash = ?)", clientID, digest, digest).First(&grant).Error
+		if errors.Is(queryErr("token", err), ErrNotFound) {
+			return nil
+		}
+		if err != nil {
+			return queryErr("find token grant", err)
+		}
+		return tx.revokeGrant(ctx, grant.ID)
+	})
 }

@@ -28,7 +28,16 @@ func (s *Store) invalidateUserCredentials(ctx context.Context, id uint, session 
 	if err := s.db.WithContext(ctx).Where("user_id = ?", id).Delete(&LoginChallenge{}).Error; err != nil {
 		return queryErr("invalidate challenges", err)
 	}
-	return queryErr("invalidate grants", s.db.WithContext(ctx).Model(&OAuthGrant{}).Where("user_id = ?", id).Update("revoked", true).Error)
+	var grants []OAuthGrant
+	if err := s.db.WithContext(ctx).Where("user_id = ? AND revoked = ?", id, false).Order("client_id, id").Find(&grants).Error; err != nil {
+		return queryErr("find user grants", err)
+	}
+	for _, grant := range grants {
+		if err := s.revokeGrant(ctx, grant.ID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // SetPassword replaces a verified account's password and invalidates other credentials.

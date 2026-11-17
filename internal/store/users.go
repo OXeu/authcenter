@@ -61,6 +61,9 @@ func (s *Store) DeleteUser(ctx context.Context, actor, target uint) error {
 		if _, err := tx.managementTarget(ctx, actor, target); err != nil {
 			return err
 		}
+		if err := tx.invalidateUserCredentials(ctx, target, ""); err != nil {
+			return err
+		}
 		clients := tx.db.WithContext(ctx).Model(&OAuthClient{}).Select("id").Where("owner_id = ?", target)
 		grants := tx.db.WithContext(ctx).Model(&OAuthGrant{}).Select("id").Where("user_id = ? OR client_id IN (?)", target, clients)
 		for _, model := range []any{&OAuthToken{}, &AuthorizationCode{}} {
@@ -76,9 +79,6 @@ func (s *Store) DeleteUser(ctx context.Context, actor, target uint) error {
 		}
 		if err := tx.db.WithContext(ctx).Where("owner_id = ?", target).Delete(&OAuthClient{}).Error; err != nil {
 			return queryErr("delete user applications", err)
-		}
-		if err := tx.invalidateUserCredentials(ctx, target, ""); err != nil {
-			return err
 		}
 		return tx.mustAffect(ctx, tx.db.WithContext(ctx).Delete(&User{}, target), "delete user")
 	})

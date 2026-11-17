@@ -97,8 +97,8 @@ func (s *Server) registerClient(c *gin.Context) {
 	if name == "" {
 		name = "MCP client"
 	}
-	client := store.OAuthClient{ID: rand.Text(), Name: name, Public: true, Dynamic: true, RedirectURIs: input.RedirectURIs, Scopes: scopes, CreatedAt: time.Now().UTC()}
-	if err := s.store.CreateOAuthClient(c.Request.Context(), client); err != nil {
+	client := store.OAuthRegistration{ID: rand.Text(), Name: name, RedirectURIs: input.RedirectURIs, Scopes: scopes, CreatedAt: time.Now().UTC()}
+	if err := s.store.CreateOAuthRegistration(c.Request.Context(), client); err != nil {
 		s.fail(c, err)
 		return
 	}

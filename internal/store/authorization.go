@@ -2,7 +2,7 @@ package store
 
 import "time"
 
-// OAuthClient is a manually or dynamically registered relying application.
+// OAuthClient describes a managed application or a resolved authorization client.
 type OAuthClient struct {
 	ID           string    `gorm:"primaryKey;size:64" json:"id"`
 	Name         string    `gorm:"not null" json:"name"`

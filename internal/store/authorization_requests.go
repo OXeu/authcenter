@@ -33,7 +33,7 @@ func (s *Store) DecideAuthorization(ctx context.Context, request AuthorizationRe
 		if !user.Active() {
 			return ErrInvalidGrant
 		}
-		if err := tx.lockOAuthClient(ctx, request.ClientID); err != nil {
+		if err := tx.lockAuthorizationClient(ctx, request.ClientID); err != nil {
 			return err
 		}
 		if err := tx.validateOAuthRedirect(ctx, request.ClientID, request.RedirectURI); err != nil {

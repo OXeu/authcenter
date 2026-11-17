@@ -93,7 +93,7 @@ func (s *Server) authorize(c *gin.Context) {
 			return
 		}
 	}
-	client, err := s.store.OAuthClientByID(c.Request.Context(), q.Get("client_id"))
+	client, err := s.store.AuthorizationClientByID(c.Request.Context(), q.Get("client_id"))
 	if err != nil {
 		oauthError(c, 400, "invalid_client")
 		return
@@ -184,7 +184,7 @@ func (s *Server) authorizationPage(c *gin.Context) {
 		oauthError(c, 500, "server_error")
 		return
 	}
-	client, err := s.store.OAuthClientByID(c.Request.Context(), request.ClientID)
+	client, err := s.store.AuthorizationClientByID(c.Request.Context(), request.ClientID)
 	if err != nil || !slices.Contains(client.RedirectURIs, request.RedirectURI) {
 		oauthError(c, 400, "invalid_request")
 		return
@@ -216,7 +216,7 @@ func (s *Server) consent(c *gin.Context) {
 		oauthError(c, 403, "access_denied")
 		return
 	}
-	client, err := s.store.OAuthClientByID(c.Request.Context(), request.ClientID)
+	client, err := s.store.AuthorizationClientByID(c.Request.Context(), request.ClientID)
 	if err != nil || !slices.Contains(client.RedirectURIs, request.RedirectURI) {
 		oauthError(c, 400, "invalid_request")
 		return
