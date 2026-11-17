@@ -12,6 +12,14 @@ describe('Vue template rules', () => {
   it.each([
     ['<input />', 'input-outside-dialog'],
     ['<svg />', 'inline-icon'],
+    ['<dialog><select /></dialog>', 'no-native-select: use DropdownSelect instead'],
+    ['<dialog><Selector /></dialog>', 'no-native-select: use DropdownSelect instead'],
+    ['<dialog><component is="select" /></dialog>', 'no-native-select: use DropdownSelect instead'],
+    [
+      '<dialog><component :is="\'select\'" /></dialog>',
+      'no-native-select: use DropdownSelect instead',
+    ],
+    ['<DropdownSelect />', 'input-outside-dialog'],
     ['<p role="alert">error</p>', 'inline-message'],
     ['<div v-html="value" />', 'unsafe-html'],
     ['<a href="javascript:alert(1)">link</a>', 'unsafe-url'],

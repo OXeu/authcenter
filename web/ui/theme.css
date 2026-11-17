@@ -96,6 +96,15 @@
   .dropdown-content .btn-danger {
     @apply w-full justify-start;
   }
+  .dropdown-select {
+    @apply min-w-0;
+  }
+  .dropdown-options {
+    @apply mt-1 max-h-48 overflow-y-auto rounded-md border bg-card p-1 text-foreground;
+  }
+  .dropdown-option {
+    @apply cursor-pointer break-words rounded-sm px-3 py-3 text-sm hover:bg-muted data-[active=true]:bg-muted aria-selected:font-semibold;
+  }
   .card {
     @apply rounded-lg border bg-card p-4 shadow-sm;
   }

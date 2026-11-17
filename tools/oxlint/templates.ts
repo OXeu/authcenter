@@ -17,8 +17,19 @@ export function checkTemplate(source: string): string[] {
         node.tag === 'dialog' ||
         ['dialog', 'alertdialog'].includes(attrs.role) ||
         attrs['aria-modal'] === 'true'
-      if (['input', 'select', 'textarea'].includes(node.tag) && !dialog)
+      if (
+        ['input', 'select', 'textarea', 'DropdownSelect', 'dropdown-select'].includes(node.tag) &&
+        !dialog
+      )
         errors.push('input-outside-dialog')
+      const element = node.tag.toLowerCase()
+      const dynamicTag = node.props.find((p: any) => p.arg?.content === 'is')?.exp?.content
+      if (
+        ['select', 'option', 'optgroup', 'selector'].includes(element) ||
+        attrs.is?.toLowerCase() === 'select' ||
+        /^['"]select['"]$/iu.test(dynamicTag ?? '')
+      )
+        errors.push('no-native-select: use DropdownSelect instead')
       if (node.tag === 'svg') errors.push('inline-icon')
       if (['alert', 'status', 'log', 'tooltip'].includes(attrs.role)) errors.push('inline-message')
       if (

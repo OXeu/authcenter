@@ -49,7 +49,8 @@ export function checkDangerTemplate(source: string, filename = ''): string[] {
           (/menu$/iu.test(node.tag) && node.tag !== 'DropdownMenu') ||
           ['menu', 'menubar'].includes(attrs.role) ||
           /\b(dropdown-content|submenu)\b/u.test(attrs.class ?? '') ||
-          'aria-haspopup' in attrs)
+          ('aria-haspopup' in attrs &&
+            !(attrs.role === 'combobox' && attrs['aria-haspopup'] === 'listbox')))
       )
         errors.push('secondary-menu-requires-dropdown')
       inDropdown ||= node.tag === 'DropdownMenu'

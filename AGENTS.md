@@ -50,7 +50,7 @@ Commit messages follow [`docs/commits.md`](docs/commits.md): Conventional Commit
 ## Frontend rules
 
 1. **Vue 3 composition API.** Components live in `web/ui/src`, use `<script setup>`, reactive state and props. Pages share `DialogPanel.vue` and `workspace.ts`; no Alpine directives or direct DOM mutation.
-2. **Inputs live in dialogs.** All inputs, selects and textareas belong in the native shared `<dialog>`. Page bodies carry buttons and read-only views. Native `showModal()` provides focus containment, Escape and focus restoration; busy submissions cannot be cancelled.
+2. **Inputs live in dialogs.** Native `<select>` / `<option>` selectors are forbidden by template lint; use `DropdownSelect` for selection fields. All inputs, dropdown selectors and textareas belong in the native shared `<dialog>`. Page bodies carry buttons and read-only views. Native `showModal()` provides focus containment, Escape and focus restoration; busy submissions cannot be cancelled.
 3. **Reuse styles.** Use the `.card`, `.btn`, `.field`, `.input`, `.table`, `.badge` and `.tabs-trigger` classes in `web/ui/theme.css`. Avoid decorative wrappers and duplicate state markup.
 4. **Messages are toasts.** Use `notify()` from `web/ui/src/toast.ts` or `page.report(err)`. No inline alerts, tooltips or popovers. Dialog validation remains inert `.field` text. Server flash text is already translated and delivered in the JSON payload. Ding receives the per-request CSP style nonce.
 5. **Vue owns the DOM.** Oxlint's `configcenter/no-page-dom-access` bans document calls and HTML sinks in scripts. Only `main.ts` reads `#page-data` once. Component template refs may call native dialog methods; do not query or rewrite page DOM.

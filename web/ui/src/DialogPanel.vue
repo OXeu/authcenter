@@ -1,5 +1,7 @@
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, useId } from 'vue'
+import DropdownSelect from './DropdownSelect.vue'
+const formId = useId()
 const props = defineProps({
   form: { type: Object, required: true },
   msg: { type: Function, required: true },
@@ -28,20 +30,20 @@ function cancel(event) {
     <form class="space-y-3" @submit.prevent="form.submit">
       <h2 class="text-base font-semibold">{{ form.title }}</h2>
       <template v-if="!form.token">
-        <label v-for="field in form.fields" :key="field.key" class="field">
-          {{ msg(field.label) }}
-          <select
+        <div v-for="field in form.fields" :key="field.key" class="field">
+          <label :for="`${formId}-${field.key}`">{{ msg(field.label) }}</label>
+          <DropdownSelect
             v-if="field.options"
+            :id="`${formId}-${field.key}`"
             v-model="form.values[field.key]"
-            class="input"
+            :label="msg(field.label)"
+            :options="field.options"
+            :required="field.required"
             :disabled="form.busy"
-          >
-            <option v-for="option in field.options" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
+          />
           <textarea
             v-else-if="field.multiline"
+            :id="`${formId}-${field.key}`"
             v-model="form.values[field.key]"
             class="input"
             :required="field.required"
@@ -49,12 +51,13 @@ function cancel(event) {
           ></textarea>
           <input
             v-else
+            :id="`${formId}-${field.key}`"
             v-model="form.values[field.key]"
             class="input"
             :required="field.required"
             :disabled="form.busy"
           />
-        </label>
+        </div>
       </template>
       <p v-if="form.token" class="field">
         {{ msg('projects.tokenIssued') }}<code class="break-all">{{ form.token }}</code>
