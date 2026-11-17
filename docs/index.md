@@ -11,5 +11,6 @@ AuthCenter 的业务应用接入采用普通 OAuth 2.0，不要求 OIDC nonce、
 ## 下一步
 
 - [接入文档](/docs/api)：授权、令牌、用户信息及应用管理 API。
+- [MCP 接入](/docs/mcp)：通过 OAuth 授权调用与管理 API 等价的工具。
 - [配置](/docs/configuration)：通过 configcenter SDK 配置 GitHub、Resend 和数据库。
 - [安全行为](/docs/security)：两步验证、同意、重放保护和权限边界。

@@ -68,7 +68,7 @@ curl https://auth.example/oauth/revoke -u 'CLIENT_ID:CLIENT_SECRET' -d token=TOK
 
 ## 管理 API
 
-管理 API 只接受浏览器登录会话。写请求需要 `/api/v1/me` 返回的 `csrf` 作为 `X-CSRF-Token`。访问令牌不能代替管理会话。
+管理 API 接受浏览器登录会话或 `Authorization: Bearer ac_...` API Key。浏览器写请求需要 `/api/v1/me` 返回的 `csrf` 作为 `X-CSRF-Token`；API Key 请求按独立权限检查，无需 CSRF。显式 Authorization 优先于 Cookie，错误密钥不会回退到浏览器身份。OAuth 访问令牌不能直接调用管理 API；通过 [MCP](/docs/mcp) 使用 OAuth 授权。
 
 | 方法           | 路径                           | 作用                                                                             |
 | -------------- | ------------------------------ | -------------------------------------------------------------------------------- |
@@ -103,3 +103,32 @@ curl https://auth.example/oauth/revoke -u 'CLIENT_ID:CLIENT_SECRET' -d token=TOK
 ```
 
 PATCH 使用相同资料字段，`logo` 为空或省略时保留原图；不修改客户端密钥、ID、所有者或客户端类型。每个应用最多 20 个回调。
+
+## API Key 管理
+
+登录后从用户菜单进入 `/keys`。支持创建、查看、编辑名称与权限、轮换和删除；创建时可指定未来的有效期，留空表示不过期。创建和轮换只展示一次明文，数据库保存 SHA-256 摘要。轮换立即使旧令牌失效。列表只返回前缀、权限、归属、创建时间、最近使用时间和有效期。
+
+| 方法           | 路径                      | 作用                                 |
+| -------------- | ------------------------- | ------------------------------------ |
+| GET            | `/api/v1/key-scopes`      | 返回当前身份可以授予的 `permissions` |
+| GET / POST     | `/api/v1/keys`            | 列出 / 创建密钥                      |
+| PATCH / DELETE | `/api/v1/keys/:id`        | 编辑 / 删除密钥                      |
+| POST           | `/api/v1/keys/:id/rotate` | 轮换令牌                             |
+
+```json
+{
+  "name": "Automation",
+  "scopes": ["clients:read", "clients:write"],
+  "expires_at": "2027-01-01T00:00:00Z"
+}
+```
+
+创建响应为 `{"key":{...},"token":"ac_..."}`。PATCH 仅更新 `name` 和 `scopes`，保留有效期和令牌；`scopes: []` 禁止全部 API 访问。DELETE 返回 204，轮换返回 `{"token":"ac_..."}`。并发修改导致授权检查依据的版本过期时返回 409，调用方应重新读取再操作。
+
+```sh
+curl https://auth.example/api/v1/clients -H 'Authorization: Bearer ac_YOUR_API_KEY'
+```
+
+权限包括 `account:read/write`、`clients:read/write/delete`、`grants:read/delete`、`keys:read/write`、`users:read/write/delete` 和 `settings:read/write`，其中斜线表示独立值，例如 `clients:read` 与 `clients:write`。每次请求取密钥权限与所有者当前权限的交集；用户和设置操作仍要求管理员，普通用户只能访问自己的应用与授权。
+
+浏览器或 MCP 中普通用户只能管理自己的密钥，管理员可以管理所有密钥。通过 API Key 管理密钥还要求 `keys:read/write`，且目标密钥必须属于同一所有者、权限和有效期不超过当前密钥；创建子密钥不能扩大权限或超过当前密钥有效期。更改密码、邮箱、停用 TOTP、封禁或删除账户会撤销其 API Key。管理员降级后，其密钥立即失去管理员操作权限。
