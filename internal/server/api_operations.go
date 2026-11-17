@@ -59,6 +59,8 @@ func (s *Server) apiOperations() []apiOperation {
 	newKey := argument("new_key", "body", false)
 	newKey.Target = "key"
 	defaults := typedArgument("defaults", "object", true)
+	defaults.Schema["properties"] = map[string]any{}
+	defaults.Schema["required"] = []string{}
 	defaults.Schema["additionalProperties"] = map[string]any{"type": "string"}
 	defaults.Schema["minProperties"], defaults.Schema["maxProperties"] = 1, 500
 	scopes := typedArgument("scopes", "array", true)

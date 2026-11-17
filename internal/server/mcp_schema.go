@@ -14,6 +14,11 @@ func validateToolValue(value any, definition map[string]any, path string) error 
 		if !ok {
 			return fmt.Errorf("%s must be an object", path)
 		}
+		minimum, constrained := definition["minProperties"].(int)
+		maximum, limited := definition["maxProperties"].(int)
+		if (constrained && len(object) < minimum) || (limited && len(object) > maximum) {
+			return fmt.Errorf("%s has an invalid number of properties", path)
+		}
 		properties, ok := definition["properties"].(map[string]any)
 		if !ok {
 			return fmt.Errorf("%s has invalid schema properties", path)
@@ -29,6 +34,9 @@ func validateToolValue(value any, definition map[string]any, path string) error 
 		}
 		for name, child := range object {
 			property, ok := properties[name].(map[string]any)
+			if !ok {
+				property, ok = definition["additionalProperties"].(map[string]any)
+			}
 			if !ok {
 				return fmt.Errorf("%s contains unknown property %s", path, name)
 			}

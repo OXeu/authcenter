@@ -68,6 +68,7 @@ func TestMCPCompleteAPI(t *testing.T) {
 	call("get_project", map[string]any{"project": "billing"}, http.StatusOK)
 	config := map[string]any{"project": "billing", "environment": "staging", "key": "db/pool", "value": ""}
 	call("set_config", config, http.StatusOK)
+	call("initialize_config", map[string]any{"project": "billing", "environment": "staging", "defaults": map[string]string{"db/pool": "must-not-replace", "created.default": "initialized"}}, http.StatusNoContent)
 	delete(config, "value")
 	if got := call("get_config", config, http.StatusOK); got["value"] != "" || got["key"] != "db/pool" {
 		t.Fatal("encoded key or empty value changed")

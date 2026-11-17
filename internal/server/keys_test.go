@@ -152,7 +152,7 @@ func TestScopesBindEachPermissionToItsProject(t *testing.T) {
 				Tools []mcpTool `json:"tools"`
 			} `json:"result"`
 		}
-		if err := json.Unmarshal(rec.Body.Bytes(), &listed); err != nil || len(listed.Result.Tools) != 6 {
+		if err := json.Unmarshal(rec.Body.Bytes(), &listed); err != nil || len(listed.Result.Tools) != 7 {
 			t.Fatal("MCP discovery did not filter scopes")
 		}
 		args := map[string]any{"project": tc.project, "environment": "production", "key": "value"}
