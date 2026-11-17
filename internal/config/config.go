@@ -1,12 +1,17 @@
 package config
 
 import (
+	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/fs"
 	"net"
+	"net/url"
 	"strings"
 	"time"
+
+	"github.com/OXeu/configcenter/sdk/configcenter"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
@@ -20,14 +25,18 @@ type Config struct {
 	DatabaseDriver string
 	DatabaseDSN    string
 	PublicURL      string
-	SessionSecret  string
 	SessionTTL     time.Duration
 	// Languages lists the enabled UI languages; the first supported one is
 	// the default. Tags must match the locale files in internal/i18n.
-	Languages []string
-	OAuth     auth.Config
-	Groups    auth.GroupPolicy
-	Bootstrap Bootstrap
+	Languages         []string
+	OAuth             auth.Config
+	Groups            auth.GroupPolicy
+	Bootstrap         Bootstrap
+	LocalLogin        bool
+	AllowRegistration bool
+	ResendKey         string
+	ResendFrom        string
+	EncryptionKey     []byte
 }
 
 // Bootstrap is the first-run administrator created when no user exists yet.
@@ -39,32 +48,51 @@ type Bootstrap struct {
 // DefaultEnvFile is read by the binary unless AC_ENV_FILE points elsewhere.
 const DefaultEnvFile = ".env.local"
 
-// Load reads configuration from the environment. It first loads the env file
-// (AC_ENV_FILE, default .env.local) with godotenv, which does not override
-// variables that are already set, so `AC_ADDR=… ./authcenter` and exported
-// variables still win. A missing file is not an error.
-func Load(lookup func(string) (string, bool)) (Config, error) {
+// Load reads configcenter connection settings from the environment and all
+// runtime settings through the configcenter SDK. Exported bootstrap settings
+// take precedence over the optional local env file.
+func Load(ctx context.Context, lookup func(string) (string, bool)) (Config, error) {
 	envFile := lookupOr(lookup, "AC_ENV_FILE", DefaultEnvFile)
 	if err := godotenv.Load(envFile); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return Config{}, fmt.Errorf("load env file %s: %w", envFile, err)
 	}
-	env := func(key, fallback string) string {
-		return lookupOr(lookup, key, fallback)
-	}
 
+	client, err := configcenter.New(configcenter.Config{
+		BaseURL:     lookupOr(lookup, "AC_CONFIGCENTER_URL", ""),
+		APIKey:      lookupOr(lookup, "AC_CONFIGCENTER_KEY", ""),
+		Environment: lookupOr(lookup, "AC_CONFIGCENTER_ENVIRONMENT", "production"),
+		DotenvFiles: []string{},
+	})
+	if err != nil {
+		return Config{}, fmt.Errorf("configure configcenter SDK: %w", err)
+	}
+	if client.IsLocal() {
+		return Config{}, errors.New("AC_CONFIGCENTER_URL and AC_CONFIGCENTER_KEY are required")
+	}
+	if err := client.Load(ctx); err != nil {
+		return Config{}, fmt.Errorf("load configcenter snapshot: %w", err)
+	}
+	return fromSnapshot(client.GetDefault)
+}
+
+func fromSnapshot(env func(string, string) string) (Config, error) {
 	cfg := Config{
-		Addr:           env("AC_ADDR", "127.0.0.1:8080"),
+		Addr:           env("AC_ADDR", "127.0.0.1:8081"),
 		DatabaseDriver: env("AC_DB_DRIVER", "sqlite"),
-		DatabaseDSN:    env("AC_DB", "file:authcenter.db"),
-		PublicURL:      strings.TrimRight(env("AC_PUBLIC_URL", "http://127.0.0.1:8080"), "/"),
-		SessionSecret:  env("AC_SESSION_SECRET", ""),
-		SessionTTL:     24 * time.Hour,
-		Languages:      splitList(env("AC_LANGUAGES", "en,zh-CN")),
+		DatabaseDSN:    env("AC_DB", "file:.tmp/authcenter.db"),
+		PublicURL:      strings.TrimRight(env("AC_PUBLIC_URL", "http://127.0.0.1:8081"), "/"),
+
+		SessionTTL:        24 * time.Hour,
+		LocalLogin:        env("AC_LOCAL_LOGIN", "true") == "true",
+		AllowRegistration: env("AC_ALLOW_REGISTRATION", "true") == "true",
+		ResendKey:         env("AC_RESEND_API_KEY", ""),
+		ResendFrom:        env("AC_RESEND_FROM", ""),
+		Languages:         splitList(env("AC_LANGUAGES", "en,zh-CN")),
 		OAuth: auth.Config{
-			IssuerURL:    strings.TrimRight(env("AC_OAUTH_ISSUER", ""), "/"),
+			IssuerURL:    strings.TrimRight(env("AC_OAUTH_ISSUER", "https://github.com/login/oauth"), "/"),
 			ClientID:     env("AC_OAUTH_CLIENT_ID", ""),
 			ClientSecret: env("AC_OAUTH_CLIENT_SECRET", ""),
-			Scopes:       strings.Fields(env("AC_OAUTH_SCOPES", "openid profile email groups")),
+			Scopes:       strings.Fields(env("AC_OAUTH_SCOPES", "read:user user:email")),
 			RedirectURL:  env("AC_OAUTH_REDIRECT_URL", ""),
 			GroupsClaim:  env("AC_OAUTH_GROUPS_CLAIM", "groups"),
 		},
@@ -83,29 +111,42 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	}
 
 	var errs []error
+	public, parseErr := url.Parse(cfg.PublicURL)
+	if parseErr != nil || !validPublicURL(public) {
+		errs = append(errs, errors.New("AC_PUBLIC_URL must be an HTTPS origin, or HTTP loopback origin"))
+	}
+
+	if cfg.LocalLogin {
+		key, err := base64.StdEncoding.DecodeString(env("AC_ENCRYPTION_KEY", ""))
+		if err != nil || len(key) != 32 {
+			errs = append(errs, errors.New("AC_ENCRYPTION_KEY must be a base64-encoded 32-byte key"))
+		} else {
+			cfg.EncryptionKey = key
+		}
+	}
+	if env("AC_ENV", "") == "production" && public != nil && public.Scheme != "https" {
+		errs = append(errs, errors.New("production requires HTTPS"))
+	}
 	if _, port, err := net.SplitHostPort(cfg.Addr); err != nil || port == "" {
-		errs = append(errs, fmt.Errorf("cc addr %q is not host:port", cfg.Addr))
+		errs = append(errs, fmt.Errorf("authcenter addr %q is not host:port", cfg.Addr))
 	}
 	if cfg.DatabaseDriver != "sqlite" && cfg.DatabaseDriver != "mysql" {
-		errs = append(errs, errors.New("cc db driver must be sqlite or mysql"))
+		errs = append(errs, errors.New("authcenter db driver must be sqlite or mysql"))
 	}
 	if cfg.DatabaseDriver == "mysql" && (cfg.DatabaseDSN == "" || strings.HasPrefix(cfg.DatabaseDSN, "file:")) {
-		errs = append(errs, errors.New("cc db requires a MySQL DSN when using mysql"))
+		errs = append(errs, errors.New("authcenter db requires a MySQL DSN when using mysql"))
 	}
 	if cfg.DatabaseDriver == "mysql" {
 		parsed, err := mysql.ParseDSN(cfg.DatabaseDSN)
 		if err != nil || parsed.DBName == "" {
-			errs = append(errs, errors.New("cc db must be a valid MySQL DSN with a database name"))
+			errs = append(errs, errors.New("authcenter db must be a valid MySQL DSN with a database name"))
 		} else {
 			parsed.ParseTime = true
 			cfg.DatabaseDSN = parsed.FormatDSN()
 		}
 	}
 	if cfg.DatabaseDriver == "sqlite" && !strings.HasPrefix(cfg.DatabaseDSN, "file:") {
-		errs = append(errs, errors.New("cc db must be a sqlite dsn starting with file"))
-	}
-	if cfg.SessionSecret == "" && env("AC_ENV", "") == "production" {
-		errs = append(errs, errors.New("cc session secret is required in production mode"))
+		errs = append(errs, errors.New("authcenter db must be a sqlite dsn starting with file"))
 	}
 	if len(errs) > 0 {
 		return Config{}, errors.Join(errs...)
@@ -145,4 +186,11 @@ func parseGroupMap(raw string) map[string]string {
 		}
 	}
 	return m
+}
+
+func validPublicURL(u *url.URL) bool {
+	if u == nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+		return false
+	}
+	return u.Scheme == "https" || u.Scheme == "http" && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" || u.Hostname() == "::1")
 }

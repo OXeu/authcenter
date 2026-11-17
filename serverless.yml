@@ -17,9 +17,6 @@ inputs:
     subnetId: ${env:SCF_SUBNET_ID}
   environment:
     variables:
-      AC_ADDR: '0.0.0.0:9000'
-      AC_DB_DRIVER: mysql
-      AC_ENV: production
       AC_ENV_FILE: /var/user/.env.local
   events:
     - http:

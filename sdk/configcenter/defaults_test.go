@@ -1,4 +1,4 @@
-package authcenter
+package configcenter
 
 import (
 	"encoding/json"
@@ -26,7 +26,7 @@ func TestEnsureDefaultsRemoteUsesBatchReadAndWrite(t *testing.T) {
 		case "/api/v1/agent/project":
 			json.NewEncoder(w).Encode(map[string]any{"project": map[string]string{"slug": "app"}})
 		case "/api/v1/projects/app/environments/production/items":
-			if r.Method != http.MethodPut || r.Header.Get("Authorization") != "ApiKey ac_test" {
+			if r.Method != http.MethodPut || r.Header.Get("Authorization") != "ApiKey cc_test" {
 				t.Error("invalid initializer request")
 			}
 			var in struct {
@@ -44,7 +44,7 @@ func TestEnsureDefaultsRemoteUsesBatchReadAndWrite(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	client := testClient(t, Config{BaseURL: server.URL, APIKey: "ac_test", DotenvFiles: []string{}, Defaults: map[string]string{"new": "fallback"}})
+	client := testClient(t, Config{BaseURL: server.URL, APIKey: "cc_test", DotenvFiles: []string{}, Defaults: map[string]string{"new": "fallback"}})
 	defaults := map[string]string{"keep": "default", "new": "new-default"}
 	if err := client.Load(t.Context()); err != nil {
 		t.Fatal(err)
@@ -82,7 +82,7 @@ func TestEnsureDefaultsErrorsIdentifyKeys(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			client := testClient(t, Config{BaseURL: server.URL, APIKey: "ac_test", DotenvFiles: []string{}})
+			client := testClient(t, Config{BaseURL: server.URL, APIKey: "cc_test", DotenvFiles: []string{}})
 			err := client.EnsureDefaults(t.Context(), map[string]string{"certcenter.server": "secret-value"})
 			if err == nil || !strings.Contains(err.Error(), "certcenter.server") || strings.Contains(err.Error(), "secret-value") {
 				t.Fatal("missing key context or leaked value", err)

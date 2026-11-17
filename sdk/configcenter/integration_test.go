@@ -1,4 +1,4 @@
-package authcenter_test
+package configcenter_test
 
 import (
 	"context"
@@ -6,22 +6,22 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OXeu/authcenter/sdk/authcenter"
+	"github.com/OXeu/configcenter/sdk/configcenter"
 )
 
 // TestAgainstRunningServer exercises the SDK against a live server. Set
-// AC_TEST_URL and AC_TEST_KEY (an editor key of an existing project):
+// CC_TEST_URL and CC_TEST_KEY (an editor key of an existing project):
 //
-//	AC_TEST_URL=http://127.0.0.1:8080 AC_TEST_KEY=ac_... go test ./... -run Live
+//	CC_TEST_URL=http://127.0.0.1:8080 CC_TEST_KEY=cc_... go test ./... -run Live
 func TestAgainstRunningServer(t *testing.T) {
-	baseURL, key := os.Getenv("AC_TEST_URL"), os.Getenv("AC_TEST_KEY")
+	baseURL, key := os.Getenv("CC_TEST_URL"), os.Getenv("CC_TEST_KEY")
 	if baseURL == "" || key == "" {
-		t.Skip("AC_TEST_URL and AC_TEST_KEY are not set")
+		t.Skip("CC_TEST_URL and CC_TEST_KEY are not set")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	client, err := authcenter.New(authcenter.Config{DotenvFiles: []string{}, BaseURL: baseURL, APIKey: key, Environment: "production"})
+	client, err := configcenter.New(configcenter.Config{DotenvFiles: []string{}, BaseURL: baseURL, APIKey: key, Environment: "production"})
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}

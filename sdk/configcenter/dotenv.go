@@ -1,4 +1,4 @@
-package authcenter
+package configcenter
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 )
 
 // ErrInvalidDotenv identifies malformed dotenv input without exposing its contents.
-var ErrInvalidDotenv = errors.New("authcenter: invalid dotenv syntax")
+var ErrInvalidDotenv = errors.New("configcenter: invalid dotenv syntax")
 
 // DotenvSource reads files using godotenv without changing the process environment.
 // Files are ordered from highest to lowest priority. Nil reads an optional .env;
@@ -29,7 +29,7 @@ func (s DotenvSource) Read(ctx context.Context, prefix string) ([]Item, error) {
 	var failures []error
 	for _, file := range files {
 		if err := ctx.Err(); err != nil {
-			return nil, fmt.Errorf("authcenter: read dotenv: %w", err)
+			return nil, fmt.Errorf("configcenter: read dotenv: %w", err)
 		}
 		values, err := godotenv.Read(file)
 		if err != nil {
@@ -38,9 +38,9 @@ func (s DotenvSource) Read(ctx context.Context, prefix string) ([]Item, error) {
 			}
 			var pathErr *os.PathError
 			if errors.As(err, &pathErr) {
-				failures = append(failures, fmt.Errorf("authcenter: read dotenv %q: %w", file, err))
+				failures = append(failures, fmt.Errorf("configcenter: read dotenv %q: %w", file, err))
 			} else {
-				failures = append(failures, fmt.Errorf("authcenter: parse dotenv %q: %w", file, ErrInvalidDotenv))
+				failures = append(failures, fmt.Errorf("configcenter: parse dotenv %q: %w", file, ErrInvalidDotenv))
 			}
 			continue
 		}

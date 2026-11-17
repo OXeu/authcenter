@@ -1,4 +1,4 @@
-package authcenter
+package configcenter
 
 import (
 	"context"
@@ -105,7 +105,7 @@ func TestFallbackPriorityAndEmptyValues(t *testing.T) {
 	defer server.Close()
 	file := dotenvTestFile(t, "memory=dotenv\nmemory_empty=dotenv\nremote=dotenv\nremote_empty=dotenv\ndotenv='dotenv value'\ndotenv_empty=\ninvalid_int=10\n")
 	defaults := map[string]string{"memory": "default", "remote": "default", "dotenv": "default", "dotenv_empty": "default", "default": "default-value", "invalid_int": "20"}
-	client := testClient(t, Config{BaseURL: server.URL, APIKey: "ac_test", DotenvFiles: []string{file}, Defaults: defaults})
+	client := testClient(t, Config{BaseURL: server.URL, APIKey: "cc_test", DotenvFiles: []string{file}, Defaults: defaults})
 	client.cachePut(Item{Key: "memory", Value: "memory-value"})
 	client.cachePut(Item{Key: "memory_empty", Value: ""})
 	defaults["default"] = "mutated"
@@ -146,7 +146,7 @@ func TestRemoteCacheHitsExpiryDeletionAndFailures(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	client := testClient(t, Config{BaseURL: server.URL, APIKey: "ac_test", DotenvFiles: []string{}, Defaults: map[string]string{"key": "default"}})
+	client := testClient(t, Config{BaseURL: server.URL, APIKey: "cc_test", DotenvFiles: []string{}, Defaults: map[string]string{"key": "default"}})
 	if err := client.Load(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +200,7 @@ func TestPrefixCacheCoverage(t *testing.T) {
 		json.NewEncoder(w).Encode(map[string]any{"items": items})
 	}))
 	defer server.Close()
-	client := testClient(t, Config{BaseURL: server.URL, APIKey: "ac_test", DotenvFiles: []string{}})
+	client := testClient(t, Config{BaseURL: server.URL, APIKey: "cc_test", DotenvFiles: []string{}})
 	if err := client.LoadPrefix(t.Context(), "db."); err != nil || reads.Load() != 1 || len(client.All()) != 1 {
 		t.Fatal("prefix load failed", err)
 	}
@@ -276,7 +276,7 @@ func TestMemoryConcurrentWritesAndCancellation(t *testing.T) {
 func TestRemoteErrorsDoNotRedirectWrites(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusServiceUnavailable) }))
 	defer server.Close()
-	client := testClient(t, Config{BaseURL: server.URL, APIKey: "ac_test", DotenvFiles: []string{}, Defaults: map[string]string{"key": "default"}})
+	client := testClient(t, Config{BaseURL: server.URL, APIKey: "cc_test", DotenvFiles: []string{}, Defaults: map[string]string{"key": "default"}})
 	if client.IsLocal() {
 		t.Fatal("configured client selected local backend")
 	}
@@ -295,7 +295,7 @@ func TestWatchRefreshesExpiredRemoteCache(t *testing.T) {
 		json.NewEncoder(w).Encode(map[string]any{"items": []Item{{Key: "version", Value: fmt.Sprint(version.Load())}}})
 	}))
 	defer server.Close()
-	client := testClient(t, Config{BaseURL: server.URL, APIKey: "ac_test", DotenvFiles: []string{}})
+	client := testClient(t, Config{BaseURL: server.URL, APIKey: "cc_test", DotenvFiles: []string{}})
 	ctx, cancel := context.WithCancel(t.Context())
 	defer func() {
 		cancel()

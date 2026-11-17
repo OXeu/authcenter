@@ -1,4 +1,4 @@
-package authcenter
+package configcenter
 
 import (
 	"context"
@@ -19,7 +19,7 @@ func TestBatchRemoteReadsAndWrites(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
-		if r.Header.Get("Authorization") != "ApiKey ac_batch" {
+		if r.Header.Get("Authorization") != "ApiKey cc_batch" {
 			t.Error("missing API key")
 		}
 		switch r.URL.Path {
@@ -60,7 +60,7 @@ func TestBatchRemoteReadsAndWrites(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	client, err := New(Config{BaseURL: server.URL, APIKey: "ac_batch"})
+	client, err := New(Config{BaseURL: server.URL, APIKey: "cc_batch"})
 	if err != nil {
 		t.Fatal(err)
 	}

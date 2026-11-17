@@ -1,4 +1,4 @@
-package authcenter
+package configcenter
 
 import (
 	"context"
@@ -16,7 +16,7 @@ func (c *Client) EnsureDefaults(ctx context.Context, defaults map[string]string)
 	c.opMu.Lock()
 	defer c.opMu.Unlock()
 	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("authcenter: initialize defaults cancelled: %w", err)
+		return fmt.Errorf("configcenter: initialize defaults cancelled: %w", err)
 	}
 	keys := make([]string, 0, len(defaults))
 	for key := range defaults {

@@ -1,4 +1,4 @@
-package authcenter
+package configcenter
 
 import (
 	"bytes"
@@ -23,7 +23,7 @@ func batchKeys(values map[string]string) []string {
 
 func validateBatch(keys []string) error {
 	if len(keys) == 0 || len(keys) > 500 {
-		return fmt.Errorf("authcenter: batch must contain 1 to 500 keys")
+		return fmt.Errorf("configcenter: batch must contain 1 to 500 keys")
 	}
 	seen := make(map[string]bool, len(keys))
 	for _, key := range keys {
@@ -31,7 +31,7 @@ func validateBatch(keys []string) error {
 			return fmt.Errorf("key %q: %w", key, err)
 		}
 		if seen[key] {
-			return fmt.Errorf("authcenter: duplicate key %q", key)
+			return fmt.Errorf("configcenter: duplicate key %q", key)
 		}
 		seen[key] = true
 	}
@@ -128,7 +128,7 @@ func (c *Client) putMany(ctx context.Context, values map[string]string) error {
 		return fmt.Errorf("encode configuration batch: %w", err)
 	}
 	if len(body) > 1<<20 {
-		return fmt.Errorf("authcenter: batch body exceeds 1 MiB")
+		return fmt.Errorf("configcenter: batch body exceeds 1 MiB")
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, path+"/items", bytes.NewReader(body))
 	if err != nil {
@@ -144,7 +144,7 @@ func (c *Client) putMany(ctx context.Context, values map[string]string) error {
 		return fmt.Errorf("close batch write response: %w", err)
 	}
 	if resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("authcenter: batch write status %d", resp.StatusCode)
+		return fmt.Errorf("configcenter: batch write status %d", resp.StatusCode)
 	}
 	c.cachePutMany(items)
 	return nil

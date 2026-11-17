@@ -18,7 +18,7 @@ fmt: assets
 	npm run fmt
 
 lint: assets
-	golangci-lint run ./...
+	TMPDIR=$(TMP_ROOT) golangci-lint run ./...
 	npm run lint
 	npm run typecheck
 	npm test --silent
@@ -27,14 +27,14 @@ test: assets
 	$(GO_TEST) ./...
 
 sdk-lint:
-	cd sdk/authcenter && golangci-lint run ./...
+	cd sdk/configcenter && TMPDIR=$(TMP_ROOT) golangci-lint run ./...
 
 sdk-test:
-	cd sdk/authcenter && $(GO_TEST) ./...
+	cd sdk/configcenter && $(GO_TEST) ./...
 
 check: assets lint sdk-lint test sdk-test
 
-# The binary loads .env.local itself (AC_ENV_FILE), without overriding
-# variables exported here, so `AC_ADDR=:9000 make run` still works.
+# The binary reads configcenter connection settings from .env.local (AC_ENV_FILE).
+# Runtime settings are loaded through the configcenter SDK.
 run: build
 	exec ./$(BIN)

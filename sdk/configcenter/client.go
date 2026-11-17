@@ -1,10 +1,10 @@
-// Package authcenter reads and writes remote or local configuration.
+// Package configcenter reads and writes remote or local configuration.
 //
 // The client authenticates with an API key issued for one project. It carries
 // no project name: the key itself is bound to a project, so a key can never
 // read another project's configuration. Without a server URL and API key,
 // the client uses memory, dotenv files and application defaults.
-package authcenter
+package configcenter
 
 import (
 	"context"
@@ -23,9 +23,9 @@ import (
 
 var (
 	// ErrNotFound is returned when the server has no such project or environment.
-	ErrNotFound = errors.New("authcenter: not found")
+	ErrNotFound = errors.New("configcenter: not found")
 	// ErrKeyNotFound is returned when a key is absent from a loaded snapshot.
-	ErrKeyNotFound = errors.New("authcenter: key not found")
+	ErrKeyNotFound = errors.New("configcenter: key not found")
 )
 
 // Config selects the memory cache, remote, dotenv and default configuration sources.
@@ -83,7 +83,7 @@ type Client struct {
 // New validates cfg and returns a client.
 func New(cfg Config) (*Client, error) {
 	if cfg.CacheTTL < 0 {
-		return nil, errors.New("authcenter: CacheTTL must not be negative")
+		return nil, errors.New("configcenter: CacheTTL must not be negative")
 	}
 	if cfg.CacheTTL == 0 {
 		cfg.CacheTTL = DefaultCacheTTL
@@ -96,14 +96,14 @@ func New(cfg Config) (*Client, error) {
 		return newClient(cfg, env, "", nil), nil
 	}
 	if cfg.BaseURL == "" {
-		return nil, errors.New("authcenter: BaseURL is required")
+		return nil, errors.New("configcenter: BaseURL is required")
 	}
-	if !strings.HasPrefix(cfg.APIKey, "ac_") {
-		return nil, errors.New("authcenter: a ac_ API key is required")
+	if !strings.HasPrefix(cfg.APIKey, "cc_") {
+		return nil, errors.New("configcenter: a cc_ API key is required")
 	}
 	base, err := url.Parse(strings.TrimRight(cfg.BaseURL, "/"))
 	if err != nil || (base.Scheme != "http" && base.Scheme != "https") || base.Host == "" || base.User != nil || base.RawQuery != "" || base.Fragment != "" {
-		return nil, errors.New("authcenter: BaseURL must be an HTTP(S) URL without credentials, query or fragment")
+		return nil, errors.New("configcenter: BaseURL must be an HTTP(S) URL without credentials, query or fragment")
 	}
 	client := cfg.HTTPClient
 	if client == nil {
@@ -164,7 +164,7 @@ func (c *Client) load(ctx context.Context, prefix string) error {
 
 func (c *Client) loadSnapshot(ctx context.Context, prefix string, refresh bool) error {
 	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("authcenter: load cancelled: %w", err)
+		return fmt.Errorf("configcenter: load cancelled: %w", err)
 	}
 	c.mu.Lock()
 	c.cache.prune(time.Now())
@@ -179,7 +179,7 @@ func (c *Client) loadSnapshot(ctx context.Context, prefix string, refresh bool) 
 	fetchedAt := time.Now()
 	fallbacks, fallbackErr := c.sources.Read(ctx, prefix)
 	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("authcenter: load cancelled: %w", err)
+		return fmt.Errorf("configcenter: load cancelled: %w", err)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -201,24 +201,24 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, out any
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, http.NoBody)
 	if err != nil {
-		return fmt.Errorf("authcenter: build request: %w", err)
+		return fmt.Errorf("configcenter: build request: %w", err)
 	}
 	req.Header.Set("Authorization", "ApiKey "+c.apiKey)
 	req.Header.Set("Accept", "application/json")
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("authcenter: request %s: %w", path, err)
+		return fmt.Errorf("configcenter: request %s: %w", path, err)
 	}
 	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // a close error cannot be reported after the body was read
 	if resp.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("authcenter: %s: %w", path, ErrNotFound)
+		return fmt.Errorf("configcenter: %s: %w", path, ErrNotFound)
 	}
 	if resp.StatusCode != http.StatusOK {
 		// The status code is the useful error; the body text is not needed. //nolint:errcheck
-		return fmt.Errorf("authcenter: %s: status %d", path, resp.StatusCode)
+		return fmt.Errorf("configcenter: %s: status %d", path, resp.StatusCode)
 	}
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
-		return fmt.Errorf("authcenter: decode %s: %w", path, err)
+		return fmt.Errorf("configcenter: decode %s: %w", path, err)
 	}
 	return nil
 }

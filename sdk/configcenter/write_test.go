@@ -1,4 +1,4 @@
-package authcenter
+package configcenter
 
 import (
 	"encoding/json"
@@ -10,7 +10,7 @@ import (
 func TestPutUsesBoundProjectAndExplicitWritePermission(t *testing.T) {
 	writes := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "ApiKey ac_test" {
+		if r.Header.Get("Authorization") != "ApiKey cc_test" {
 			t.Error("missing SDK authentication")
 		}
 		switch r.URL.Path {
@@ -33,7 +33,7 @@ func TestPutUsesBoundProjectAndExplicitWritePermission(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	client, err := New(Config{DotenvFiles: []string{}, BaseURL: server.URL, APIKey: "ac_test"})
+	client, err := New(Config{DotenvFiles: []string{}, BaseURL: server.URL, APIKey: "cc_test"})
 	if err != nil {
 		t.Fatal(err)
 	}

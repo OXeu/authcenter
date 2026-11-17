@@ -1,78 +1,75 @@
 package config
 
 import (
-	"os"
-	"path/filepath"
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
 
-func TestLoadReadsEnvFileWithoutOverridingExportedValues(t *testing.T) {
-	dir := t.TempDir()
-	file := filepath.Join(dir, ".env.local")
-	contents := "AC_ADDR=0.0.0.0:9999\nAC_PUBLIC_URL=http://files.example/\nAC_OAUTH_ISSUER=https://github.com/login/oauth/\n"
-	if err := os.WriteFile(file, []byte(contents), 0o600); err != nil {
-		t.Fatalf("write env file: %v", err)
-	}
-
-	t.Setenv("AC_ENV_FILE", file)
-	t.Setenv("AC_ADDR", "127.0.0.1:7777")
-
-	cfg, err := Load(os.LookupEnv)
+func TestSDKLoadsAllRuntimeConfiguration(t *testing.T) {
+	key := base64.StdEncoding.EncodeToString(make([]byte, 32))
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "ApiKey cc_test" || !strings.Contains(r.URL.Path, "/environments/staging/values") {
+			t.Errorf("unexpected configcenter request %s", r.URL.Path)
+		}
+		items := []map[string]string{}
+		for k, v := range map[string]string{"AC_ADDR": "127.0.0.1:9090", "AC_PUBLIC_URL": "https://auth.example", "AC_ENCRYPTION_KEY": key, "AC_RESEND_API_KEY": "test-mail-key", "AC_RESEND_FROM": "Auth <auth@example.com>", "AC_OAUTH_CLIENT_ID": "github-client", "AC_OAUTH_CLIENT_SECRET": "github-secret"} {
+			items = append(items, map[string]string{"key": k, "value": v})
+		}
+		json.NewEncoder(w).Encode(map[string]any{"items": items})
+	}))
+	defer remote.Close()
+	values := map[string]string{"AC_CONFIGCENTER_URL": remote.URL, "AC_CONFIGCENTER_KEY": "cc_test", "AC_CONFIGCENTER_ENVIRONMENT": "staging", "AC_ENV_FILE": "missing-test-env", "AC_ADDR": "127.0.0.1:1"}
+	cfg, err := Load(context.Background(), func(k string) (string, bool) { v, ok := values[k]; return v, ok })
 	if err != nil {
-		t.Fatalf("load: %v", err)
+		t.Fatal(err)
 	}
-	if cfg.Addr != "127.0.0.1:7777" {
-		t.Fatalf("exported AC_ADDR was overridden: %q", cfg.Addr)
-	}
-	if cfg.PublicURL != "http://files.example" {
-		t.Fatalf("file value not used or not trimmed: %q", cfg.PublicURL)
-	}
-	if cfg.OAuth.IssuerURL != "https://github.com/login/oauth" {
-		t.Fatalf("issuer trailing slash not trimmed: %q", cfg.OAuth.IssuerURL)
-	}
-	if cfg.OAuth.RedirectURL != "http://files.example/oauth/callback" {
-		t.Fatalf("redirect not derived: %q", cfg.OAuth.RedirectURL)
+	if cfg.Addr != "127.0.0.1:9090" || cfg.ResendKey != "test-mail-key" || cfg.OAuth.RedirectURL != "https://auth.example/oauth/callback" || len(cfg.EncryptionKey) != 32 {
+		t.Fatal("runtime settings did not come from the SDK")
 	}
 }
 
-func TestLoadToleratesMissingEnvFile(t *testing.T) {
-	t.Setenv("AC_ENV_FILE", filepath.Join(t.TempDir(), "absent.env"))
-	cfg, err := Load(os.LookupEnv)
-	if err != nil {
-		t.Fatalf("load: %v", err)
-	}
-	if cfg.Addr == "" {
-		t.Fatal("defaults were not applied")
-	}
-}
-
-func TestDatabaseDrivers(t *testing.T) {
-	for _, tc := range []struct {
-		name   string
-		driver string
-		dsn    string
-		valid  bool
-	}{
-		{"default", "", "", true},
-		{"mysql", "mysql", "user:password@tcp(localhost:3306)/authcenter", true},
-		{"mysql missing dsn", "mysql", "", false},
-		{"mysql missing database", "mysql", "user:password@tcp(localhost:3306)/", false},
-		{"unknown", "postgres", "", false},
-		{"sqlite invalid", "sqlite", "invalid", false},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			values := map[string]string{"AC_DB_DRIVER": tc.driver, "AC_DB": tc.dsn, "AC_ENV_FILE": "missing-test-env"}
-			cfg, err := Load(func(key string) (string, bool) { value, ok := values[key]; return value, ok })
-			if (err == nil) != tc.valid {
-				t.Fatalf("valid=%v, error=%v", tc.valid, err)
+func TestSDKFailureDoesNotFallBackToRuntimeEnvironment(t *testing.T) {
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(503) }))
+	defer remote.Close()
+	for _, values := range []map[string]string{{}, {"AC_CONFIGCENTER_URL": remote.URL, "AC_CONFIGCENTER_KEY": "cc_test"}} {
+		_, err := Load(context.Background(), func(k string) (string, bool) {
+			if k == "AC_ENV_FILE" {
+				return "missing-test-env", true
 			}
-			if tc.name == "default" && cfg.DatabaseDriver != "sqlite" {
-				t.Fatal("default must remain sqlite")
-			}
-			if tc.name == "mysql" && !strings.Contains(cfg.DatabaseDSN, "parseTime=true") {
-				t.Fatal("mysql must parse timestamps")
-			}
+			v, ok := values[k]
+			return v, ok
 		})
+		if err == nil {
+			t.Fatal("missing or unavailable remote must fail closed")
+		}
+	}
+}
+
+func TestConfigValidation(t *testing.T) {
+	for _, values := range []map[string]string{
+		{"AC_PUBLIC_URL": "https://auth.example/path"},
+		{"AC_PUBLIC_URL": "http://untrusted.example"},
+		{"AC_LOCAL_LOGIN": "true", "AC_ENCRYPTION_KEY": "bad"},
+		{"AC_DB_DRIVER": "postgres"},
+		{"AC_DB_DRIVER": "mysql", "AC_DB": "invalid"},
+		{"AC_DB": "invalid"},
+	} {
+		_, err := fromSnapshot(func(key, fallback string) string {
+			if v, ok := values[key]; ok {
+				return v
+			}
+			if key == "AC_LOCAL_LOGIN" {
+				return "false"
+			}
+			return fallback
+		})
+		if err == nil {
+			t.Fatal("invalid config accepted")
+		}
 	}
 }
