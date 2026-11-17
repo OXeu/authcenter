@@ -67,6 +67,7 @@ async function logout() {
     >
       <a v-if="data.loggedIn" class="btn-ghost" href="/projects">{{ msg('nav.projects') }}</a>
       <a v-if="data.isAdmin" class="btn-ghost" href="/settings">{{ msg('title.settings') }}</a>
+      <a v-if="data.isAdmin" class="btn-ghost" href="/keys">{{ msg('title.globalKeys') }}</a>
       <a v-if="data.isAdmin" class="btn-ghost" href="/users">{{ msg('nav.users') }}</a>
       <a class="btn-ghost" href="/docs/">{{ msg('nav.docs') }}</a>
     </nav>

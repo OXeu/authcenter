@@ -99,7 +99,7 @@ type MCPProposal struct {
 	ReviewedAt    *time.Time
 }
 
-// APIKey authenticates a programmatic client inside exactly one project.
+// APIKey authenticates a project client or, with ProjectID zero and RoleAdmin, a global manager.
 type APIKey struct {
 	ID         uint       `gorm:"primaryKey"`
 	ProjectID  uint       `gorm:"index;not null"`
@@ -111,6 +111,11 @@ type APIKey struct {
 	CreatedAt  time.Time  `gorm:"not null"`
 	LastUsedAt *time.Time `gorm:""`
 	ExpiresAt  *time.Time `gorm:""`
+}
+
+// IsGlobal reports whether the key can manage all projects.
+func (k APIKey) IsGlobal() bool {
+	return k.ProjectID == 0 && k.Role == RoleAdmin
 }
 
 // Proposal statuses.

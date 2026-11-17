@@ -14,7 +14,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/xeu/configcenter/internal/apikey"
 	"github.com/xeu/configcenter/internal/store"
 )
 
@@ -58,13 +57,6 @@ type AgentStore interface {
 func (a *Authenticator) AgentMiddleware(st AgentStore) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if header := c.GetHeader("Authorization"); header != "" {
-			slug, err := a.keys.SlugForKey(c.Request.Context(), header)
-			if err != nil {
-				a.unauthorised(c, err)
-				return
-			}
-			c.Request = c.Request.WithContext(WithProjectSlug(c.Request.Context(), slug))
-			c.Params = append(c.Params, gin.Param{Key: "project", Value: slug})
 			a.BearerMiddleware()(c)
 			return
 		}
@@ -227,6 +219,10 @@ func RequireAdmin() gin.HandlerFunc {
 // same routes, so every page and JSON call behind it behaves alike.
 func (a *Authenticator) BrowserMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if c.GetHeader("Authorization") != "" && (strings.HasPrefix(c.Request.URL.Path, "/api/") || strings.HasPrefix(c.Request.URL.Path, "/mcp/")) {
+			c.Next()
+			return
+		}
 		raw, err := c.Cookie(sessionCookie)
 		if err == nil {
 			sess, user, sessErr := a.store.SessionUser(c.Request.Context(), raw)
@@ -266,31 +262,24 @@ func subtleCompare(a, b string) error {
 // resolving the key inside the project named by the :project route parameter.
 func (a *Authenticator) BearerMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		header := c.GetHeader("Authorization")
-		if header == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "api key required"})
-			return
-		}
-		token, err := apikey.ParseHeader(header)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid api key"})
-			return
-		}
-		key, err := a.store.APIKeyByDigest(c.Request.Context(), apikey.Hash(token))
-		if err != nil {
-			a.unauthorised(c, err)
-			return
-		}
-		if apikeyExpired(key, a.now()) {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "api key expired"})
+		key, ok := a.requestKey(c)
+		if !ok {
 			return
 		}
 		slugParam := c.Param("project")
 		if slugParam == "" {
 			slugParam = projectSlug(c.Request.Context())
 		}
+		if slugParam == "" && key.IsGlobal() {
+			slugParam = c.Query("project")
+			if slugParam == "" {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "project is required for a global api key"})
+				return
+			}
+		}
 		if slugParam == "" {
-			slugParam, err = a.keys.SlugForKey(c.Request.Context(), header)
+			var err error
+			slugParam, err = a.keys.SlugForKey(c.Request.Context(), c.GetHeader("Authorization"))
 			if err != nil {
 				a.unauthorised(c, err)
 				return
@@ -301,7 +290,7 @@ func (a *Authenticator) BearerMiddleware() gin.HandlerFunc {
 			a.unauthorised(c, err)
 			return
 		}
-		if key.ProjectID != project.ID {
+		if !key.IsGlobal() && key.ProjectID != project.ID {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "api key does not belong to this project"})
 			return
 		}
@@ -321,7 +310,7 @@ func (a *Authenticator) unauthorised(c *gin.Context, err error) {
 }
 
 func apikeyExpired(k store.APIKey, now time.Time) bool {
-	return k.ExpiresAt != nil && k.ExpiresAt.Before(now)
+	return k.ExpiresAt != nil && !k.ExpiresAt.After(now)
 }
 
 // Login creates a session for the user and sets the session cookie.

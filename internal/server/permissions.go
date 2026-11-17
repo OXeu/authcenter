@@ -6,10 +6,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/xeu/configcenter/internal/apikey"
+	"github.com/xeu/configcenter/internal/auth"
 	"github.com/xeu/configcenter/internal/store"
 )
 
 func (s *Server) allowProject(c *gin.Context, project store.Project) bool {
+	id, _ := auth.FromContext(c.Request.Context())
+	if id.APIKey != nil && id.APIKey.IsGlobal() {
+		return true
+	}
 	me, ok := s.me(c)
 	if !ok || (me.Role != store.RoleAdmin && project.OwnerID != me.ID) {
 		c.AbortWithStatus(http.StatusForbidden)

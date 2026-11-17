@@ -135,3 +135,30 @@ it('reports network failures without discarding form values', async () => {
   expect(w.form.error).toBe('Network error, try again.')
   expect(w.form.busy).toBe(false)
 })
+
+it('creates and rotates global keys using the administrator routes', async () => {
+  const w = createWorkspace({ ...data, page: 'globalKeys', project: null }, createPage(data))
+  w.edit()
+  expect(w.form.fields).toHaveLength(1)
+  expect(w.form.values.role).toBe('admin')
+  w.form.values.name = 'Automation'
+  fetchMock.mockResolvedValueOnce({
+    ok: true,
+    status: 201,
+    json: async () => ({ token: 'cc_global' }),
+  })
+  await w.form.submit()
+  expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/keys')
+  expect(w.form.token).toBe('cc_global')
+  fetchMock.mockClear()
+  w.actionsFor({ id: 42, name: 'Automation' })[0].request()
+  expect(fetchMock).not.toHaveBeenCalled()
+  await w.form.submit()
+  expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/keys/42/rotate')
+  fetchMock.mockClear()
+  w.actionsFor({ id: 42, name: 'Automation' })[1].request()
+  expect(fetchMock).not.toHaveBeenCalled()
+  await w.form.submit()
+  expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/keys/42')
+  expect(fetchMock.mock.calls[0][1].method).toBe('DELETE')
+})

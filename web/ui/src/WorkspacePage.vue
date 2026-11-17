@@ -64,6 +64,9 @@ function cell(row, column) {
 onMounted(refresh)
 </script>
 <template>
+  <p v-if="data.page === 'globalKeys'" class="mt-2 text-sm text-muted-foreground">
+    {{ msg('keys.globalDescription') }}
+  </p>
   <div class="flex flex-wrap gap-2 my-4">
     <template v-if="data.page === 'project'">
       <button

@@ -393,6 +393,9 @@ func (s *Store) SlugForKey(ctx context.Context, header string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if key.ProjectID == 0 {
+		return "", ErrNotFound
+	}
 	var project Project
 	if err := s.db.WithContext(ctx).Select("slug").First(&project, key.ProjectID).Error; err != nil {
 		return "", queryErr("load project for key", err)

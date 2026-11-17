@@ -18,26 +18,31 @@ import (
 
 // MountAPI registers the JSON API used by the web UI and by operators.
 func (s *Server) MountAPI(r *gin.Engine) {
-	ui := r.Group("/api/v1", s.authenticator.BrowserMiddleware(), auth.RequireUser())
+	ui := r.Group("/api/v1", auth.RequireUser())
 	ui.GET("/settings", auth.RequireAdmin(), s.apiSettings)
 	ui.PUT("/settings", auth.RequireAdmin(), s.apiSaveSettings)
 	ui.GET("/me", s.apiMe)
-	ui.GET("/projects", s.apiListProjects)
-	ui.POST("/projects", auth.RequireWriter(), s.apiCreateProject)
-	ui.PATCH("/projects/:project", auth.RequireWriter(), s.withProject(s.apiUpdateProject))
-	ui.DELETE("/projects/:project", auth.RequireWriter(), s.withProject(s.apiDeleteProject))
-	ui.GET("/projects/:project/environments", s.withProject(s.apiListEnvironments))
-	ui.POST("/projects/:project/environments", auth.RequireWriter(), s.withProject(s.apiCreateEnvironment))
-	ui.DELETE("/projects/:project/environments/:env", auth.RequireWriter(), s.withProject(s.apiDeleteEnvironment))
-	ui.GET("/projects/:project/environments/:env/items", s.withProject(s.apiListItems))
-	ui.PUT("/projects/:project/environments/:env/items/:key", auth.RequireWriter(), s.withProject(s.apiPutItem))
-	ui.DELETE("/projects/:project/environments/:env/items/:key", auth.RequireWriter(), s.withProject(s.apiDeleteItem))
-	ui.GET("/projects/:project/keys", s.withProject(s.apiListKeys))
-	ui.POST("/projects/:project/keys", auth.RequireWriter(), s.withProject(s.apiCreateKey))
-	ui.DELETE("/projects/:project/keys/:id", auth.RequireWriter(), s.withProject(s.apiDeleteKey))
-	ui.GET("/projects/:project/proposals", s.withProject(s.apiListProposals))
-	ui.POST("/projects/:project/proposals/:id/review", auth.RequireWriter(), s.withProject(s.apiReviewProposal))
-	ui.POST("/projects/:project/keys/:id/rotate", auth.RequireWriter(), s.withProject(s.apiRotateKey))
+	ui.GET("/keys", auth.RequireAdmin(), s.globalKeyHandler(s.apiListKeys))
+	ui.POST("/keys", auth.RequireAdmin(), s.globalKeyHandler(s.apiCreateKey))
+	ui.DELETE("/keys/:id", auth.RequireAdmin(), s.globalKeyHandler(s.apiDeleteKey))
+	ui.POST("/keys/:id/rotate", auth.RequireAdmin(), s.globalKeyHandler(s.apiRotateKey))
+	management := r.Group("/api/v1", s.authenticator.ManagementMiddleware())
+	management.GET("/projects", s.apiListProjects)
+	management.POST("/projects", auth.RequireWriter(), s.apiCreateProject)
+	management.PATCH("/projects/:project", auth.RequireWriter(), s.withProject(s.apiUpdateProject))
+	management.DELETE("/projects/:project", auth.RequireWriter(), s.withProject(s.apiDeleteProject))
+	management.GET("/projects/:project/environments", s.withProject(s.apiListEnvironments))
+	management.POST("/projects/:project/environments", auth.RequireWriter(), s.withProject(s.apiCreateEnvironment))
+	management.DELETE("/projects/:project/environments/:env", auth.RequireWriter(), s.withProject(s.apiDeleteEnvironment))
+	management.GET("/projects/:project/environments/:env/items", s.withProject(s.apiListItems))
+	management.PUT("/projects/:project/environments/:env/items/:key", auth.RequireWriter(), s.withProject(s.apiPutItem))
+	management.DELETE("/projects/:project/environments/:env/items/:key", auth.RequireWriter(), s.withProject(s.apiDeleteItem))
+	management.GET("/projects/:project/keys", s.withProject(s.apiListKeys))
+	management.POST("/projects/:project/keys", auth.RequireWriter(), s.withProject(s.apiCreateKey))
+	management.DELETE("/projects/:project/keys/:id", auth.RequireWriter(), s.withProject(s.apiDeleteKey))
+	management.GET("/projects/:project/proposals", s.withProject(s.apiListProposals))
+	management.POST("/projects/:project/proposals/:id/review", auth.RequireWriter(), s.withProject(s.apiReviewProposal))
+	management.POST("/projects/:project/keys/:id/rotate", auth.RequireWriter(), s.withProject(s.apiRotateKey))
 	ui.DELETE("/users/:id", auth.RequireAdmin(), s.apiDeleteUser)
 	ui.GET("/users", auth.RequireAdmin(), s.apiListUsers)
 	ui.PATCH("/users/:id", auth.RequireAdmin(), s.apiSetRole)
@@ -121,6 +126,7 @@ func toItemJSON(i store.ConfigItem) itemJSON {
 
 type keyJSON struct {
 	ID         uint       `json:"id"`
+	Scope      string     `json:"scope"`
 	Name       string     `json:"name"`
 	Prefix     string     `json:"prefix"`
 	Role       store.Role `json:"role"`
@@ -130,7 +136,11 @@ type keyJSON struct {
 }
 
 func toKeyJSON(k store.APIKey) keyJSON {
-	return keyJSON{ID: k.ID, Name: k.Name, Prefix: k.Prefix, Role: k.Role, CreatedAt: k.CreatedAt, LastUsedAt: k.LastUsedAt, ExpiresAt: k.ExpiresAt}
+	scope := "project"
+	if k.IsGlobal() {
+		scope = "global"
+	}
+	return keyJSON{ID: k.ID, Scope: scope, Name: k.Name, Prefix: k.Prefix, Role: k.Role, CreatedAt: k.CreatedAt, LastUsedAt: k.LastUsedAt, ExpiresAt: k.ExpiresAt}
 }
 
 // apiMe returns the signed-in user and the CSRF token of the session.
@@ -150,9 +160,9 @@ func (s *Server) apiListProjects(c *gin.Context) {
 		return
 	}
 	out := make([]projectJSON, 0, len(projects))
-	me, _ := s.me(c)
+	id, _ := auth.FromContext(c.Request.Context())
 	for _, p := range projects {
-		if p.OwnerID != me.ID && (me.Role != store.RoleAdmin || c.Query("view") == "mine") {
+		if p.OwnerID != id.ActorID() && (id.Role != store.RoleAdmin || c.Query("view") == "mine") {
 			continue
 		}
 		out = append(out, toProjectJSON(p))
@@ -181,11 +191,11 @@ func (s *Server) apiCreateProject(c *gin.Context) {
 		s.fail(c, fmt.Errorf("%w: name is required", errBadRequest))
 		return
 	}
-	me, _ := s.me(c)
+	id, _ := auth.FromContext(c.Request.Context())
 	now := time.Now().UTC()
 	created, err := s.store.CreateProject(
 		c.Request.Context(),
-		store.Project{OwnerID: me.ID, Slug: in.Slug, Name: name, Description: in.Description, CreatedAt: now, UpdatedAt: now},
+		store.Project{OwnerID: id.ActorID(), Slug: in.Slug, Name: name, Description: in.Description, CreatedAt: now, UpdatedAt: now},
 		store.Environment{Slug: "production", Name: "Production", CreatedAt: now},
 	)
 	if err != nil {
@@ -327,10 +337,7 @@ func (s *Server) apiPutItem(c *gin.Context, project store.Project) {
 		return
 	}
 	id, _ := auth.FromContext(c.Request.Context())
-	var userID uint
-	if id.User != nil {
-		userID = id.User.ID
-	}
+	userID := id.ActorID()
 	item, err := s.store.PutItem(c.Request.Context(), store.ConfigItem{
 		ProjectID: project.ID, EnvironmentID: env.ID, Key: key, Value: *in.Value,
 		Description: in.Description, UpdatedBy: userID,
@@ -379,8 +386,19 @@ func (s *Server) apiCreateKey(c *gin.Context, project store.Project) {
 		s.fail(c, err)
 		return
 	}
-	if in.Role == "" {
+	if project.ID == 0 {
+		if in.Role != "" && in.Role != store.RoleAdmin {
+			s.fail(c, fmt.Errorf("%w: global keys require the admin role", errBadRequest))
+			return
+		}
+		in.Role = store.RoleAdmin
+	} else if in.Role == "" {
 		in.Role = store.RoleViewer
+	}
+	in.Name = strings.TrimSpace(in.Name)
+	if in.Name == "" || len(in.Name) > 128 {
+		s.fail(c, fmt.Errorf("%w: key name is required and must not exceed 128 bytes", errBadRequest))
+		return
 	}
 	if !in.Role.Valid() {
 		s.fail(c, fmt.Errorf("%w: invalid role", errBadRequest))
@@ -392,10 +410,7 @@ func (s *Server) apiCreateKey(c *gin.Context, project store.Project) {
 		return
 	}
 	id, _ := auth.FromContext(c.Request.Context())
-	var userID uint
-	if id.User != nil {
-		userID = id.User.ID
-	}
+	userID := id.ActorID()
 	key, err := s.store.CreateAPIKey(c.Request.Context(), store.APIKey{
 		ProjectID: project.ID, Name: in.Name, Digest: digest[:], Prefix: apikey.Display(token),
 		Role: in.Role, CreatedBy: userID, CreatedAt: time.Now().UTC(), ExpiresAt: in.ExpiresAt,
@@ -563,8 +578,8 @@ func (s *Server) apiReviewProposal(c *gin.Context, project store.Project) {
 		s.fail(c, fmt.Errorf("%w: invalid proposal id", errBadRequest))
 		return
 	}
-	me, _ := s.me(c)
-	reviewed, err := s.store.ReviewProposal(c.Request.Context(), project.ID, uint(id), me.ID, in.Approve)
+	identity, _ := auth.FromContext(c.Request.Context())
+	reviewed, err := s.store.ReviewProposal(c.Request.Context(), project.ID, uint(id), identity.ActorID(), in.Approve)
 	if err != nil {
 		s.fail(c, err)
 		return

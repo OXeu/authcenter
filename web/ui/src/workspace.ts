@@ -18,22 +18,24 @@ export function createWorkspace(
   const state = reactive({
     rows: /** @type {any[]} */ ([]) as any[],
     environments: /** @type {any[]} */ ([]) as any[],
-    tab: 'items',
+    tab: data.page === 'globalKeys' ? 'keys' : 'items',
     view: 'all',
     env: data.env,
     busy: false,
   })
   const base = '/api/v1/projects/' + encodeURIComponent(data.project?.slug ?? '')
   const path = () =>
-    data.page === 'settings'
-      ? '/api/v1/settings'
-      : data.page === 'projects'
-        ? '/api/v1/projects'
-        : data.page === 'users'
-          ? '/api/v1/users'
-          : state.tab === 'items'
-            ? `${base}/environments/${enc(state.env)}/items`
-            : `${base}/${state.tab}`
+    data.page === 'globalKeys'
+      ? '/api/v1/keys'
+      : data.page === 'settings'
+        ? '/api/v1/settings'
+        : data.page === 'projects'
+          ? '/api/v1/projects'
+          : data.page === 'users'
+            ? '/api/v1/users'
+            : state.tab === 'items'
+              ? `${base}/environments/${enc(state.env)}/items`
+              : `${base}/${state.tab}`
   /** @returns {Promise<void>} */
   async function load(): Promise<void> {
     state.busy = true
@@ -47,7 +49,8 @@ export function createWorkspace(
             ? '?status=pending'
             : ''
       const result = await api(path() + query)
-      state.rows = result[data.page === 'project' ? state.tab : data.page] ?? []
+      const collection = ['project', 'globalKeys'].includes(data.page) ? state.tab : data.page
+      state.rows = result[collection] ?? []
     } finally {
       state.busy = false
     }
@@ -126,8 +129,8 @@ export function createWorkspace(
       url += '/' + row.id
       method = 'PATCH'
     } else if (state.tab === 'keys') {
-      fields = [field('name', 'dialog.keyName'), roles()]
-      values = { name: '', role: 'viewer' }
+      fields = [field('name', 'dialog.keyName'), ...(data.page === 'globalKeys' ? [] : [roles()])]
+      values = { name: '', role: data.page === 'globalKeys' ? 'admin' : 'viewer' }
     } else {
       fields = [
         field('key', 'dialog.itemKey'),
@@ -181,7 +184,7 @@ export function createWorkspace(
   }
   function rotation(row: any) {
     return dangerAction(form, 'rotateKey', page.msg('projects.rotate'), row.name, async () => {
-      const result = await mutate(base + '/keys/' + row.id + '/rotate', 'POST')
+      const result = await mutate(path() + '/' + row.id + '/rotate', 'POST')
       form.token = result.token
     })
   }

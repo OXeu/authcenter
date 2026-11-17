@@ -11,8 +11,8 @@ import (
 )
 
 // MountAgent serves the MCP endpoint and the API-key REST endpoints. Agents
-// authenticate with a project API key; the web UI calls MCP with the browser
-// session and the CSRF token, and the key itself decides the project.
+// authenticate with a project or global API key; the web UI uses a browser
+// session and CSRF token. The path selects the project within the key scope.
 func (s *Server) MountAgent(r *gin.Engine) {
 	r.POST("/mcp/:project", s.authenticator.AgentMiddleware(s), s.mcpHandle)
 }
