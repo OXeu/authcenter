@@ -43,7 +43,7 @@ All settings come from the environment (read once in `internal/config`). The bin
 | `CC_OAUTH_REDIRECT_URL`                         | derived                       | Override the callback URL                                                |
 | `CC_OAUTH_GROUPS_CLAIM`                         | `groups`                      | Claim used for group mapping                                             |
 | `CC_OAUTH_ADMIN_GROUPS`                         | `configcenter-admin`          | Groups that grant the admin role                                         |
-| `CC_OAUTH_GROUP_MAP`                            |                               | `group:role,…` for editor/viewer defaults                                |
+| `CC_OAUTH_GROUP_MAP`                            |                               | `group:role,…` for user/admin defaults                                   |
 | `CC_SESSION_SECRET`                             |                               | Required when `CC_ENV=production`                                        |
 | `CC_LANGUAGES`                                  | `en,zh-CN`                    | Enabled UI languages; tags must match `internal/i18n/locales/<tag>.json` |
 | `CC_BOOTSTRAP_ADMIN_EMAIL` / `_NAME`            | `admin@localhost` / `admin`   | First administrator, created when the user table is empty                |
@@ -61,36 +61,37 @@ The UI ships in English and Simplified Chinese (`internal/i18n/locales`). The he
 - A **project** is the boundary for configuration, environments and proposals.
 - Each **API key** has explicit `scopes`: project slugs (or `*`) paired with permissions such as `config:read`, `config:write` and `config:delete`. A key can read one project and write another. Permissions are checked independently by REST and MCP.
 - Users manage their own keys at `/keys` and can grant access to projects they own. Administrators can manage all keys and grant wildcard scopes. Key delegation requires `keys:write` and cannot exceed the caller's scope.
-- Editing scopes keeps the token and changes authorization on subsequent requests. Legacy keys migrate to equivalent scopes at startup. User administration and settings remain browser-only.
+- Editing scopes keeps the token and changes authorization on subsequent requests. Global `users:read/write/delete` and `settings:read/write` permissions support user administration and system settings.
 
 ## REST API
 
 Project and key management accept a browser session with `X-CSRF-Token` on mutations, or an API key with the required scopes. User administration and settings require an administrator session. See [HTTP API](docs/api.md) for routes, request bodies and key lifecycle details.
 
-| Method       | Path                                                                   |
-| ------------ | ---------------------------------------------------------------------- |
-| GET          | `/api/v1/me`                                                           |
-| GET/POST     | `/api/v1/keys`, PATCH/DELETE `/api/v1/keys/:id`, POST `…/:id/rotate`   |
-| GET/POST     | `/api/v1/projects`                                                     |
-| PATCH/DELETE | `/api/v1/projects/:project`                                            |
-| GET/POST     | `/api/v1/projects/:project/environments`                               |
-| DELETE       | `/api/v1/projects/:project/environments/:env`                          |
-| GET          | `/api/v1/projects/:project/environments/:env/items?prefix=`            |
-| PUT/DELETE   | `/api/v1/projects/:project/environments/:env/items/:key`               |
-| GET/POST     | `/api/v1/projects/:project/keys`, DELETE `…/keys/:id`                  |
-| GET          | `/api/v1/projects/:project/proposals?status=pending`                   |
-| POST         | `/api/v1/projects/:project/proposals/:id/review` (`{"approve": true}`) |
-| GET          | `/api/v1/agent/project` (API key)                                      |
-| GET          | `/api/v1/agent/environments/:env/values?prefix=` (API key, read-only)  |
-| GET          | `/api/v1/users`, PATCH `/api/v1/users/:id` (admin)                     |
+| Method         | Path                                                                   |
+| -------------- | ---------------------------------------------------------------------- |
+| GET            | `/api/v1/me`                                                           |
+| GET/POST       | `/api/v1/keys`, PATCH/DELETE `/api/v1/keys/:id`, POST `…/:id/rotate`   |
+| GET/POST       | `/api/v1/projects`                                                     |
+| PATCH/DELETE   | `/api/v1/projects/:project`                                            |
+| GET/POST       | `/api/v1/projects/:project/environments`                               |
+| DELETE         | `/api/v1/projects/:project/environments/:env`                          |
+| GET            | `/api/v1/projects/:project/environments/:env/items?prefix=`            |
+| GET/PUT/DELETE | `/api/v1/projects/:project/environments/:env/items/:key`               |
+| GET/POST       | `/api/v1/projects/:project/proposals?status=pending`                   |
+| POST           | `/api/v1/projects/:project/proposals/:id/review` (`{"approve": true}`) |
+| GET            | `/api/v1/agent/project` (API key)                                      |
+| GET            | `/api/v1/agent/environments/:env/values?prefix=` (API key, read-only)  |
+| GET            | `/api/v1/users`, PATCH/DELETE `/api/v1/users/:id`                      |
+| GET/PUT        | `/api/v1/settings`                                                     |
+| GET            | `/api/v1/key-scopes`                                                   |
 
 ## MCP
 
-See the [MCP guide](docs/mcp.md) for authentication, initialization, all seven tools, examples and errors.
+See the [MCP guide](docs/mcp.md) for authentication, initialization, all 28 tools, examples and errors.
 
-`POST /mcp/:project` speaks JSON-RPC 2.0 over stateless HTTP POST with JSON responses. Authenticate with `Authorization: ApiKey <token>`. Browser sessions with a CSRF token can use read tools; configuration write tools require an API key. The web UI uses the management REST API for writes.
+`POST /mcp` speaks JSON-RPC 2.0 over stateless HTTP POST with JSON responses. Authenticate with `Authorization: ApiKey <token>`; project operations take an explicit `project` argument. API keys may manage multiple projects with independent scopes. Browser sessions can call management tools with their CSRF token and account permissions.
 
-Tools: `list_environments`, `list_config`, `get_config`, `delete_config`, `set_config`, `propose_config`, `list_proposals`. Tool discovery only includes tools permitted by the project scope; `propose_config` records a change for human review, which the **Proposals** tab in the UI applies or rejects.
+MCP exposes every API operation: project and environment management, configuration reads and writes, proposals and reviews, key lifecycle, user administration, settings and identity. REST and MCP share operation definitions and handlers. Discovery filters tools by granted scopes, and execution validates permissions for the actual target. User and settings scopes require the `*` project range. Results include JSON text and `structuredContent` with the API response and `http_status`.
 
 ## Go SDK
 

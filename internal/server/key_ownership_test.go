@@ -30,11 +30,11 @@ func TestUsersManageTheirOwnScopedKeys(t *testing.T) {
 	token, id := issueKey(t, f, "/api/v1/keys", scopeBody("mine", keyScopeJSON{Project: "owned", Permissions: []store.Permission{store.ConfigRead}}))
 	keyRequest(t, router, token, http.MethodGet, "/api/v1/agent/environments/production/values", nil, http.StatusOK)
 	for _, project := range []string{"*", "configcenter"} {
-		status, _ = f.do(http.MethodPost, "/api/v1/keys", scopeBody("escalate", keyScopeJSON{Project: project, Permissions: store.KeyPermissions()}))
+		status, _ = f.do(http.MethodPost, "/api/v1/keys", scopeBody("escalate", keyScopeJSON{Project: project, Permissions: []store.Permission{store.ConfigRead}}))
 		if status != http.StatusForbidden {
 			t.Fatalf("user granted forbidden project: %d", status)
 		}
-		status, _ = f.do(http.MethodPatch, fmt.Sprintf("/api/v1/keys/%d", id), scopeBody("escalate", keyScopeJSON{Project: project, Permissions: store.KeyPermissions()}))
+		status, _ = f.do(http.MethodPatch, fmt.Sprintf("/api/v1/keys/%d", id), scopeBody("escalate", keyScopeJSON{Project: project, Permissions: []store.Permission{store.ConfigRead}}))
 		if status != http.StatusForbidden {
 			t.Fatalf("user expanded scopes: %d", status)
 		}
@@ -43,7 +43,7 @@ func TestUsersManageTheirOwnScopedKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	other, err := s.store.CreateAPIKey(t.Context(), store.APIKey{Name: "other-owner", CreatedBy: 1, Digest: digest[:], Scopes: store.LegacyKeyScopes(0, store.RoleAdmin)})
+	other, err := s.store.CreateAPIKey(t.Context(), store.APIKey{Name: "other-owner", CreatedBy: 1, Digest: digest[:], Scopes: []store.KeyScope{{Permissions: store.KeyPermissions()}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestScopedKeyAttributionAndExplicitAuthentication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.store.CreateAPIKey(t.Context(), store.APIKey{Name: "manager", Digest: digest[:], Prefix: apikey.Display(token), Scopes: store.LegacyKeyScopes(0, store.RoleAdmin), CreatedBy: admin.ID}); err != nil {
+	if _, err := s.store.CreateAPIKey(t.Context(), store.APIKey{Name: "manager", Digest: digest[:], Prefix: apikey.Display(token), Scopes: []store.KeyScope{{Permissions: store.KeyPermissions()}}, CreatedBy: admin.ID}); err != nil {
 		t.Fatal(err)
 	}
 	keyRequest(t, router, token, http.MethodPost, "/api/v1/projects", map[string]any{"slug": "audit", "name": "Audit"}, http.StatusCreated)

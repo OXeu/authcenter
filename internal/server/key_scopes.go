@@ -49,8 +49,8 @@ func (s *Server) parseKeyScopes(c *gin.Context, input []keyScopeJSON) ([]store.K
 		}
 		seen[scope.Project] = true
 		for index, permission := range scope.Permissions {
-			if !permission.Valid() || slices.Contains(scope.Permissions[:index], permission) {
-				s.fail(c, fmt.Errorf("%w: unknown or duplicate permission", errBadRequest))
+			if !permission.Valid() || slices.Contains(scope.Permissions[:index], permission) || (permission.GlobalOnly() && scope.Project != "*") {
+				s.fail(c, fmt.Errorf("%w: unknown, duplicate or non-global administrative permission", errBadRequest))
 				return nil, false
 			}
 		}
@@ -65,10 +65,6 @@ func (s *Server) parseKeyScopes(c *gin.Context, input []keyScopeJSON) ([]store.K
 		}
 		if id.User != nil && id.User.Role != store.RoleAdmin && (project.ID == 0 || project.OwnerID != id.User.ID) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "cannot grant access to this project"})
-			return nil, false
-		}
-		if c.Param("project") != "" && c.Param("project") != scope.Project {
-			s.fail(c, fmt.Errorf("%w: scopes must match the project route", errBadRequest))
 			return nil, false
 		}
 		scopes = append(scopes, store.KeyScope{ProjectID: project.ID, Permissions: scope.Permissions})
@@ -89,18 +85,29 @@ func (s *Server) apiKeyScopes(c *gin.Context) {
 	id, _ := auth.FromContext(c.Request.Context())
 	available := make([]projectJSON, 0, len(projects))
 	for _, project := range projects {
-		if id.User.Role == store.RoleAdmin || project.OwnerID == id.User.ID {
+		if (id.APIKey != nil && id.APIKey.Allows(project.ID, store.ProjectsRead)) || (id.User != nil && (id.User.Role == store.RoleAdmin || project.OwnerID == id.User.ID)) {
 			available = append(available, toProjectJSON(project))
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{"projects": available, "permissions": store.KeyPermissions(), "all_projects": id.User.Role == store.RoleAdmin})
+	permissions := []store.Permission{}
+	globalPermissions := []store.Permission{}
+	for _, permission := range store.KeyPermissions() {
+		if permission.GlobalOnly() {
+			globalPermissions = append(globalPermissions, permission)
+		}
+		if (id.APIKey != nil && id.APIKey.HasPermission(permission)) || (id.User != nil && id.Allows(0, permission)) {
+			permissions = append(permissions, permission)
+		}
+	}
+	allProjects := id.User != nil && id.User.Role == store.RoleAdmin
+	if id.APIKey != nil {
+		allProjects = id.APIKey.Allows(0, store.KeysWrite)
+	}
+	c.JSON(http.StatusOK, gin.H{"projects": available, "permissions": permissions, "global_permissions": globalPermissions, "all_projects": allProjects})
 }
 
 func (s *Server) keyProject(c *gin.Context) (uint, bool) {
-	slug := c.Param("project")
-	if slug == "" {
-		slug = c.Query("project")
-	}
+	slug := c.Query("project")
 	if slug == "" {
 		return 0, true
 	}

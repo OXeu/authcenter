@@ -4,7 +4,7 @@
 
 ## 认证与 scope
 
-请求携带 `Authorization: ApiKey cc_…`。所有 API Key 使用同一个权限模型，不再区分“项目 Key”和“全局 Key”，也不再用 viewer / editor / admin 角色决定 Key 的权限。
+请求携带 `Authorization: ApiKey cc_…`。所有 API Key 使用 scope 权限模型。
 
 每把 Key 的 `scopes` 是一组“项目范围 + 操作权限”。同一把 Key 可以只读取项目 A，同时写入项目 B；`project: "*"` 表示所有项目（包括以后创建的项目）。权限需要逐项授权，写入不自动包含读取或删除。
 
@@ -36,14 +36,22 @@
 | `config:write`        | 创建、更新或重命名配置                                       |
 | `config:delete`       | 删除配置                                                     |
 | `proposals:read`      | 列出变更提案                                                 |
-| `proposals:write`     | 通过 MCP 提交变更提案                                        |
+| `proposals:write`     | 提交变更提案                                                 |
 | `proposals:review`    | 批准或拒绝提案；批准会应用提案中的配置写入或删除             |
 | `keys:read`           | 列出授权范围内、权限未超出当前 Key 的 API Key 元数据         |
 | `keys:write`          | 创建、编辑、轮换或吊销授权范围内的 API Key，不能超出自身权限 |
 
 父资源删除会级联删除内容，因此 `projects:delete`、`environments:delete` 也包含对应的配置清理能力。`keys:write` 不能用于提权：调用方必须对目标 Key 的每项项目范围都拥有 `keys:write`，且目标 Key 的全部权限必须是调用方权限的子集；创建或修改后的 scope 也要满足这个约束。只有 `keys:read` 不会返回完整 token。
 
-用户管理和服务器设置仍只接受管理员浏览器会话，不提供 API Key scope。
+用户管理和系统设置 scope 只能配置在 `project: "*"`，指定具体项目会返回 HTTP 400。普通用户不能授予这些权限。
+
+| 权限             | 允许的操作                               |
+| ---------------- | ---------------------------------------- |
+| `users:read`     | 列出用户                                 |
+| `users:write`    | 修改用户角色                             |
+| `users:delete`   | 删除用户及其会话和 Key，将项目转交调用者 |
+| `settings:read`  | 读取系统设置                             |
+| `settings:write` | 修改系统设置                             |
 
 ## 读取配置
 
@@ -84,20 +92,22 @@ curl --fail-with-body --silent --show-error --get \
 
 浏览器会话和 API Key 共用以下接口。浏览器修改请求需要 `X-CSRF-Token` 和项目管理权限；使用 API Key 时不需要 Cookie 或 CSRF Token。显式提供 Authorization 后不会回退到浏览器会话。
 
-| 方法   | 路径                                                     | scope / 请求体                                                          |
-| ------ | -------------------------------------------------------- | ----------------------------------------------------------------------- |
-| GET    | `/api/v1/projects`                                       | `projects:read`；只返回 scope 允许读取的项目                            |
-| POST   | `/api/v1/projects`                                       | `*` 范围的 `projects:write`；`slug`、`name`、可选 `description`         |
-| PATCH  | `/api/v1/projects/:project`                              | `projects:write`；`name`、`description`                                 |
-| DELETE | `/api/v1/projects/:project`                              | `projects:delete`                                                       |
-| GET    | `/api/v1/projects/:project/environments`                 | `environments:read`                                                     |
-| POST   | `/api/v1/projects/:project/environments`                 | `environments:write`；`slug`、`name`                                    |
-| DELETE | `/api/v1/projects/:project/environments/:env`            | `environments:delete`                                                   |
-| GET    | `/api/v1/projects/:project/environments/:env/items`      | `config:read`；可选 `?prefix=`                                          |
-| PUT    | `/api/v1/projects/:project/environments/:env/items/:key` | `config:write`；`value` 必填字符串，可选 `description`、`key`（重命名） |
-| DELETE | `/api/v1/projects/:project/environments/:env/items/:key` | `config:delete`                                                         |
-| GET    | `/api/v1/projects/:project/proposals`                    | `proposals:read`；可选 `?status=pending`                                |
-| POST   | `/api/v1/projects/:project/proposals/:id/review`         | `proposals:review`；`approve` 布尔值                                    |
+| 方法   | 路径                                                     | scope / 请求体                                                                                                |
+| ------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/v1/projects`                                       | `projects:read`；只返回 scope 允许读取的项目                                                                  |
+| POST   | `/api/v1/projects`                                       | `*` 范围的 `projects:write`；`slug`、`name`、可选 `description`                                               |
+| PATCH  | `/api/v1/projects/:project`                              | `projects:write`；`name`、`description`                                                                       |
+| DELETE | `/api/v1/projects/:project`                              | `projects:delete`                                                                                             |
+| GET    | `/api/v1/projects/:project/environments`                 | `environments:read`                                                                                           |
+| POST   | `/api/v1/projects/:project/environments`                 | `environments:write`；`slug`、`name`                                                                          |
+| DELETE | `/api/v1/projects/:project/environments/:env`            | `environments:delete`                                                                                         |
+| GET    | `/api/v1/projects/:project/environments/:env/items`      | `config:read`；可选 `?prefix=`                                                                                |
+| GET    | `/api/v1/projects/:project/environments/:env/items/:key` | `config:read`；读取单个配置项                                                                                 |
+| PUT    | `/api/v1/projects/:project/environments/:env/items/:key` | `config:write`；`value` 必填字符串，可选 `description`、`key`（重命名）                                       |
+| DELETE | `/api/v1/projects/:project/environments/:env/items/:key` | `config:delete`                                                                                               |
+| GET    | `/api/v1/projects/:project/proposals`                    | `proposals:read`；可选 `?status=pending`                                                                      |
+| POST   | `/api/v1/projects/:project/proposals`                    | `proposals:write`；`environment`、`key`、`action`（`set` / `delete`）、`value`（`set` 时必填）、可选 `reason` |
+| POST   | `/api/v1/projects/:project/proposals/:id/review`         | `proposals:review`；`approve` 布尔值                                                                          |
 
 创建项目会自动创建 `production` 环境，所有者及操作归属记录为 Key 的创建者。删除项目会移除 Key 对该项目的 scope，保留其他项目的授权；最后一项 scope 移除后，该 Key 没有访问权限。重新创建相同 slug 的项目不会恢复旧的项目授权；`*` 范围仍覆盖新项目。
 
@@ -111,14 +121,16 @@ curl --fail-with-body --silent --show-error \
 
 ## API Key 管理
 
-| 方法   | 路径                      | 行为                                                                         |
-| ------ | ------------------------- | ---------------------------------------------------------------------------- |
-| GET    | `/api/v1/keys`            | 列表；可选 `?project=billing` 过滤项目，包括覆盖该项目的 `*` scope           |
-| POST   | `/api/v1/keys`            | 创建；`name`、`scopes` 必填，可选 RFC 3339 格式的 `expires_at`               |
-| PATCH  | `/api/v1/keys/:id`        | 使用 `name` 和 `scopes` 替换名称及权限；不会返回或替换 token                 |
-| POST   | `/api/v1/keys/:id/rotate` | 轮换凭据；scope 和过期时间保持不变                                           |
-| DELETE | `/api/v1/keys/:id`        | 吊销                                                                         |
-| GET    | `/api/v1/key-scopes`      | 仅浏览器会话：返回当前用户可选的 `projects`、`permissions` 和 `all_projects` |
+| 方法   | 路径                      | 行为                                                                                                  |
+| ------ | ------------------------- | ----------------------------------------------------------------------------------------------------- |
+| GET    | `/api/v1/keys`            | 列表；可选 `?project=billing` 过滤项目，包括覆盖该项目的 `*` scope                                    |
+| POST   | `/api/v1/keys`            | 创建；`name`、`scopes` 必填，可选 RFC 3339 格式的 `expires_at`                                        |
+| PATCH  | `/api/v1/keys/:id`        | 使用 `name` 和 `scopes` 替换名称及权限；不会返回或替换 token                                          |
+| POST   | `/api/v1/keys/:id/rotate` | 轮换凭据；scope 和过期时间保持不变                                                                    |
+| DELETE | `/api/v1/keys/:id`        | 吊销                                                                                                  |
+| GET    | `/api/v1/key-scopes`      | 返回当前身份可选的 `projects`、`permissions`、`global_permissions`（仅限全局的权限）和 `all_projects` |
+
+API Key 查询 scope 选项时，`projects` 只包含具有 `projects:read` 的项目；实际授权仍需满足 `keys:write` 和权限子集约束。
 
 创建成功返回 HTTP 201：
 
@@ -141,27 +153,19 @@ curl --fail-with-body --silent --show-error \
 
 浏览器普通用户的列表只包含自己创建的 Key；管理员可查看所有 Key。API Key 调用列表需要 `keys:read`，返回结果也会按目标 Key 的项目和权限过滤。删除用户账号会撤销该用户创建的全部 Key。
 
-## 旧版本迁移
+## 身份、用户与系统设置
 
-启动时自动为旧 Key 写入等效 scopes，保留 token、创建者、过期时间和使用记录：
+这些接口接受 API Key 或浏览器会话。浏览器用户管理和系统设置要求管理员身份，修改请求需要 CSRF Token。
 
-- 项目 viewer：该项目的 `projects:read`、`environments:read`、`config:read`、`proposals:read`。
-- 项目 editor / user / admin：在以上读取权限基础上增加 `config:write`、`config:delete`、`proposals:write`，不会获得其他项目权限。
-- 旧全局 Key：`*` 范围的全部可配置权限。
+| 方法   | 路径                | 权限 / 请求体                                                  |
+| ------ | ------------------- | -------------------------------------------------------------- |
+| GET    | `/api/v1/me`        | 已认证；浏览器返回用户信息和 `csrf`，API Key 返回 `key` 元数据 |
+| GET    | `/api/v1/users`     | `*` 的 `users:read`                                            |
+| PATCH  | `/api/v1/users/:id` | `*` 的 `users:write`；`role` 为 `user` 或 `admin`              |
+| DELETE | `/api/v1/users/:id` | `*` 的 `users:delete`                                          |
+| GET    | `/api/v1/settings`  | `*` 的 `settings:read`                                         |
+| PUT    | `/api/v1/settings`  | `*` 的 `settings:write`；`allow_registration` 必填布尔值       |
 
-迁移只执行一次，后来保存的空 scope 不会被恢复为旧角色权限。旧 `/api/v1/projects/:project/keys` 系列路径仍作为统一 Key 管理的兼容入口；旧项目创建请求的 `role` 会转换为对应 scope。新接入使用 `/api/v1/keys` 和显式 `scopes`，不要在新请求中发送 `role`；响应中的旧 `role`、`scope` 字段已由 `scopes` 数组替代。
+不能删除调用者自己的账号，也不能将自己从管理员降级。Key 调用以 Key 的创建者作为操作账号。设置读取响应为 `{"settings":[{"key":"allow_registration","value":false}]}`，保存成功返回 HTTP 204。
 
-## 错误与重试
-
-| HTTP 状态 | 含义                                                      |
-| --------- | --------------------------------------------------------- |
-| 200 / 201 | 成功读取、修改或创建                                      |
-| 204       | 删除成功，无响应体                                        |
-| 400       | 参数或 scope 不合法，或多项目 Key 未指定目标项目          |
-| 401       | 认证头错误、Key 失效、过期或已吊销                        |
-| 403       | 缺少所需权限、项目不在 scope 内，或试图管理更高权限的 Key |
-| 404       | 目标资源不存在                                            |
-| 409       | Key 被并发修改，重新读取后重试                            |
-| 500       | 服务端故障，可采用有界退避重试                            |
-
-错误通常为包含 `error` 的 JSON。设置请求超时；不要把完整密钥或配置值写入日志。刷新失败时可保留上一次成功快照，但应监测其过期时间。
+以上全部 API 都可通过统一 [MCP 接口](/docs/mcp) 调用，权限和业务行为保持一致。

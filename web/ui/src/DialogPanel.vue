@@ -80,6 +80,7 @@ function cancel(event) {
               <DropdownSelect
                 :id="`${formId}-scope-${scope.id}`"
                 v-model="scope.project"
+                @update:model-value="form.limitScope(scope)"
                 class="min-w-0 flex-1"
                 :label="msg('keys.scopeProject')"
                 :options="form.scopeProjects"
@@ -98,7 +99,7 @@ function cancel(event) {
             </div>
             <div class="grid gap-1 sm:grid-cols-2">
               <CheckboxField
-                v-for="permission in form.scopePermissions"
+                v-for="permission in form.permissionsFor(scope)"
                 :key="permission.value"
                 v-model="scope.permissions"
                 :label="permission.label"

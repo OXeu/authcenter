@@ -39,6 +39,7 @@ type Server struct {
 	catalog       *i18n.Catalog
 	log           *slog.Logger
 	template      *template.Template
+	mcpAPI        *gin.Engine
 }
 
 // Engine builds the gin engine for the given configuration.
@@ -220,6 +221,8 @@ func (s *Server) render(c *gin.Context, status int, data gin.H) {
 func (s *Server) router() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
+	r.UseRawPath = true
+	r.UnescapePathValues = true
 	r.Use(gin.Recovery(), s.requestLogger())
 	r.Use(securityHeaders())
 
@@ -266,8 +269,7 @@ func (s *Server) router() *gin.Engine {
 
 	s.MountUI(r)
 	s.MountAPI(r)
-	s.MountAgent(r)
-	s.MountUIAPI(r)
+	s.MountMCP(r)
 	return r
 }
 

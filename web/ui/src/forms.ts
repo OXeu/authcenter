@@ -15,6 +15,7 @@ export function createForm(page: import('./page.ts').PageContext) {
     scopes: null as ScopeDraft[] | null,
     scopeProjects: [] as Choice[],
     scopePermissions: [] as Choice[],
+    globalPermissions: [] as string[],
     nextScopeId: 0,
     fields: /** @type {any[]} */ ([]) as any[],
     values: /** @type {Record<string, string>} */ ({}) as Record<string, string>,
@@ -43,6 +44,15 @@ export function createForm(page: import('./page.ts').PageContext) {
       )
       if (project)
         this.scopes.push({ id: this.nextScopeId++, project: project.value, permissions: [] })
+    },
+    permissionsFor(scope: ScopeDraft) {
+      return this.scopePermissions.filter(
+        (permission) => scope.project === '*' || !this.globalPermissions.includes(permission.value),
+      )
+    },
+    limitScope(scope: ScopeDraft) {
+      const allowed = new Set(this.permissionsFor(scope).map((permission) => permission.value))
+      scope.permissions = scope.permissions.filter((permission) => allowed.has(permission))
     },
     excludeScope(id: number) {
       if (this.busy || this.scopes === null) return

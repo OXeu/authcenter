@@ -140,5 +140,10 @@
   "scope.proposals:write": "Submit proposals",
   "scope.proposals:review": "Review proposals",
   "scope.keys:read": "Read API keys",
-  "scope.keys:write": "Manage API keys"
+  "scope.keys:write": "Manage API keys",
+  "scope.users:read": "Read users",
+  "scope.users:write": "Change user roles",
+  "scope.users:delete": "Delete users",
+  "scope.settings:read": "Read system settings",
+  "scope.settings:write": "Change system settings"
 }

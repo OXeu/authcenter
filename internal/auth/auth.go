@@ -41,52 +41,6 @@ type Store interface {
 	TouchAPIKey(ctx context.Context, id uint)
 }
 
-// AgentStore additionally resolves sessions for the MCP endpoint.
-type AgentStore interface {
-	SessionUser(ctx context.Context, id string) (store.Session, store.User, error)
-}
-
-// AgentMiddleware authenticates an MCP call either with a project API key or,
-// for the web UI, with a browser session carrying the CSRF token.
-func (a *Authenticator) AgentMiddleware(st AgentStore) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if header := c.GetHeader("Authorization"); header != "" {
-			a.BearerMiddleware()(c)
-			return
-		}
-		raw, err := c.Cookie(sessionCookie)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "api key or session required"})
-			return
-		}
-		sess, user, err := st.SessionUser(c.Request.Context(), raw)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "session expired"})
-			return
-		}
-		if subtleCompare(sess.CSRFToken, c.GetHeader(csrfHeader)) != nil {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "invalid csrf token"})
-			return
-		}
-		project, err := a.store.ProjectBySlug(c.Request.Context(), c.Param("project"))
-		if err != nil {
-			status := http.StatusInternalServerError
-			if errors.Is(err, store.ErrNotFound) {
-				status = http.StatusNotFound
-			}
-			c.AbortWithStatusJSON(status, gin.H{"error": "project not found"})
-			return
-		}
-		if user.Role != store.RoleAdmin && project.OwnerID != user.ID {
-			c.AbortWithStatus(http.StatusForbidden)
-			return
-		}
-		identity := Identity{User: &user, Project: &project, Role: user.Role}
-		c.Request = c.Request.WithContext(WithIdentity(c.Request.Context(), identity))
-		c.Next()
-	}
-}
-
 // Config is the upstream identity provider configuration.
 type Config struct {
 	IssuerURL    string
@@ -196,7 +150,7 @@ func RequireAdmin() gin.HandlerFunc {
 // same routes, so every page and JSON call behind it behaves alike.
 func (a *Authenticator) BrowserMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.GetHeader("Authorization") != "" && (strings.HasPrefix(c.Request.URL.Path, "/api/") || strings.HasPrefix(c.Request.URL.Path, "/mcp/")) {
+		if c.GetHeader("Authorization") != "" && (strings.HasPrefix(c.Request.URL.Path, "/api/") || c.Request.URL.Path == "/mcp") {
 			c.Next()
 			return
 		}
@@ -235,18 +189,15 @@ func subtleCompare(a, b string) error {
 	return nil
 }
 
-// BearerMiddleware authenticates `Authorization: ApiKey <token>` requests,
-// resolving the key inside the project named by the :project route parameter.
+// BearerMiddleware authenticates API keys for SDK reads, resolving the project
+// from the query parameter or the key's single project scope.
 func (a *Authenticator) BearerMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		key, ok := a.requestKey(c)
 		if !ok {
 			return
 		}
-		projectSlug := c.Param("project")
-		if projectSlug == "" {
-			projectSlug = c.Query("project")
-		}
+		projectSlug := c.Query("project")
 		var project store.Project
 		var err error
 		switch {

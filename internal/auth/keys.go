@@ -2,7 +2,6 @@ package auth
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -61,7 +60,7 @@ func (i Identity) Allows(projectID uint, permission store.Permission) bool {
 	if i.APIKey != nil {
 		return i.APIKey.Allows(projectID, permission)
 	}
-	return i.User != nil && (i.Role.CanWrite() || strings.HasSuffix(string(permission), ":read"))
+	return i.User != nil && i.Role.CanWrite() && (!permission.GlobalOnly() || i.Role == store.RoleAdmin)
 }
 
 // RequireScope checks an operation against the resolved project, or all projects when absent.

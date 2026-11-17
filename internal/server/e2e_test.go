@@ -19,6 +19,7 @@ import (
 	"github.com/OXeu/configcenter/internal/auth"
 	"github.com/OXeu/configcenter/internal/config"
 	"github.com/OXeu/configcenter/internal/oauth"
+	"github.com/OXeu/configcenter/internal/store"
 )
 
 func TestMain(m *testing.M) {
@@ -125,7 +126,7 @@ func TestWebAndAgentFlowsAreProjectScoped(t *testing.T) {
 	if code != http.StatusCreated {
 		t.Fatalf("create project = %d", code)
 	}
-	code, created := f.do(http.MethodPost, "/api/v1/projects/billing/keys", map[string]any{"name": "agent", "role": "editor"})
+	code, created := f.do(http.MethodPost, "/api/v1/keys", scopeBody("agent", keyScopeJSON{Project: "billing", Permissions: []store.Permission{store.ConfigRead, store.ConfigWrite, store.ProposalsWrite}}))
 	if code != http.StatusCreated {
 		t.Fatalf("create key = %d", code)
 	}
@@ -136,6 +137,7 @@ func TestWebAndAgentFlowsAreProjectScoped(t *testing.T) {
 
 	agent := func(project, tool string, args map[string]any) map[string]any {
 		t.Helper()
+		args["project"] = project
 		body, err := json.Marshal(map[string]any{
 			"jsonrpc": "2.0", "id": 1, "method": "tools/call",
 			"params": map[string]any{"name": tool, "arguments": args},
@@ -143,7 +145,7 @@ func TestWebAndAgentFlowsAreProjectScoped(t *testing.T) {
 		if err != nil {
 			t.Fatalf("marshal: %v", err)
 		}
-		req := httptest.NewRequest(http.MethodPost, "/mcp/"+project, strings.NewReader(string(body)))
+		req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(string(body)))
 		req.Header.Set("Authorization", "ApiKey "+token)
 		w := httptest.NewRecorder()
 		f.router.ServeHTTP(w, req)
@@ -159,7 +161,7 @@ func TestWebAndAgentFlowsAreProjectScoped(t *testing.T) {
 		t.Fatalf("set_config failed: %v", set)
 	}
 	elsewhere := agent("other", "list_config", map[string]any{"environment": "production"})
-	if elsewhere["error"] == nil {
+	if result, _ := elsewhere["result"].(map[string]any); result == nil || result["isError"] != true {
 		t.Fatalf("a key of billing reached another project: %v", elsewhere)
 	}
 

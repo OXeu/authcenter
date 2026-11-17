@@ -24,6 +24,7 @@ export function createWorkspace(
     busy: false,
     scopeProjects: [] as import('./forms.ts').Choice[],
     scopePermissions: [] as import('./forms.ts').Choice[],
+    globalPermissions: [] as string[],
   })
   const base = '/api/v1/projects/' + encodeURIComponent(data.project?.slug ?? '')
   const path = () =>
@@ -48,6 +49,7 @@ export function createWorkspace(
         const options = (await api('/api/v1/key-scopes')) as {
           projects: { slug: string; name: string }[]
           permissions: string[]
+          global_permissions: string[]
           all_projects: boolean
         }
         state.scopeProjects = (options.projects ?? []).map((p) => ({
@@ -56,6 +58,7 @@ export function createWorkspace(
         }))
         if (options.all_projects)
           state.scopeProjects.push({ value: '*', label: page.msg('keys.allProjects') })
+        state.globalPermissions = options.global_permissions ?? []
         state.scopePermissions = (options.permissions ?? []).map((value) => ({
           value,
           label: page.msg(`scope.${value}`),
@@ -193,6 +196,7 @@ export function createWorkspace(
     )
     form.scopeProjects = [...state.scopeProjects]
     form.scopePermissions = [...state.scopePermissions]
+    form.globalPermissions = [...state.globalPermissions]
     form.scopes = (row?.scopes ?? []).map((scope) => ({
       project: scope.project,
       id: form.nextScopeId++,

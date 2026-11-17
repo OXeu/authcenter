@@ -24,12 +24,12 @@ func (s *Server) allowProject(c *gin.Context, project store.Project) bool {
 
 func (s *Server) apiDeleteUser(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	me, _ := s.me(c)
-	if err != nil || id == 0 || uint(id) == me.ID {
+	actor, _ := auth.FromContext(c.Request.Context())
+	if err != nil || id == 0 || uint(id) == actor.ActorID() {
 		c.Status(http.StatusBadRequest)
 		return
 	}
-	if err := s.store.DeleteUser(c.Request.Context(), uint(id), me.ID); err != nil {
+	if err := s.store.DeleteUser(c.Request.Context(), uint(id), actor.ActorID()); err != nil {
 		s.fail(c, err)
 		return
 	}

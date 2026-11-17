@@ -27,7 +27,6 @@ type keyJSON struct {
 type keyInput struct {
 	Name      string          `json:"name"`
 	Scopes    *[]keyScopeJSON `json:"scopes"`
-	Role      store.Role      `json:"role"`
 	ExpiresAt *time.Time      `json:"expires_at"`
 }
 
@@ -86,7 +85,7 @@ func (s *Server) apiListKeys(c *gin.Context) {
 	}
 }
 
-func (s *Server) keyInput(c *gin.Context, legacy bool) (keyInput, []store.KeyScope, bool) {
+func (s *Server) keyInput(c *gin.Context) (keyInput, []store.KeyScope, bool) {
 	var in keyInput
 	if err := bindJSON(c, &in); err != nil {
 		s.fail(c, err)
@@ -102,21 +101,8 @@ func (s *Server) keyInput(c *gin.Context, legacy bool) (keyInput, []store.KeySco
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "write access required"})
 		return in, nil, false
 	}
-	if in.Scopes == nil && legacy && c.Param("project") != "" {
-		projectID, ok := s.keyProject(c)
-		if !ok {
-			return in, nil, false
-		}
-		if in.Role == "" {
-			in.Role = store.RoleViewer
-		}
-		if !in.Role.Valid() {
-			s.fail(c, fmt.Errorf("%w: invalid role", errBadRequest))
-			return in, nil, false
-		}
-		in.Scopes = &[]keyScopeJSON{{Project: c.Param("project"), Permissions: store.LegacyKeyScopes(projectID, in.Role)[0].Permissions}}
-	} else if in.Scopes == nil || in.Role != "" {
-		s.fail(c, fmt.Errorf("%w: provide explicit scopes instead of a key role", errBadRequest))
+	if in.Scopes == nil {
+		s.fail(c, fmt.Errorf("%w: scopes are required", errBadRequest))
 		return in, nil, false
 	}
 	scopes, ok := s.parseKeyScopes(c, *in.Scopes)
@@ -124,7 +110,7 @@ func (s *Server) keyInput(c *gin.Context, legacy bool) (keyInput, []store.KeySco
 }
 
 func (s *Server) apiCreateKey(c *gin.Context) {
-	in, scopes, ok := s.keyInput(c, true)
+	in, scopes, ok := s.keyInput(c)
 	if !ok {
 		return
 	}
@@ -176,7 +162,7 @@ func (s *Server) apiUpdateKey(c *gin.Context) {
 	if !ok {
 		return
 	}
-	in, scopes, ok := s.keyInput(c, false)
+	in, scopes, ok := s.keyInput(c)
 	if !ok {
 		return
 	}

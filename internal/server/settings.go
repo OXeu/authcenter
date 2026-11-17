@@ -3,6 +3,8 @@ package server
 import (
 	"net/http"
 
+	"github.com/OXeu/configcenter/internal/auth"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -32,12 +34,8 @@ func (s *Server) apiSaveSettings(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
-	me, ok := s.me(c)
-	if !ok {
-		c.Status(http.StatusUnauthorized)
-		return
-	}
-	if err := s.store.SetRegistrationAllowed(c.Request.Context(), *body.Allowed, me.ID); err != nil {
+	id, _ := auth.FromContext(c.Request.Context())
+	if err := s.store.SetRegistrationAllowed(c.Request.Context(), *body.Allowed, id.ActorID()); err != nil {
 		s.fail(c, err)
 		return
 	}

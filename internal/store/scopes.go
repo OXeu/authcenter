@@ -20,6 +20,11 @@ const (
 	ProposalsReview    Permission = "proposals:review"
 	KeysRead           Permission = "keys:read"
 	KeysWrite          Permission = "keys:write"
+	UsersRead          Permission = "users:read"
+	UsersWrite         Permission = "users:write"
+	UsersDelete        Permission = "users:delete"
+	SettingsRead       Permission = "settings:read"
+	SettingsWrite      Permission = "settings:write"
 )
 
 // KeyScope binds operations to one project; ProjectID zero represents all projects.
@@ -35,6 +40,7 @@ func KeyPermissions() []Permission {
 		EnvironmentsRead, EnvironmentsWrite, EnvironmentsDelete,
 		ConfigRead, ConfigWrite, ConfigDelete,
 		ProposalsRead, ProposalsWrite, ProposalsReview, KeysRead, KeysWrite,
+		UsersRead, UsersWrite, UsersDelete, SettingsRead, SettingsWrite,
 	}
 }
 
@@ -43,10 +49,15 @@ func (p Permission) Valid() bool {
 	return slices.Contains(KeyPermissions(), p)
 }
 
+// GlobalOnly reports whether the operation requires a wildcard scope.
+func (p Permission) GlobalOnly() bool {
+	return p == UsersRead || p == UsersWrite || p == UsersDelete || p == SettingsRead || p == SettingsWrite
+}
+
 // Allows reports whether the key explicitly grants an operation in a project.
 func (k APIKey) Allows(projectID uint, permission Permission) bool {
 	for _, scope := range k.Scopes {
-		if (scope.ProjectID == 0 || scope.ProjectID == projectID) && slices.Contains(scope.Permissions, permission) {
+		if (scope.ProjectID == 0 || (!permission.GlobalOnly() && scope.ProjectID == projectID)) && slices.Contains(scope.Permissions, permission) {
 			return true
 		}
 	}

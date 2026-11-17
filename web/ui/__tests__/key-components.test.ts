@@ -73,6 +73,48 @@ async function settled() {
 }
 
 describe('API key scope editor', () => {
+  it('offers global permissions only for wildcard scopes and clears them when switching projects', async () => {
+    fetchMock.mockImplementationOnce(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        projects: [{ slug: 'billing', name: 'Billing' }],
+        permissions: ['config:read', 'users:read', 'settings:write'],
+        global_permissions: ['users:read', 'settings:write'],
+        all_projects: true,
+      }),
+    }))
+    const wrapper = mount(App, { props: { data: { ...data, isAdmin: true } } })
+    await settled()
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Edit')!
+      .trigger('click')
+    await settled()
+    const dialog = wrapper.get('dialog')
+    expect(dialog.find('[role="checkbox"][value="users:read"]').exists()).toBe(false)
+    await dialog.get('[role="combobox"]').trigger('click')
+    await dialog
+      .findAll('[role="option"]')
+      .find((option) => option.text() === 'All projects')!
+      .trigger('click')
+    await dialog.get('[role="checkbox"][value="users:read"]').trigger('click')
+    await dialog.get('[role="checkbox"][value="settings:write"]').trigger('click')
+    await dialog.get('[role="combobox"]').trigger('click')
+    await dialog
+      .findAll('[role="option"]')
+      .find((option) => option.text() === 'Billing (billing)')!
+      .trigger('click')
+    expect(dialog.find('[role="checkbox"][value="users:read"]').exists()).toBe(false)
+    await dialog.get('form').trigger('submit')
+    await settled()
+    const request = fetchMock.mock.calls.find((call) => call[1]?.method === 'PATCH')!
+    expect(JSON.parse(request[1].body).scopes).toEqual([
+      { project: 'billing', permissions: ['config:read'] },
+    ])
+    wrapper.unmount()
+  })
+
   it('edits multiple project scopes with independent permissions', async () => {
     const wrapper = mount(App, { props: { data } })
     await settled()

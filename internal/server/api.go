@@ -17,40 +17,25 @@ import (
 
 // MountAPI registers the JSON API used by the web UI and by operators.
 func (s *Server) MountAPI(r *gin.Engine) {
-	ui := r.Group("/api/v1", auth.RequireUser())
-	ui.GET("/settings", auth.RequireAdmin(), s.apiSettings)
-	ui.PUT("/settings", auth.RequireAdmin(), s.apiSaveSettings)
-	ui.GET("/me", s.apiMe)
 	management := r.Group("/api/v1", s.authenticator.ManagementMiddleware())
-	ui.GET("/key-scopes", s.apiKeyScopes)
-	management.GET("/keys", s.apiListKeys)
-	management.POST("/keys", s.apiCreateKey)
-	management.PATCH("/keys/:id", s.apiUpdateKey)
-	management.DELETE("/keys/:id", s.apiDeleteKey)
-	management.POST("/keys/:id/rotate", s.apiRotateKey)
-	management.GET("/projects", s.apiListProjects)
-	management.POST("/projects", auth.RequireScope(store.ProjectsWrite), s.apiCreateProject)
-	management.PATCH("/projects/:project", s.withProject(store.ProjectsWrite, s.apiUpdateProject))
-	management.DELETE("/projects/:project", s.withProject(store.ProjectsDelete, s.apiDeleteProject))
-	management.GET("/projects/:project/environments", s.withProject(store.EnvironmentsRead, s.apiListEnvironments))
-	management.POST("/projects/:project/environments", s.withProject(store.EnvironmentsWrite, s.apiCreateEnvironment))
-	management.DELETE("/projects/:project/environments/:env", s.withProject(store.EnvironmentsDelete, s.apiDeleteEnvironment))
-	management.GET("/projects/:project/environments/:env/items", s.withProject(store.ConfigRead, s.apiListItems))
-	management.PUT("/projects/:project/environments/:env/items/:key", s.withProject(store.ConfigWrite, s.apiPutItem))
-	management.DELETE("/projects/:project/environments/:env/items/:key", s.withProject(store.ConfigDelete, s.apiDeleteItem))
-	management.GET("/projects/:project/keys", s.apiListKeys)
-	management.POST("/projects/:project/keys", s.apiCreateKey)
-	management.DELETE("/projects/:project/keys/:id", s.apiDeleteKey)
-	management.GET("/projects/:project/proposals", s.withProject(store.ProposalsRead, s.apiListProposals))
-	management.POST("/projects/:project/proposals/:id/review", s.withProject(store.ProposalsReview, s.apiReviewProposal))
-	management.POST("/projects/:project/keys/:id/rotate", s.apiRotateKey)
-	ui.DELETE("/users/:id", auth.RequireAdmin(), s.apiDeleteUser)
-	ui.GET("/users", auth.RequireAdmin(), s.apiListUsers)
-	ui.PATCH("/users/:id", auth.RequireAdmin(), s.apiSetRole)
-
-	key := r.Group("/api/v1/agent", s.authenticator.BearerMiddleware())
-	key.GET("/project", auth.RequireScope(store.ProjectsRead), auth.RequireScope(store.EnvironmentsRead), s.apiProgrammaticProject)
-	key.GET("/environments/:env/values", auth.RequireScope(store.ConfigRead), s.apiProgrammaticItems)
+	for _, op := range s.apiOperations() {
+		handlers := []gin.HandlerFunc{}
+		switch {
+		case op.Agent:
+			handlers = append(handlers, s.authenticator.BearerMiddleware())
+			for _, permission := range op.Permissions {
+				handlers = append(handlers, auth.RequireScope(permission))
+			}
+		case op.ProjectHandler != nil:
+			handlers = append(handlers, s.withProject(op.Permissions[0], op.ProjectHandler))
+		default:
+			handlers = append(handlers, op.authorize)
+		}
+		if op.Handler != nil {
+			handlers = append(handlers, op.Handler)
+		}
+		management.Handle(op.Method, op.Path, handlers...)
+	}
 }
 
 // withProject resolves the :project route parameter before the handler runs.
@@ -135,6 +120,12 @@ func toItemJSON(i store.ConfigItem) itemJSON {
 // apiMe returns the signed-in user and the CSRF token of the session.
 func (s *Server) apiMe(c *gin.Context) {
 	id, ok := auth.FromContext(c.Request.Context())
+	if ok && id.APIKey != nil {
+		if keys, valid := s.keyViews(c, []store.APIKey{*id.APIKey}); valid {
+			c.JSON(http.StatusOK, gin.H{"key": keys[0]})
+		}
+		return
+	}
 	if !ok || id.User == nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
 		return
@@ -315,21 +306,25 @@ func (s *Server) apiPutItem(c *gin.Context, project store.Project) {
 		s.fail(c, err)
 		return
 	}
+	if in.Value == nil {
+		s.fail(c, fmt.Errorf("%w: value is required", errBadRequest))
+		return
+	}
 	key := c.Param("key")
 	if err := slug.ValidateKey(key); err != nil {
 		s.fail(c, err)
 		return
 	}
 	if in.Key != "" && in.Key != key {
+		if err := slug.ValidateKey(in.Key); err != nil {
+			s.fail(c, err)
+			return
+		}
 		if err := s.store.RenameItem(c.Request.Context(), project.ID, env.ID, key, in.Key); err != nil && !errors.Is(err, store.ErrNotFound) {
 			s.fail(c, err)
 			return
 		}
 		key = in.Key
-	}
-	if in.Value == nil {
-		s.fail(c, fmt.Errorf("%w: value is required", errBadRequest))
-		return
 	}
 	id, _ := auth.FromContext(c.Request.Context())
 	userID := id.ActorID()
@@ -429,8 +424,8 @@ func (s *Server) apiSetRole(c *gin.Context) {
 		s.fail(c, fmt.Errorf("%w: invalid user id", errBadRequest))
 		return
 	}
-	me, _ := s.me(c)
-	if uint(id) == me.ID && in.Role != store.RoleAdmin {
+	actor, _ := auth.FromContext(c.Request.Context())
+	if uint(id) == actor.ActorID() && in.Role != store.RoleAdmin {
 		c.Status(http.StatusBadRequest)
 		return
 	}
@@ -488,7 +483,7 @@ func (s *Server) apiListProposals(c *gin.Context, project store.Project) {
 
 func (s *Server) apiReviewProposal(c *gin.Context, project store.Project) {
 	var in struct {
-		Approve bool `json:"approve"`
+		Approve *bool `json:"approve" binding:"required"`
 	}
 	if err := bindJSON(c, &in); err != nil {
 		s.fail(c, err)
@@ -500,7 +495,7 @@ func (s *Server) apiReviewProposal(c *gin.Context, project store.Project) {
 		return
 	}
 	identity, _ := auth.FromContext(c.Request.Context())
-	reviewed, err := s.store.ReviewProposal(c.Request.Context(), project.ID, uint(id), identity.ActorID(), in.Approve)
+	reviewed, err := s.store.ReviewProposal(c.Request.Context(), project.ID, uint(id), identity.ActorID(), *in.Approve)
 	if err != nil {
 		s.fail(c, err)
 		return

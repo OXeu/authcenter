@@ -140,5 +140,10 @@
   "scope.proposals:write": "提交提案",
   "scope.proposals:review": "审核提案",
   "scope.keys:read": "读取密钥",
-  "scope.keys:write": "管理密钥"
+  "scope.keys:write": "管理密钥",
+  "scope.users:read": "读取用户",
+  "scope.users:write": "修改用户角色",
+  "scope.users:delete": "删除用户",
+  "scope.settings:read": "读取系统设置",
+  "scope.settings:write": "修改系统设置"
 }
