@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/OXeu/configcenter/internal/apikey"
 	"github.com/OXeu/configcenter/internal/auth"
 	"github.com/OXeu/configcenter/internal/store"
 	"github.com/gin-gonic/gin"
@@ -12,7 +11,7 @@ import (
 
 func (s *Server) allowProject(c *gin.Context, project store.Project) bool {
 	id, _ := auth.FromContext(c.Request.Context())
-	if id.APIKey != nil && id.APIKey.IsGlobal() {
+	if id.APIKey != nil && id.APIKey.HasProject(project.ID) {
 		return true
 	}
 	me, ok := s.me(c)
@@ -35,22 +34,4 @@ func (s *Server) apiDeleteUser(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
-}
-
-func (s *Server) apiRotateKey(c *gin.Context, project store.Project) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || id == 0 {
-		c.Status(http.StatusBadRequest)
-		return
-	}
-	token, digest, err := apikey.Generate()
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	if err := s.store.RotateAPIKey(c.Request.Context(), project.ID, uint(id), digest[:], apikey.Display(token)); err != nil {
-		s.fail(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"token": token})
 }

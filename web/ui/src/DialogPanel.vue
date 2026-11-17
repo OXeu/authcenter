@@ -1,11 +1,20 @@
 <script setup>
-import { ref, watch, nextTick, useId } from 'vue'
+import { computed, ref, watch, nextTick, useId } from 'vue'
 import DropdownSelect from './DropdownSelect.vue'
+import CheckboxField from './CheckboxField.vue'
 const formId = useId()
 const props = defineProps({
   form: { type: Object, required: true },
   msg: { type: Function, required: true },
 })
+const canAddScope = computed(() =>
+  props.form.scopeProjects.some(
+    (/** @type {import('./forms.ts').Choice} */ option) =>
+      !props.form.scopes?.some(
+        (/** @type {import('./forms.ts').ScopeDraft} */ scope) => scope.project === option.value,
+      ),
+  ),
+)
 const dialog = ref(/** @type {HTMLDialogElement | null} */ (null))
 watch(
   () => props.form.open,
@@ -58,6 +67,48 @@ function cancel(event) {
             :disabled="form.busy"
           />
         </div>
+        <section v-if="form.scopes !== null" class="space-y-3">
+          <h3 class="text-sm font-medium">{{ msg('keys.scopes') }}</h3>
+          <p class="field">{{ msg('keys.scopeHelp') }}</p>
+          <fieldset v-for="scope in form.scopes" :key="scope.id" class="card space-y-3">
+            <legend class="px-1 text-sm">{{ msg('keys.scopeProject') }}</legend>
+            <DropdownSelect
+              :id="`${formId}-scope-${scope.id}`"
+              v-model="scope.project"
+              :label="msg('keys.scopeProject')"
+              :options="form.scopeProjects"
+              :disabled="form.busy"
+              required
+            />
+            <div class="grid gap-1 sm:grid-cols-2">
+              <CheckboxField
+                v-for="permission in form.scopePermissions"
+                :key="permission.value"
+                v-model="scope.permissions"
+                :label="permission.label"
+                :value="permission.value"
+                :disabled="form.busy"
+              />
+            </div>
+            <button
+              type="button"
+              class="btn-outline"
+              :disabled="form.busy"
+              @click="form.excludeScope(scope.id)"
+            >
+              {{ msg('keys.excludeScope') }}
+            </button>
+          </fieldset>
+          <button
+            v-if="canAddScope"
+            type="button"
+            class="btn-outline"
+            :disabled="form.busy"
+            @click="form.addScope"
+          >
+            {{ msg('keys.addScope') }}
+          </button>
+        </section>
       </template>
       <p v-if="form.token" class="field">
         {{ msg('projects.tokenIssued') }}<code class="break-all">{{ form.token }}</code>

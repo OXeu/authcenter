@@ -136,11 +136,12 @@ it('reports network failures without discarding form values', async () => {
   expect(w.form.busy).toBe(false)
 })
 
-it('creates and rotates global keys using the administrator routes', async () => {
-  const w = createWorkspace({ ...data, page: 'globalKeys', project: null }, createPage(data))
+it('creates and rotates keys using the unified routes', async () => {
+  const w = createWorkspace({ ...data, page: 'keys', project: null }, createPage(data))
   w.edit()
   expect(w.form.fields).toHaveLength(1)
-  expect(w.form.values.role).toBe('admin')
+  expect(w.form.values.role).toBeUndefined()
+  w.form.scopes = [{ id: 1, project: 'billing', permissions: ['config:read'] }]
   w.form.values.name = 'Automation'
   fetchMock.mockResolvedValueOnce({
     ok: true,
@@ -161,4 +162,41 @@ it('creates and rotates global keys using the administrator routes', async () =>
   await w.form.submit()
   expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/keys/42')
   expect(fetchMock.mock.calls[0][1].method).toBe('DELETE')
+})
+
+it('edits independent project scopes without mutating the displayed key before save', async () => {
+  const w = createWorkspace({ ...data, page: 'keys' }, createPage(data))
+  const row = {
+    id: 7,
+    name: 'Reader',
+    scopes: [{ project: 'billing', permissions: ['config:read'] }],
+  }
+  w.edit(row)
+  w.form.scopes![0].permissions.push('config:write')
+  w.form.scopes!.push({ id: 2, project: 'shipping', permissions: ['config:read'] })
+  expect(row.scopes).toEqual([{ project: 'billing', permissions: ['config:read'] }])
+  await w.form.submit()
+  expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/keys/7')
+  expect(fetchMock.mock.calls[0][1]).toMatchObject({
+    method: 'PATCH',
+    body: JSON.stringify({
+      name: 'Reader',
+      scopes: [
+        { project: 'billing', permissions: ['config:read', 'config:write'] },
+        { project: 'shipping', permissions: ['config:read'] },
+      ],
+    }),
+  })
+})
+
+it('validates incomplete scopes before sending a request and permits explicit no-access keys', async () => {
+  const w = createWorkspace({ ...data, page: 'keys' }, createPage(data))
+  w.edit()
+  w.form.scopes = [{ id: 1, project: 'billing', permissions: [] }]
+  await w.form.submit()
+  expect(fetchMock).not.toHaveBeenCalled()
+  expect(w.form.error).toBe('Choose a project and at least one permission for each scope.')
+  w.form.excludeScope(1)
+  await w.form.submit()
+  expect(fetchMock.mock.calls[0][1].body).toBe(JSON.stringify({ name: '', scopes: [] }))
 })

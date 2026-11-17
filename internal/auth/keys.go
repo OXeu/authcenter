@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -38,7 +39,7 @@ func (a *Authenticator) requestKey(c *gin.Context) (store.APIKey, bool) {
 	return key, true
 }
 
-// ManagementMiddleware admits browser users or global keys to project management.
+// ManagementMiddleware resolves a browser user or an API key before scope checks.
 func (a *Authenticator) ManagementMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.GetHeader("Authorization") == "" {
@@ -49,12 +50,32 @@ func (a *Authenticator) ManagementMiddleware() gin.HandlerFunc {
 		if !ok {
 			return
 		}
-		if !key.IsGlobal() {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "global api key required"})
+		a.store.TouchAPIKey(c.Request.Context(), key.ID)
+		c.Request = c.Request.WithContext(WithIdentity(c.Request.Context(), Identity{APIKey: &key}))
+		c.Next()
+	}
+}
+
+// Allows checks explicit API scopes or the browser user's operation role.
+func (i Identity) Allows(projectID uint, permission store.Permission) bool {
+	if i.APIKey != nil {
+		return i.APIKey.Allows(projectID, permission)
+	}
+	return i.User != nil && (i.Role.CanWrite() || strings.HasSuffix(string(permission), ":read"))
+}
+
+// RequireScope checks an operation against the resolved project, or all projects when absent.
+func RequireScope(permission store.Permission) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, ok := FromContext(c.Request.Context())
+		var projectID uint
+		if id.Project != nil {
+			projectID = id.Project.ID
+		}
+		if !ok || !id.Allows(projectID, permission) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient api key scope"})
 			return
 		}
-		a.store.TouchAPIKey(c.Request.Context(), key.ID)
-		c.Request = c.Request.WithContext(WithIdentity(c.Request.Context(), Identity{APIKey: &key, Role: key.Role}))
 		c.Next()
 	}
 }

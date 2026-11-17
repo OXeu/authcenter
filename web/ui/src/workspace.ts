@@ -18,14 +18,16 @@ export function createWorkspace(
   const state = reactive({
     rows: /** @type {any[]} */ ([]) as any[],
     environments: /** @type {any[]} */ ([]) as any[],
-    tab: data.page === 'globalKeys' ? 'keys' : 'items',
+    tab: data.page === 'keys' ? 'keys' : 'items',
     view: 'all',
     env: data.env,
     busy: false,
+    scopeProjects: [] as import('./forms.ts').Choice[],
+    scopePermissions: [] as import('./forms.ts').Choice[],
   })
   const base = '/api/v1/projects/' + encodeURIComponent(data.project?.slug ?? '')
   const path = () =>
-    data.page === 'globalKeys'
+    state.tab === 'keys'
       ? '/api/v1/keys'
       : data.page === 'settings'
         ? '/api/v1/settings'
@@ -42,14 +44,33 @@ export function createWorkspace(
     try {
       if (data.page === 'project')
         state.environments = (await api(`${base}/environments`)).environments
+      if (state.tab === 'keys') {
+        const options = (await api('/api/v1/key-scopes')) as {
+          projects: { slug: string; name: string }[]
+          permissions: string[]
+          all_projects: boolean
+        }
+        state.scopeProjects = (options.projects ?? []).map((p) => ({
+          value: p.slug,
+          label: `${p.name} (${p.slug})`,
+        }))
+        if (options.all_projects)
+          state.scopeProjects.push({ value: '*', label: page.msg('keys.allProjects') })
+        state.scopePermissions = (options.permissions ?? []).map((value) => ({
+          value,
+          label: page.msg(`scope.${value}`),
+        }))
+      }
       const query =
         data.page === 'projects'
           ? '?view=' + state.view
-          : state.tab === 'proposals'
-            ? '?status=pending'
-            : ''
+          : data.page === 'project' && state.tab === 'keys'
+            ? '?project=' + enc(data.project!.slug)
+            : state.tab === 'proposals'
+              ? '?status=pending'
+              : ''
       const result = await api(path() + query)
-      const collection = ['project', 'globalKeys'].includes(data.page) ? state.tab : data.page
+      const collection = ['project', 'keys'].includes(data.page) ? state.tab : data.page
       state.rows = result[collection] ?? []
     } finally {
       state.busy = false
@@ -73,7 +94,7 @@ export function createWorkspace(
   const roles = () => ({
     key: 'role',
     label: 'dialog.role',
-    options: (data.page === 'users' ? ['user', 'admin'] : ['viewer', 'editor']).map((value) => ({
+    options: ['user', 'admin'].map((value) => ({
       value,
       label: page.msg(`role.${value}`),
     })),
@@ -107,6 +128,10 @@ export function createWorkspace(
       )
       return
     }
+    if (state.tab === 'keys') {
+      editKey(row)
+      return
+    }
     const editing = Boolean(row)
     let fields,
       values,
@@ -128,9 +153,6 @@ export function createWorkspace(
       values = { role: row.role }
       url += '/' + row.id
       method = 'PATCH'
-    } else if (state.tab === 'keys') {
-      fields = [field('name', 'dialog.keyName'), ...(data.page === 'globalKeys' ? [] : [roles()])]
-      values = { name: '', role: data.page === 'globalKeys' ? 'admin' : 'viewer' }
     } else {
       fields = [
         field('key', 'dialog.itemKey'),
@@ -145,6 +167,41 @@ export function createWorkspace(
       const result = await mutate(target, method, form.values)
       if (result?.token) form.token = result.token
     })
+  }
+  function editKey(row?: {
+    id: number
+    name: string
+    scopes: { project: string; permissions: string[] }[]
+  }) {
+    form.show(
+      page.msg(row ? 'common.edit' : 'common.create'),
+      [field('name', 'dialog.keyName')],
+      { name: row?.name ?? '' },
+      async () => {
+        const scopes = (form.scopes ?? []).map(({ project, permissions }) => ({
+          project,
+          permissions: [...permissions],
+        }))
+        if (scopes.some((scope) => !scope.project || !scope.permissions.length))
+          throw new Error(page.msg('keys.scopeRequired'), { cause: 422 })
+        if (new Set(scopes.map((scope) => scope.project)).size !== scopes.length)
+          throw new Error(page.msg('keys.duplicateProject'), { cause: 422 })
+        const url = row ? `/api/v1/keys/${row.id}` : '/api/v1/keys'
+        const result = await mutate(url, row ? 'PATCH' : 'POST', { name: form.values.name, scopes })
+        if (result?.token) form.token = result.token
+      },
+    )
+    form.scopeProjects = [...state.scopeProjects]
+    form.scopePermissions = [...state.scopePermissions]
+    form.scopes = (row?.scopes ?? []).map((scope) => ({
+      project: scope.project,
+      id: form.nextScopeId++,
+      permissions: [...scope.permissions],
+    }))
+    if (!row) {
+      form.addScope()
+      if (data.project && form.scopes[0]) form.scopes[0].project = data.project.slug
+    }
   }
   function removal(row: any) {
     const id =

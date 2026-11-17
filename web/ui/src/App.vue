@@ -13,7 +13,7 @@ const { theme, toggleTheme } = useTheme()
 watch(theme, (value) => setToastTheme(value))
 const isDocs = computed(() => data.page === 'docs')
 const isWorkspace = computed(() =>
-  ['projects', 'project', 'users', 'settings', 'globalKeys'].includes(data.page),
+  ['projects', 'project', 'users', 'settings', 'keys'].includes(data.page),
 )
 const docsLinks = [
   { page: 'index', href: '/docs/', label: 'docs.overview' },

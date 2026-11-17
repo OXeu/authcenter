@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OXeu/configcenter/internal/apikey"
 	"github.com/OXeu/configcenter/internal/store"
 )
 
@@ -51,9 +50,24 @@ func issueKey(t *testing.T, f *flows, path string, body map[string]any) (token s
 	return token, uint(id)
 }
 
-func TestGlobalKeyLifecycleAndProjectManagement(t *testing.T) {
+func scopeBody(name string, scopes ...keyScopeJSON) map[string]any {
+	if scopes == nil {
+		scopes = []keyScopeJSON{}
+	}
+	return map[string]any{"name": name, "scopes": scopes}
+}
+
+func createKeyProject(t *testing.T, f *flows, slug string) {
+	t.Helper()
+	status, _ := f.do(http.MethodPost, "/api/v1/projects", map[string]any{"slug": slug, "name": slug})
+	if status != http.StatusCreated {
+		t.Fatalf("create project: %d", status)
+	}
+}
+
+func TestScopedKeyLifecycleAndManagement(t *testing.T) {
 	f := newFlows(t)
-	token, id := issueKey(t, f, "/api/v1/keys", map[string]any{"name": "automation"})
+	token, id := issueKey(t, f, "/api/v1/keys", scopeBody("automation", keyScopeJSON{Project: "*", Permissions: store.KeyPermissions()}))
 	for _, project := range []string{"billing", "shipping"} {
 		base := "/api/v1/projects/" + project
 		keyRequest(t, f.router, token, http.MethodPost, "/api/v1/projects", map[string]any{"slug": project, "name": project}, http.StatusCreated)
@@ -62,175 +76,143 @@ func TestGlobalKeyLifecycleAndProjectManagement(t *testing.T) {
 		keyRequest(t, f.router, token, http.MethodPut, base+"/environments/staging/items/db.pool", map[string]any{"value": "20"}, http.StatusOK)
 		rec := keyRequest(t, f.router, token, http.MethodGet, base+"/environments/staging/items", nil, http.StatusOK)
 		if !strings.Contains(rec.Body.String(), `"value":"20"`) {
-			t.Fatal("global key could not read its configuration")
+			t.Fatal("cannot read written configuration")
 		}
 		keyRequest(t, f.router, token, http.MethodGet, "/api/v1/agent/project?project="+project, nil, http.StatusOK)
 		keyRequest(t, f.router, token, http.MethodGet, "/api/v1/agent/environments/staging/values?project="+project, nil, http.StatusOK)
-		mcp := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{
-			"name": "set_config", "arguments": map[string]any{"environment": "staging", "key": "mcp.value", "value": project},
-		}}
-		rec = keyRequest(t, f.router, token, http.MethodPost, "/mcp/"+project, mcp, http.StatusOK)
-		if !strings.Contains(rec.Body.String(), `"isError":false`) {
-			t.Fatal("global MCP write failed")
-		}
 		keyRequest(t, f.router, token, http.MethodDelete, base+"/environments/staging/items/db.pool", nil, http.StatusNoContent)
 		keyRequest(t, f.router, token, http.MethodDelete, base+"/environments/staging", nil, http.StatusNoContent)
 	}
-	listed := keyRequest(t, f.router, token, http.MethodGet, "/api/v1/projects", nil, http.StatusOK)
-	for _, slug := range []string{"billing", "shipping", "configcenter"} {
-		if !strings.Contains(listed.Body.String(), `"slug":"`+slug+`"`) {
-			t.Fatalf("global project list omits %s", slug)
-		}
-	}
 	keyRequest(t, f.router, token, http.MethodGet, "/api/v1/agent/project", nil, http.StatusBadRequest)
 	keyRequest(t, f.router, token, http.MethodDelete, "/api/v1/projects/shipping", nil, http.StatusNoContent)
-	keyRequest(t, f.router, token, http.MethodGet, "/api/v1/projects", nil, http.StatusOK)
-	for _, path := range []string{"/api/v1/keys", "/api/v1/users", "/api/v1/settings"} {
+	for _, path := range []string{"/api/v1/users", "/api/v1/settings"} {
 		keyRequest(t, f.router, token, http.MethodGet, path, nil, http.StatusUnauthorized)
 	}
-	status, keys := f.do(http.MethodGet, "/api/v1/keys", nil)
-	if status != http.StatusOK {
-		t.Fatal("cannot list global keys")
-	}
-	encoded, err := json.Marshal(keys)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(encoded), token) || strings.Contains(string(encoded), "digest") || !strings.Contains(string(encoded), `"scope":"global"`) {
-		t.Fatal("key list must contain scope metadata without credentials")
+	rec := keyRequest(t, f.router, token, http.MethodGet, "/api/v1/keys", nil, http.StatusOK)
+	if strings.Contains(rec.Body.String(), token) || strings.Contains(rec.Body.String(), "digest") || !strings.Contains(rec.Body.String(), `"project":"*"`) {
+		t.Fatal("key listing must contain scopes without credentials")
 	}
 	path := fmt.Sprintf("/api/v1/keys/%d", id)
-	status, rotated := f.do(http.MethodPost, path+"/rotate", nil)
+	status, _ := f.do(http.MethodPatch, path, scopeBody("reader", keyScopeJSON{Project: "billing", Permissions: []store.Permission{store.ConfigRead}}))
 	if status != http.StatusOK {
-		t.Fatalf("rotate global key: status %d", status)
+		t.Fatalf("edit scopes: %d", status)
 	}
-	newToken, ok := rotated["token"].(string)
-	if !ok || newToken == token {
-		t.Fatal("rotation did not issue a new credential")
+	keyRequest(t, f.router, token, http.MethodPut, "/api/v1/projects/billing/environments/production/items/value", map[string]any{"value": "blocked"}, http.StatusForbidden)
+	keyRequest(t, f.router, token, http.MethodGet, "/api/v1/agent/environments/production/values", nil, http.StatusOK)
+	keyRequest(t, f.router, token, http.MethodGet, "/api/v1/keys", nil, http.StatusForbidden)
+	status, response := f.do(http.MethodPost, path+"/rotate", nil)
+	rotated, ok := response["token"].(string)
+	if status != http.StatusOK || !ok || rotated == token {
+		t.Fatal("rotation did not return a new credential")
 	}
-	keyRequest(t, f.router, token, http.MethodGet, "/api/v1/projects", nil, http.StatusUnauthorized)
-	keyRequest(t, f.router, newToken, http.MethodGet, "/api/v1/projects", nil, http.StatusOK)
+	keyRequest(t, f.router, token, http.MethodGet, "/api/v1/agent/environments/production/values", nil, http.StatusUnauthorized)
+	keyRequest(t, f.router, rotated, http.MethodGet, "/api/v1/agent/environments/production/values", nil, http.StatusOK)
+	keyRequest(t, f.router, rotated, http.MethodDelete, "/api/v1/projects/billing/environments/production/items/value", nil, http.StatusForbidden)
 	status, _ = f.do(http.MethodDelete, path, nil)
 	if status != http.StatusNoContent {
-		t.Fatalf("revoke global key: status %d", status)
+		t.Fatalf("revoke key: %d", status)
 	}
-	keyRequest(t, f.router, newToken, http.MethodGet, "/api/v1/projects", nil, http.StatusUnauthorized)
+	keyRequest(t, f.router, rotated, http.MethodGet, "/api/v1/agent/environments/production/values", nil, http.StatusUnauthorized)
 }
 
-func TestGlobalKeyScopeAndExpiry(t *testing.T) {
+func TestScopesBindEachPermissionToItsProject(t *testing.T) {
 	f := newFlows(t)
-	for _, slug := range []string{"alpha", "beta"} {
-		status, _ := f.do(http.MethodPost, "/api/v1/projects", map[string]any{"slug": slug, "name": slug})
-		if status != http.StatusCreated {
-			t.Fatalf("create project: %d", status)
+	createKeyProject(t, f, "alpha")
+	createKeyProject(t, f, "beta")
+	token, _ := issueKey(t, f, "/api/v1/keys", scopeBody("mixed",
+		keyScopeJSON{Project: "alpha", Permissions: []store.Permission{store.ConfigRead}},
+		keyScopeJSON{Project: "beta", Permissions: []store.Permission{store.ConfigWrite}},
+	))
+	for _, tc := range []struct {
+		method, project string
+		want            int
+	}{
+		{http.MethodGet, "alpha", http.StatusOK},
+		{http.MethodPut, "alpha", http.StatusForbidden},
+		{http.MethodGet, "beta", http.StatusForbidden},
+		{http.MethodPut, "beta", http.StatusOK},
+		{http.MethodDelete, "beta", http.StatusForbidden},
+	} {
+		path := "/api/v1/projects/" + tc.project + "/environments/production/items"
+		if tc.method != http.MethodGet {
+			path += "/value"
+		}
+		keyRequest(t, f.router, token, tc.method, path, map[string]any{"value": "20"}, tc.want)
+	}
+	keyRequest(t, f.router, token, http.MethodGet, "/api/v1/projects/alpha/environments", nil, http.StatusForbidden)
+	keyRequest(t, f.router, token, http.MethodGet, "/api/v1/agent/environments/production/values", nil, http.StatusBadRequest)
+	keyRequest(t, f.router, token, http.MethodGet, "/api/v1/agent/environments/production/values?project=alpha", nil, http.StatusOK)
+	for _, tc := range []struct {
+		project string
+		tools   int
+		tool    string
+	}{{"alpha", 2, "set_config"}, {"beta", 1, "get_config"}} {
+		rec := keyRequest(t, f.router, token, http.MethodPost, "/mcp/"+tc.project, map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, http.StatusOK)
+		var listed struct {
+			Result struct {
+				Tools []mcpTool `json:"tools"`
+			} `json:"result"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &listed); err != nil || len(listed.Result.Tools) != tc.tools {
+			t.Fatal("MCP discovery did not filter scopes")
+		}
+		rec = keyRequest(t, f.router, token, http.MethodPost, "/mcp/"+tc.project, map[string]any{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": map[string]any{"name": tc.tool, "arguments": map[string]any{"environment": "production", "key": "value", "value": "30"}}}, http.StatusOK)
+		if !strings.Contains(rec.Body.String(), `"isError":true`) {
+			t.Fatal("direct MCP call bypassed scopes")
 		}
 	}
-	global, globalID := issueKey(t, f, "/api/v1/keys", map[string]any{"name": "global"})
-	for _, role := range []string{"viewer", "editor", "admin"} {
-		token, keyID := issueKey(t, f, "/api/v1/projects/alpha/keys", map[string]any{"name": role, "role": role})
-		keyRequest(t, f.router, token, http.MethodGet, "/api/v1/projects", nil, http.StatusForbidden)
-		keyRequest(t, f.router, token, http.MethodPut, "/api/v1/projects/beta/environments/production/items/key", map[string]any{"value": "bad"}, http.StatusForbidden)
-		keyRequest(t, f.router, token, http.MethodPost, "/mcp/beta", map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, http.StatusForbidden)
-		keyRequest(t, f.router, token, http.MethodPost, "/mcp/alpha", map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, http.StatusOK)
-		status, _ := f.do(http.MethodPost, fmt.Sprintf("/api/v1/keys/%d/rotate", keyID), nil)
-		if status != http.StatusNotFound {
-			t.Fatalf("global rotation reached project key: %d", status)
-		}
+}
+
+func TestKeyDelegationCannotEscalate(t *testing.T) {
+	f := newFlows(t)
+	createKeyProject(t, f, "alpha")
+	createKeyProject(t, f, "beta")
+	parent, _ := issueKey(t, f, "/api/v1/keys", scopeBody("parent", keyScopeJSON{Project: "alpha", Permissions: []store.Permission{store.KeysRead, store.KeysWrite, store.ConfigRead}}))
+	_, broadID := issueKey(t, f, "/api/v1/keys", scopeBody("broad", keyScopeJSON{Project: "*", Permissions: store.KeyPermissions()}))
+	for _, scope := range []keyScopeJSON{
+		{Project: "alpha", Permissions: []store.Permission{store.ConfigWrite}},
+		{Project: "beta", Permissions: []store.Permission{store.ConfigRead}},
+		{Project: "*", Permissions: []store.Permission{store.ConfigRead}},
+	} {
+		keyRequest(t, f.router, parent, http.MethodPost, "/api/v1/keys", scopeBody("forbidden", scope), http.StatusForbidden)
 	}
-	keyRequest(t, f.router, global, http.MethodDelete, fmt.Sprintf("/api/v1/projects/alpha/keys/%d", globalID), nil, http.StatusNotFound)
-	keyRequest(t, f.router, global, http.MethodPost, fmt.Sprintf("/api/v1/projects/alpha/keys/%d/rotate", globalID), nil, http.StatusNotFound)
-	expired, _ := issueKey(t, f, "/api/v1/keys", map[string]any{"name": "expired", "expires_at": time.Now().Add(-time.Hour)})
-	keyRequest(t, f.router, expired, http.MethodGet, "/api/v1/projects", nil, http.StatusUnauthorized)
-	keyRequest(t, f.router, expired, http.MethodPost, "/mcp/alpha", map[string]any{"jsonrpc": "2.0", "id": 1, "method": "ping"}, http.StatusUnauthorized)
-	for _, body := range []map[string]any{{"name": "bad", "role": "viewer"}, {"name": " "}} {
+	keyRequest(t, f.router, parent, http.MethodPost, "/api/v1/keys", scopeBody("child", keyScopeJSON{Project: "alpha", Permissions: []store.Permission{store.ConfigRead}}), http.StatusCreated)
+	broadPath := fmt.Sprintf("/api/v1/keys/%d", broadID)
+	keyRequest(t, f.router, parent, http.MethodPatch, broadPath, scopeBody("hijacked"), http.StatusForbidden)
+	keyRequest(t, f.router, parent, http.MethodPost, broadPath+"/rotate", nil, http.StatusForbidden)
+	keyRequest(t, f.router, parent, http.MethodDelete, broadPath, nil, http.StatusForbidden)
+	rec := keyRequest(t, f.router, parent, http.MethodGet, "/api/v1/keys", nil, http.StatusOK)
+	if strings.Contains(rec.Body.String(), `"name":"broad"`) {
+		t.Fatal("broader key metadata leaked")
+	}
+}
+
+func TestScopeValidationExpiryAndEmptyGrants(t *testing.T) {
+	f := newFlows(t)
+	createKeyProject(t, f, "alpha")
+	for _, body := range []map[string]any{
+		{"name": "missing"},
+		scopeBody("invalid", keyScopeJSON{Project: "alpha", Permissions: []store.Permission{"config:admin"}}),
+		scopeBody("invalid", keyScopeJSON{Project: "alpha", Permissions: []store.Permission{}}),
+		scopeBody("invalid", keyScopeJSON{Project: "alpha", Permissions: []store.Permission{store.ConfigRead, store.ConfigRead}}),
+		scopeBody("invalid", keyScopeJSON{Project: "alpha", Permissions: []store.Permission{store.ConfigRead}}, keyScopeJSON{Project: "alpha", Permissions: []store.Permission{store.ConfigWrite}}),
+	} {
 		status, _ := f.do(http.MethodPost, "/api/v1/keys", body)
 		if status != http.StatusBadRequest {
-			t.Fatalf("invalid global key accepted: %d", status)
+			t.Fatalf("invalid scope accepted: %d", status)
 		}
 	}
-	savedCSRF := f.csrf
+	empty, _ := issueKey(t, f, "/api/v1/keys", scopeBody("disabled"))
+	keyRequest(t, f.router, empty, http.MethodGet, "/api/v1/projects/alpha/environments/production/items", nil, http.StatusForbidden)
+	body := scopeBody("expired", keyScopeJSON{Project: "*", Permissions: store.KeyPermissions()})
+	body["expires_at"] = time.Now().Add(-time.Hour)
+	expired, _ := issueKey(t, f, "/api/v1/keys", body)
+	keyRequest(t, f.router, expired, http.MethodGet, "/api/v1/projects", nil, http.StatusUnauthorized)
+	saved := f.csrf
 	f.csrf = ""
-	status, _ := f.do(http.MethodPost, "/api/v1/keys", map[string]any{"name": "no-csrf"})
+	status, _ := f.do(http.MethodPost, "/api/v1/keys", scopeBody("no-csrf"))
 	if status != http.StatusForbidden {
-		t.Fatalf("global issuance without CSRF: %d", status)
+		t.Fatal("key creation bypassed CSRF")
 	}
-	f.csrf = savedCSRF
-	status, _ = f.do(http.MethodPost, "/api/v1/keys", map[string]any{"name": "valid-csrf"})
-	if status != http.StatusCreated {
-		t.Fatalf("valid CSRF rejected: %d", status)
-	}
-}
-
-func TestGlobalKeysRequireAdministratorSession(t *testing.T) {
-	s, router, _ := testServer(t, false)
-	user, err := s.store.CreateUser(t.Context(), store.User{Email: "user@example.com", Name: "User", Role: store.RoleUser})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := s.store.CreateSession(t.Context(), store.Session{ID: "regular-session", UserID: user.ID, CSRFToken: "csrf", ExpiresAt: time.Now().Add(time.Hour)}); err != nil {
-		t.Fatal(err)
-	}
-	f := &flows{t: t, router: router, csrf: "csrf", cookies: map[string]*http.Cookie{"cc_session": {Name: "cc_session", Value: "regular-session"}}}
-	for _, route := range []struct{ method, path string }{
-		{http.MethodGet, "/keys"},
-		{http.MethodGet, "/api/v1/keys"},
-		{http.MethodPost, "/api/v1/keys"},
-		{http.MethodPost, "/api/v1/keys/1/rotate"},
-		{http.MethodDelete, "/api/v1/keys/1"},
-	} {
-		status, _ := f.do(route.method, route.path, map[string]any{"name": "forbidden"})
-		if status != http.StatusForbidden {
-			t.Fatalf("non-admin %s %s: status %d", route.method, route.path, status)
-		}
-	}
-}
-
-func TestGlobalKeyAttributionAndExplicitAuthentication(t *testing.T) {
-	s, router, _ := testServer(t, false)
-	admin, err := s.store.UserByEmail(t.Context(), "admin@localhost")
-	if err != nil {
-		t.Fatal(err)
-	}
-	token, digest, err := apikey.Generate()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.store.CreateAPIKey(t.Context(), store.APIKey{Name: "global", Digest: digest[:], Prefix: apikey.Display(token), Role: store.RoleAdmin, CreatedBy: admin.ID}); err != nil {
-		t.Fatal(err)
-	}
-	keyRequest(t, router, token, http.MethodPost, "/api/v1/projects", map[string]any{"slug": "audit", "name": "Audit"}, http.StatusCreated)
-	project, err := s.store.ProjectBySlug(t.Context(), "audit")
-	if err != nil || project.OwnerID != admin.ID {
-		t.Fatal("global-created project lost its owner")
-	}
-	env, err := s.store.EnvironmentBySlug(t.Context(), project.ID, "production")
-	if err != nil {
-		t.Fatal(err)
-	}
-	keyRequest(t, router, token, http.MethodPut, "/api/v1/projects/audit/environments/production/items/value", map[string]any{"value": "20"}, http.StatusOK)
-	item, err := s.store.GetItem(t.Context(), project.ID, env.ID, "value")
-	if err != nil || item.UpdatedBy != admin.ID {
-		t.Fatal("global write lost its actor")
-	}
-	keyRequest(t, router, token, http.MethodPost, "/api/v1/projects/audit/keys", map[string]any{"name": "child", "role": "editor"}, http.StatusCreated)
-	keys, err := s.store.ListAPIKeys(t.Context(), project.ID)
-	if err != nil || len(keys) != 1 || keys[0].CreatedBy != admin.ID || keys[0].IsGlobal() {
-		t.Fatal("global-issued project key has incorrect scope or creator")
-	}
-	if err := s.store.CreateSession(t.Context(), store.Session{ID: "admin-session", UserID: admin.ID, CSRFToken: "csrf", ExpiresAt: time.Now().Add(time.Hour)}); err != nil {
-		t.Fatal(err)
-	}
-	for _, tc := range []struct {
-		credential string
-		status     int
-	}{{token, http.StatusOK}, {"cc_invalid", http.StatusUnauthorized}} {
-		req := httptest.NewRequest(http.MethodPut, "/api/v1/projects/audit/environments/production/items/value", strings.NewReader(`{"value":"30"}`))
-		req.AddCookie(&http.Cookie{Name: "cc_session", Value: "admin-session"})
-		req.Header.Set("Authorization", "ApiKey "+tc.credential)
-		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, req)
-		if rec.Code != tc.status {
-			t.Fatalf("explicit API authentication with a browser cookie: status %d, want %d", rec.Code, tc.status)
-		}
-	}
+	f.csrf = saved
 }

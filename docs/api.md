@@ -2,31 +2,64 @@
 
 [文档首页](/docs/) · [Go SDK](/docs/sdk) · [MCP 接口](/docs/mcp) · [Markdown 原文](/docs/api.md)
 
-## 鉴权与项目隔离
+## 认证与 scope
 
-每次请求携带 `Authorization: ApiKey cc_…`，注意认证方案是 `ApiKey`。项目密钥绑定一个项目，以下读取路径无需项目参数。viewer 密钥即可读取该项目的所有环境；密钥不是按环境隔离的。全局密钥可跨项目使用，调用 `/api/v1/agent/...` 时必须通过 `?project=billing` 指定项目，否则返回 HTTP 400。
+请求携带 `Authorization: ApiKey cc_…`。所有 API Key 使用同一个权限模型，不再区分“项目 Key”和“全局 Key”，也不再用 viewer / editor / admin 角色决定 Key 的权限。
 
-以下命令假设调用环境已安全提供 `CC_URL`（服务根地址，无尾部斜杠）和 `CC_KEY`（完整密钥）。这些是调用方示例变量，不是服务器配置项。
+每把 Key 的 `scopes` 是一组“项目范围 + 操作权限”。同一把 Key 可以只读取项目 A，同时写入项目 B；`project: "*"` 表示所有项目（包括以后创建的项目）。权限需要逐项授权，写入不自动包含读取或删除。
 
-## 查询项目和环境
-
-```sh
-curl --fail-with-body --silent --show-error \
-  -H "Authorization: ApiKey $CC_KEY" \
-  "$CC_URL/api/v1/agent/project"
+```json
+{
+  "name": "billing-worker",
+  "scopes": [
+    { "project": "billing", "permissions": ["config:read"] },
+    { "project": "shipping", "permissions": ["config:write"] }
+  ]
+}
 ```
 
-成功返回 HTTP 200，JSON 包含 `project` 对象和 `environments` 数组。使用环境对象的 `slug` 读取配置，不使用展示名称或数字 ID。
+这里的 project 使用 slug，不是展示名称。每个项目只能出现一次，每项 scope 必须有至少一项权限；未知或重复权限会被拒绝。`scopes: []` 可以保存一把没有访问权限的 Key，省略 `scopes` 则返回 HTTP 400。
+
+浏览器登录后，在账户菜单的「密钥」页面 `/keys` 创建、编辑、轮换或吊销 Key。普通用户可管理自己创建的 Key，授权范围限于自己拥有的项目；管理员可管理所有 Key，并选择所有项目。编辑 scope 保留原 token，后续请求立即使用新权限。所有 scope 覆盖目标项目的全部环境。
+
+## 可配置权限
+
+| 权限                  | 允许的操作                                                   |
+| --------------------- | ------------------------------------------------------------ |
+| `projects:read`       | 列出授权范围内的项目、读取项目元数据                         |
+| `projects:write`      | 修改项目名称和描述；范围为 `*` 时可创建项目                  |
+| `projects:delete`     | 删除项目及其环境、配置和提案                                 |
+| `environments:read`   | 读取环境列表                                                 |
+| `environments:write`  | 创建环境                                                     |
+| `environments:delete` | 删除环境及其配置                                             |
+| `config:read`         | 读取配置列表或单个配置项                                     |
+| `config:write`        | 创建、更新或重命名配置                                       |
+| `config:delete`       | 删除配置                                                     |
+| `proposals:read`      | 列出变更提案                                                 |
+| `proposals:write`     | 通过 MCP 提交变更提案                                        |
+| `proposals:review`    | 批准或拒绝提案；批准会应用提案中的配置写入或删除             |
+| `keys:read`           | 列出授权范围内、权限未超出当前 Key 的 API Key 元数据         |
+| `keys:write`          | 创建、编辑、轮换或吊销授权范围内的 API Key，不能超出自身权限 |
+
+父资源删除会级联删除内容，因此 `projects:delete`、`environments:delete` 也包含对应的配置清理能力。`keys:write` 不能用于提权：调用方必须对目标 Key 的每项项目范围都拥有 `keys:write`，且目标 Key 的全部权限必须是调用方权限的子集；创建或修改后的 scope 也要满足这个约束。只有 `keys:read` 不会返回完整 token。
+
+用户管理和服务器设置仍只接受管理员浏览器会话，不提供 API Key scope。
 
 ## 读取配置
 
+以下命令假设调用环境已安全提供 `CC_URL`（无尾部斜杠）和 `CC_KEY`（完整 token）。这些是调用方变量，不是服务端配置项。
+
+只授权一个具体项目的 Key 可省略项目参数；多项目 Key 或包含 `*` 的 Key 必须用 `?project=billing` 指定项目，否则返回 HTTP 400。
+
 ```sh
-curl --fail-with-body --silent --show-error \
+curl --fail-with-body --silent --show-error --get \
   -H "Authorization: ApiKey $CC_KEY" \
+  --data-urlencode 'project=billing' \
+  --data-urlencode 'prefix=db.' \
   "$CC_URL/api/v1/agent/environments/production/values"
 ```
 
-响应示例：
+此请求需要 billing 项目的 `config:read`。响应示例：
 
 ```json
 {
@@ -43,63 +76,92 @@ curl --fail-with-body --silent --show-error \
 }
 ```
 
-`value` 始终是字符串，数字、布尔值或 JSON 由调用方解析。没有匹配项时 `items` 是空数组。可通过 `prefix` 限制返回的键：
+`value` 始终是字符串，数字、布尔值或 JSON 由调用方解析。无匹配项时 `items` 为空数组。此接口没有分页或推送订阅，调用方可定时刷新。
 
-```sh
-curl --fail-with-body --silent --show-error --get \
-  -H "Authorization: ApiKey $CC_KEY" \
-  --data-urlencode 'prefix=db.' \
-  "$CC_URL/api/v1/agent/environments/production/values"
-```
+`GET /api/v1/agent/project?project=billing` 返回 `project` 和 `environments`，需要同时拥有 `projects:read` 与 `environments:read`。环境 slug 和配置键作为路径段时需 URL 编码，项目和 prefix 查询参数也需要编码。
 
-环境 slug 作为路径段时需要 URL 编码，prefix 作为查询参数编码。此接口没有分页或推送订阅，调用方可定时重新读取。
+## 项目管理 API
 
-## 错误与重试
+浏览器会话和 API Key 共用以下接口。浏览器修改请求需要 `X-CSRF-Token` 和项目管理权限；使用 API Key 时不需要 Cookie 或 CSRF Token。显式提供 Authorization 后不会回退到浏览器会话。
 
-错误响应为 JSON，包含 `error` 字段。不要依赖错误文案做逻辑判断。
+| 方法   | 路径                                                     | scope / 请求体                                                          |
+| ------ | -------------------------------------------------------- | ----------------------------------------------------------------------- |
+| GET    | `/api/v1/projects`                                       | `projects:read`；只返回 scope 允许读取的项目                            |
+| POST   | `/api/v1/projects`                                       | `*` 范围的 `projects:write`；`slug`、`name`、可选 `description`         |
+| PATCH  | `/api/v1/projects/:project`                              | `projects:write`；`name`、`description`                                 |
+| DELETE | `/api/v1/projects/:project`                              | `projects:delete`                                                       |
+| GET    | `/api/v1/projects/:project/environments`                 | `environments:read`                                                     |
+| POST   | `/api/v1/projects/:project/environments`                 | `environments:write`；`slug`、`name`                                    |
+| DELETE | `/api/v1/projects/:project/environments/:env`            | `environments:delete`                                                   |
+| GET    | `/api/v1/projects/:project/environments/:env/items`      | `config:read`；可选 `?prefix=`                                          |
+| PUT    | `/api/v1/projects/:project/environments/:env/items/:key` | `config:write`；`value` 必填字符串，可选 `description`、`key`（重命名） |
+| DELETE | `/api/v1/projects/:project/environments/:env/items/:key` | `config:delete`                                                         |
+| GET    | `/api/v1/projects/:project/proposals`                    | `proposals:read`；可选 `?status=pending`                                |
+| POST   | `/api/v1/projects/:project/proposals/:id/review`         | `proposals:review`；`approve` 布尔值                                    |
 
-| HTTP 状态 | 处理方式                                               |
-| --------- | ------------------------------------------------------ |
-| 200       | 解析 JSON 并更新本地快照                               |
-| 401       | 检查认证头、密钥是否有效、过期或被删除；修复凭据后重试 |
-| 404       | 检查环境 slug 是否存在                                 |
-| 500       | 服务端故障；记录状态码，采用有界退避重试               |
-
-设置请求超时；首次加载失败时由应用决定停止启动或使用明确默认值。刷新失败可保留上一次成功快照，但应监测其过期时间。避免将配置值或完整密钥写入诊断日志。
-
-## 全局 API Key 管理接口
-
-管理员登录后，在「全局密钥」页面 `/keys` 创建密钥。全局 Key 具有所有项目的管理权限，可调用下表中的接口；项目 Key 仍只能使用项目范围内的 Agent REST / MCP 接口，不能调用这些管理接口。全局 Key 也可访问 `POST /mcp/:project`，项目由路径指定。
-
-使用 `Authorization: ApiKey <token>` 鉴权时不需要 Cookie 或 CSRF Token；显式提供认证头后不会回退到浏览器会话。使用浏览器会话时，修改请求仍需要 `X-CSRF-Token` 和写权限。
-
-| 方法       | 路径                                                     | 请求体 / 行为                                                                      |
-| ---------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| GET        | `/api/v1/projects`                                       | 返回 `projects`；默认列出所有项目，`?view=mine` 只列出密钥创建者拥有的项目         |
-| POST       | `/api/v1/projects`                                       | `slug`、`name`、可选 `description`；自动创建 `production` 环境，所有者为密钥创建者 |
-| PATCH      | `/api/v1/projects/:project`                              | `name`、`description`；更新名称和描述，不能更改 slug                               |
-| DELETE     | `/api/v1/projects/:project`                              | 删除项目及其配置、环境、项目 Key 和提案                                            |
-| GET / POST | `/api/v1/projects/:project/environments`                 | 读取环境，或用 `slug`、`name` 创建环境                                             |
-| DELETE     | `/api/v1/projects/:project/environments/:env`            | 删除环境及其内容                                                                   |
-| GET        | `/api/v1/projects/:project/environments/:env/items`      | 读取配置，支持 `?prefix=`                                                          |
-| PUT        | `/api/v1/projects/:project/environments/:env/items/:key` | `value`（必填字符串）、可选 `description`；创建或覆盖配置                          |
-| DELETE     | `/api/v1/projects/:project/environments/:env/items/:key` | 删除配置                                                                           |
-| GET / POST | `/api/v1/projects/:project/keys`                         | 列出项目 Key，或用 `name`、`role`（viewer / editor）、可选 `expires_at` 创建       |
-| POST       | `/api/v1/projects/:project/keys/:id/rotate`              | 轮换项目 Key，返回一次性可见的 `token`                                             |
-| DELETE     | `/api/v1/projects/:project/keys/:id`                     | 吊销项目 Key                                                                       |
-| GET        | `/api/v1/projects/:project/proposals`                    | 列出提案，支持 `?status=pending`                                                   |
-| POST       | `/api/v1/projects/:project/proposals/:id/review`         | `approve` 布尔值；批准或拒绝提案                                                   |
-
-路径中的 project、env 使用 slug，key 和各路径段需 URL 编码。新建项目、环境、密钥返回 HTTP 201；读取、更新、写入配置和轮换返回 HTTP 200；删除返回 HTTP 204。缺失或失效凭据返回 401，项目 Key 调用管理接口返回 403，参数错误返回 400，资源不存在返回 404。
+创建项目会自动创建 `production` 环境，所有者及操作归属记录为 Key 的创建者。删除项目会移除 Key 对该项目的 scope，保留其他项目的授权；最后一项 scope 移除后，该 Key 没有访问权限。重新创建相同 slug 的项目不会恢复旧的项目授权；`*` 范围仍覆盖新项目。
 
 ```sh
 curl --fail-with-body --silent --show-error \
   -H "Authorization: ApiKey $CC_KEY" \
   -H 'Content-Type: application/json' \
-  -X PUT "$CC_URL/api/v1/projects/billing/environments/production/items/db.pool" \
+  -X PUT "$CC_URL/api/v1/projects/shipping/environments/production/items/db.pool" \
   --data '{"value":"20","description":"数据库连接池大小"}'
 ```
 
-全局 Key 自身的管理接口仅限管理员浏览器会话：`GET /api/v1/keys`、`POST /api/v1/keys`、`POST /api/v1/keys/:id/rotate`、`DELETE /api/v1/keys/:id`。创建请求为 `{"name":"automation"}`，可添加 RFC 3339 格式的 `expires_at`；角色固定为 admin。创建响应为 `{"key":{...},"token":"cc_..."}`，密钥元数据包含 `scope: "global"`。列表不返回完整 token 或摘要。完整 token 仅在创建和轮换时返回，旧 token 在轮换或吊销后失效。
+## API Key 管理
 
-全局 Key 不能管理用户、服务器设置或签发其他全局 Key；这些操作仍要求管理员会话。删除某个项目不会吊销全局 Key，删除密钥创建者的用户账号会撤销该账号创建的全部 Key。
+| 方法   | 路径                      | 行为                                                                         |
+| ------ | ------------------------- | ---------------------------------------------------------------------------- |
+| GET    | `/api/v1/keys`            | 列表；可选 `?project=billing` 过滤项目，包括覆盖该项目的 `*` scope           |
+| POST   | `/api/v1/keys`            | 创建；`name`、`scopes` 必填，可选 RFC 3339 格式的 `expires_at`               |
+| PATCH  | `/api/v1/keys/:id`        | 使用 `name` 和 `scopes` 替换名称及权限；不会返回或替换 token                 |
+| POST   | `/api/v1/keys/:id/rotate` | 轮换凭据；scope 和过期时间保持不变                                           |
+| DELETE | `/api/v1/keys/:id`        | 吊销                                                                         |
+| GET    | `/api/v1/key-scopes`      | 仅浏览器会话：返回当前用户可选的 `projects`、`permissions` 和 `all_projects` |
+
+创建成功返回 HTTP 201：
+
+```json
+{
+  "key": {
+    "id": 42,
+    "name": "billing-worker",
+    "prefix": "cc_exampl…",
+    "scopes": [{ "project": "billing", "permissions": ["config:read"] }],
+    "created_at": "2026-01-01T00:00:00Z",
+    "last_used_at": null,
+    "expires_at": null
+  },
+  "token": "cc_REPLACE_WITH_THE_ISSUED_TOKEN"
+}
+```
+
+列表返回 `{"keys":[...]}`；编辑返回 `{"key":{...}}`；轮换返回 `{"token":"cc_..."}`。完整 token 只在创建和轮换时显示，服务端仅保存摘要，列表和编辑响应不返回 token 或摘要。旧 token 在轮换或吊销后失效。并发修改导致授权检查过期时返回 HTTP 409，需要重新读取后重试。
+
+浏览器普通用户的列表只包含自己创建的 Key；管理员可查看所有 Key。API Key 调用列表需要 `keys:read`，返回结果也会按目标 Key 的项目和权限过滤。删除用户账号会撤销该用户创建的全部 Key。
+
+## 旧版本迁移
+
+启动时自动为旧 Key 写入等效 scopes，保留 token、创建者、过期时间和使用记录：
+
+- 项目 viewer：该项目的 `projects:read`、`environments:read`、`config:read`、`proposals:read`。
+- 项目 editor / user / admin：在以上读取权限基础上增加 `config:write`、`config:delete`、`proposals:write`，不会获得其他项目权限。
+- 旧全局 Key：`*` 范围的全部可配置权限。
+
+迁移只执行一次，后来保存的空 scope 不会被恢复为旧角色权限。旧 `/api/v1/projects/:project/keys` 系列路径仍作为统一 Key 管理的兼容入口；旧项目创建请求的 `role` 会转换为对应 scope。新接入使用 `/api/v1/keys` 和显式 `scopes`，不要在新请求中发送 `role`；响应中的旧 `role`、`scope` 字段已由 `scopes` 数组替代。
+
+## 错误与重试
+
+| HTTP 状态 | 含义                                                      |
+| --------- | --------------------------------------------------------- |
+| 200 / 201 | 成功读取、修改或创建                                      |
+| 204       | 删除成功，无响应体                                        |
+| 400       | 参数或 scope 不合法，或多项目 Key 未指定目标项目          |
+| 401       | 认证头错误、Key 失效、过期或已吊销                        |
+| 403       | 缺少所需权限、项目不在 scope 内，或试图管理更高权限的 Key |
+| 404       | 目标资源不存在                                            |
+| 409       | Key 被并发修改，重新读取后重试                            |
+| 500       | 服务端故障，可采用有界退避重试                            |
+
+错误通常为包含 `error` 的 JSON。设置请求超时；不要把完整密钥或配置值写入日志。刷新失败时可保留上一次成功快照，但应监测其过期时间。

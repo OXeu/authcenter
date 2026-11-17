@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -115,7 +116,7 @@ func schema(props map[string]any, required ...string) map[string]any {
 }
 
 func (s *Server) mcpTools(c *gin.Context) []mcpTool {
-	readOnlyTools := []mcpTool{
+	availableTools := []mcpTool{
 		{
 			Name:        "list_environments",
 			Description: "List the environments of this project.",
@@ -143,41 +144,45 @@ func (s *Server) mcpTools(c *gin.Context) []mcpTool {
 			InputSchema: schema(map[string]any{}),
 		},
 	}
+	availableTools = append(availableTools,
+		mcpTool{
+			Name:        "set_config",
+			Description: "Create or update a configuration item. Requires config:write and applies immediately.",
+			InputSchema: schema(map[string]any{
+				"environment": map[string]any{"type": "string"},
+				"key":         map[string]any{"type": "string"},
+				"value":       map[string]any{"type": "string"},
+				"description": map[string]any{"type": "string"},
+			}, "environment", "key", "value"),
+		},
+		mcpTool{
+			Name:        "delete_config",
+			Description: "Delete a configuration item immediately.",
+			InputSchema: schema(map[string]any{
+				"environment": map[string]any{"type": "string"},
+				"key":         map[string]any{"type": "string"},
+			}, "environment", "key"),
+		},
+		mcpTool{
+			Name:        "propose_config",
+			Description: "Propose a create, update or delete that a human must review in the web UI.",
+			InputSchema: schema(map[string]any{
+				"environment": map[string]any{"type": "string"},
+				"key":         map[string]any{"type": "string"},
+				"action":      map[string]any{"type": "string", "enum": []string{store.ActionSet, store.ActionDelete}},
+				"value":       map[string]any{"type": "string"},
+				"reason":      map[string]any{"type": "string"},
+			}, "environment", "key", "action"),
+		},
+	)
 	id, _ := auth.FromContext(c.Request.Context())
-	if id.Role.CanWrite() && id.APIKey != nil {
-		readOnlyTools = append(readOnlyTools,
-			mcpTool{
-				Name:        "set_config",
-				Description: "Create or update a configuration item. Applied immediately because this key is a writer.",
-				InputSchema: schema(map[string]any{
-					"environment": map[string]any{"type": "string"},
-					"key":         map[string]any{"type": "string"},
-					"value":       map[string]any{"type": "string"},
-					"description": map[string]any{"type": "string"},
-				}, "environment", "key", "value"),
-			},
-			mcpTool{
-				Name:        "delete_config",
-				Description: "Delete a configuration item immediately.",
-				InputSchema: schema(map[string]any{
-					"environment": map[string]any{"type": "string"},
-					"key":         map[string]any{"type": "string"},
-				}, "environment", "key"),
-			},
-			mcpTool{
-				Name:        "propose_config",
-				Description: "Propose a create, update or delete that a human must review in the web UI.",
-				InputSchema: schema(map[string]any{
-					"environment": map[string]any{"type": "string"},
-					"key":         map[string]any{"type": "string"},
-					"action":      map[string]any{"type": "string", "enum": []string{store.ActionSet, store.ActionDelete}},
-					"value":       map[string]any{"type": "string"},
-					"reason":      map[string]any{"type": "string"},
-				}, "environment", "key", "action"),
-			},
-		)
+	tools := make([]mcpTool, 0, len(availableTools))
+	for _, tool := range availableTools {
+		if mcpAllowed(id, tool.Name) {
+			tools = append(tools, tool)
+		}
 	}
-	return readOnlyTools
+	return tools
 }
 
 type toolArgs struct {
@@ -217,6 +222,9 @@ func (s *Server) callTool(c *gin.Context, name string, raw map[string]any) (any,
 	if id.Project == nil {
 		return nil, &rpcError{Code: codeInvalidRequest, Message: "api key required"}
 	}
+	if permission := mcpPermission(name); permission != "" && !mcpAllowed(id, name) {
+		return toolError("insufficient api key scope")
+	}
 	ctx := c.Request.Context()
 
 	switch name {
@@ -246,17 +254,8 @@ func (s *Server) callTool(c *gin.Context, name string, raw map[string]any) (any,
 func (s *Server) configTool(c *gin.Context, id auth.Identity, env store.Environment, name string, args toolArgs) (any, *rpcError) {
 	ctx := c.Request.Context()
 	projectID := id.Project.ID
-	if id.APIKey == nil && name != "list_config" && name != "get_config" {
-		return toolError("api key required for writes")
-	}
-	if name == "delete_config" && !id.Role.CanWrite() {
-		return toolError("this key is read-only")
-	}
 	switch name {
 	case "set_config":
-		if !id.Role.CanWrite() {
-			return toolError("this api key is read-only")
-		}
 		if err := slug.ValidateKey(args.Key); err != nil {
 			return toolError(err.Error())
 		}
@@ -269,9 +268,6 @@ func (s *Server) configTool(c *gin.Context, id auth.Identity, env store.Environm
 		}
 		return textResult(toItemJSON(item))
 	case "propose_config":
-		if !id.Role.CanWrite() {
-			return toolError("this api key is read-only")
-		}
 		if err := validateAction(args.Action); err != nil {
 			return toolError("action must be set or delete")
 		}
@@ -346,4 +342,34 @@ func proposalView(ps []store.MCPProposal) []gin.H {
 		out = append(out, gin.H{"id": p.ID, "environment_id": p.EnvironmentID, "key": p.Key, "action": p.Action, "value": p.Value, "reason": p.Reason, "status": p.Status})
 	}
 	return out
+}
+
+func mcpPermission(name string) store.Permission {
+	switch name {
+	case "list_environments":
+		return store.EnvironmentsRead
+	case "list_config", "get_config":
+		return store.ConfigRead
+	case "list_proposals":
+		return store.ProposalsRead
+	case "set_config":
+		return store.ConfigWrite
+	case "delete_config":
+		return store.ConfigDelete
+	case "propose_config":
+		return store.ProposalsWrite
+	default:
+		return ""
+	}
+}
+
+func mcpAllowed(id auth.Identity, name string) bool {
+	permission := mcpPermission(name)
+	if id.Project == nil || permission == "" {
+		return false
+	}
+	if id.APIKey == nil && !strings.HasSuffix(string(permission), ":read") {
+		return false
+	}
+	return id.Allows(id.Project.ID, permission)
 }

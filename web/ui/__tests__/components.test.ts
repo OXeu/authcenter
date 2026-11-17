@@ -202,14 +202,14 @@ describe('Vue pages', () => {
     await wrapper.get('header .dropdown:last-child button').trigger('click')
     const menu = wrapper.get('.dropdown-content')
     expect(menu.find(`.role-badge .${icon}`).exists()).toBe(true)
-    expect(menu.find('a[href="/keys"]').exists()).toBe(role === 'admin')
+    expect(menu.find('a[href="/keys"]').exists()).toBe(true)
     expect(menu.find('a[href="/users"]').exists()).toBe(role === 'admin')
     expect(menu.get('button').text()).toBe('Sign out')
     wrapper.unmount()
   })
   it.each([
     ['en', 'Users', 'API keys', 'Admin'],
-    ['zh-CN', '用户管理', '全局密钥', '管理员'],
+    ['zh-CN', '用户管理', '密钥', '管理员'],
   ])(
     'puts localized admin navigation in the docs account menu for %s',
     async (lang, users, keys, role) => {

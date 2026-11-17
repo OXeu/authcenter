@@ -25,7 +25,7 @@ const columns = computed(() => {
   if (data.page === 'settings') return ['key', 'value']
   if (data.page === 'projects') return ['name', 'slug', 'description']
   if (data.page === 'users') return ['name', 'email', 'role', 'last_login_at']
-  if (state.tab === 'keys') return ['name', 'prefix', 'role', 'last_used_at']
+  if (state.tab === 'keys') return ['name', 'prefix', 'scopes', 'last_used_at']
   if (state.tab === 'proposals') return ['environment', 'key', 'action', 'value', 'reason']
   return ['key', 'value', 'description', 'updated_at']
 })
@@ -38,6 +38,7 @@ const labels = {
   role: 'users.role',
   last_login_at: 'users.lastLogin',
   prefix: 'projects.prefix',
+  scopes: 'keys.scopes',
   last_used_at: 'projects.lastUsed',
   environment: 'projects.environment',
   key: 'projects.key',
@@ -56,16 +57,27 @@ function cell(row, column) {
           ? 'settings.allowed'
           : 'settings.closed',
     )
+  if (column === 'scopes') return scopeText(row.scopes)
   if (column === 'role') return msg(`role.${row[column]}`)
   if (column.endsWith('_at'))
     return row[column] ? new Date(row[column]).toLocaleString(data.lang) : ''
   return row[column] ?? ''
 }
+/** @param {{ project: string; permissions: string[] }[]} scopes */
+function scopeText(scopes) {
+  if (!scopes.length) return msg('keys.noScopes')
+  return scopes
+    .map((scope) => {
+      const project = scope.project === '*' ? msg('keys.allProjects') : scope.project
+      return `${project}: ${scope.permissions.map((permission) => msg(`scope.${permission}`)).join(', ')}`
+    })
+    .join('\n')
+}
 onMounted(refresh)
 </script>
 <template>
-  <p v-if="data.page === 'globalKeys'" class="mt-2 text-sm text-muted-foreground">
-    {{ msg('keys.globalDescription') }}
+  <p v-if="data.page === 'keys'" class="mt-2 text-sm text-muted-foreground">
+    {{ msg('keys.description') }}
   </p>
   <div class="flex flex-wrap gap-2 my-4">
     <template v-if="data.page === 'project'">
@@ -124,12 +136,7 @@ onMounted(refresh)
             <span v-else class="whitespace-pre-wrap break-all">{{ cell(row, column) }}</span>
           </td>
           <td v-if="data.canWrite || data.isAdmin" :data-label="msg('common.actions')">
-            <button
-              v-if="!reviewing && state.tab !== 'keys'"
-              class="btn-ghost"
-              :disabled="state.busy"
-              @click="edit(row)"
-            >
+            <button v-if="!reviewing" class="btn-ghost" :disabled="state.busy" @click="edit(row)">
               {{ msg('common.edit') }}
             </button>
             <DangerActions

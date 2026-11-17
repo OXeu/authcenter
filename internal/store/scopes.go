@@ -1,0 +1,101 @@
+package store
+
+import "slices"
+
+// Permission is an independently grantable API operation.
+type Permission string
+
+const (
+	ProjectsRead       Permission = "projects:read"
+	ProjectsWrite      Permission = "projects:write"
+	ProjectsDelete     Permission = "projects:delete"
+	EnvironmentsRead   Permission = "environments:read"
+	EnvironmentsWrite  Permission = "environments:write"
+	EnvironmentsDelete Permission = "environments:delete"
+	ConfigRead         Permission = "config:read"
+	ConfigWrite        Permission = "config:write"
+	ConfigDelete       Permission = "config:delete"
+	ProposalsRead      Permission = "proposals:read"
+	ProposalsWrite     Permission = "proposals:write"
+	ProposalsReview    Permission = "proposals:review"
+	KeysRead           Permission = "keys:read"
+	KeysWrite          Permission = "keys:write"
+)
+
+// KeyScope binds operations to one project; ProjectID zero represents all projects.
+type KeyScope struct {
+	ProjectID   uint         `json:"project_id"`
+	Permissions []Permission `json:"permissions"`
+}
+
+// KeyPermissions returns the supported operations in display order.
+func KeyPermissions() []Permission {
+	return []Permission{
+		ProjectsRead, ProjectsWrite, ProjectsDelete,
+		EnvironmentsRead, EnvironmentsWrite, EnvironmentsDelete,
+		ConfigRead, ConfigWrite, ConfigDelete,
+		ProposalsRead, ProposalsWrite, ProposalsReview, KeysRead, KeysWrite,
+	}
+}
+
+// Valid reports whether the permission is supported.
+func (p Permission) Valid() bool {
+	return slices.Contains(KeyPermissions(), p)
+}
+
+// Allows reports whether the key explicitly grants an operation in a project.
+func (k APIKey) Allows(projectID uint, permission Permission) bool {
+	for _, scope := range k.Scopes {
+		if (scope.ProjectID == 0 || scope.ProjectID == projectID) && slices.Contains(scope.Permissions, permission) {
+			return true
+		}
+	}
+	return false
+}
+
+// HasProject reports whether any scope grants access to a project.
+func (k APIKey) HasProject(projectID uint) bool {
+	for _, scope := range k.Scopes {
+		if (scope.ProjectID == 0 || scope.ProjectID == projectID) && len(scope.Permissions) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// Covers reports whether every requested operation is already granted to the key.
+func (k APIKey) Covers(scopes []KeyScope) bool {
+	for _, scope := range scopes {
+		for _, permission := range scope.Permissions {
+			if !k.Allows(scope.ProjectID, permission) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// LegacyKeyScopes translates the previous project and role model without changing tokens.
+func LegacyKeyScopes(projectID uint, role Role) []KeyScope {
+	if projectID == 0 {
+		if role == RoleAdmin {
+			return []KeyScope{{Permissions: KeyPermissions()}}
+		}
+		return []KeyScope{}
+	}
+	permissions := []Permission{ProjectsRead, EnvironmentsRead, ConfigRead, ProposalsRead}
+	if role.CanWrite() {
+		permissions = append(permissions, ConfigWrite, ConfigDelete, ProposalsWrite)
+	}
+	return []KeyScope{{ProjectID: projectID, Permissions: permissions}}
+}
+
+// HasPermission reports whether any project scope contains an operation.
+func (k APIKey) HasPermission(permission Permission) bool {
+	for _, scope := range k.Scopes {
+		if slices.Contains(scope.Permissions, permission) {
+			return true
+		}
+	}
+	return false
+}

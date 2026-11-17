@@ -73,7 +73,7 @@ func newServer(ctx context.Context, cfg config.Config, log *slog.Logger) (*Serve
 	s := &Server{
 		cfg:           cfg,
 		store:         st,
-		authenticator: auth.New(st, st, cfg.SessionTTL),
+		authenticator: auth.New(st, cfg.SessionTTL),
 		oauth:         provider,
 		groupPolicy:   cfg.Groups,
 		catalog:       catalog,

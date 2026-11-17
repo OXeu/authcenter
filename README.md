@@ -3,7 +3,7 @@
   configcenter
 </h1>
 
-Self-hosted configuration service: projects as isolation boundaries, environments, OAuth single sign-on, project-scoped and global API keys, a responsive Vue web UI and an MCP endpoint for agents.
+Self-hosted configuration service: projects as isolation boundaries, environments, OAuth single sign-on, API keys with configurable project and operation scopes, a responsive Vue web UI and an MCP endpoint for agents.
 
 ## Integration documentation
 
@@ -58,18 +58,19 @@ The UI ships in English and Simplified Chinese (`internal/i18n/locales`). The he
 
 ## Isolation model
 
-- A **project** is the boundary. Every item, environment, project key and proposal belongs to exactly one project.
-- A **project API key** belongs to one project. A key for `billing` cannot access `payments`. Agent REST derives the project from the key; the MCP path must match that project.
-- A **global API key** can manage every project, environment and configuration through the management REST API and MCP. Administrators create, rotate and revoke global keys at `/keys`. Agent REST requires `?project=<slug>` for these keys; MCP takes the project in its path. Global keys do not grant access to user administration, server settings or global key issuance.
-- **Agents** (MCP) and **humans** (web session) share the same authorization rules: viewer keys read, editor keys write, browsers get the mapped role.
+- A **project** is the boundary for configuration, environments and proposals.
+- Each **API key** has explicit `scopes`: project slugs (or `*`) paired with permissions such as `config:read`, `config:write` and `config:delete`. A key can read one project and write another. Permissions are checked independently by REST and MCP.
+- Users manage their own keys at `/keys` and can grant access to projects they own. Administrators can manage all keys and grant wildcard scopes. Key delegation requires `keys:write` and cannot exceed the caller's scope.
+- Editing scopes keeps the token and changes authorization on subsequent requests. Legacy keys migrate to equivalent scopes at startup. User administration and settings remain browser-only.
 
 ## REST API
 
-Project management accepts a browser session with `X-CSRF-Token` on mutations, or a global API key. User administration, settings and global key management require an administrator session. See [HTTP API](docs/api.md) for routes, request bodies and key lifecycle details.
+Project and key management accept a browser session with `X-CSRF-Token` on mutations, or an API key with the required scopes. User administration and settings require an administrator session. See [HTTP API](docs/api.md) for routes, request bodies and key lifecycle details.
 
 | Method       | Path                                                                   |
 | ------------ | ---------------------------------------------------------------------- |
 | GET          | `/api/v1/me`                                                           |
+| GET/POST     | `/api/v1/keys`, PATCH/DELETE `/api/v1/keys/:id`, POST `…/:id/rotate`   |
 | GET/POST     | `/api/v1/projects`                                                     |
 | PATCH/DELETE | `/api/v1/projects/:project`                                            |
 | GET/POST     | `/api/v1/projects/:project/environments`                               |
@@ -89,7 +90,7 @@ See the [MCP guide](docs/mcp.md) for authentication, initialization, all seven t
 
 `POST /mcp/:project` speaks JSON-RPC 2.0 over stateless HTTP POST with JSON responses. Authenticate with `Authorization: ApiKey <token>`. Browser sessions with a CSRF token can use read tools; configuration write tools require an API key. The web UI uses the management REST API for writes.
 
-Tools: `list_environments`, `list_config`, `get_config`, `delete_config`, `set_config`, `propose_config`, `list_proposals`. Viewer keys only see the read tools; `propose_config` records a change for human review, which the **Proposals** tab in the UI applies or rejects.
+Tools: `list_environments`, `list_config`, `get_config`, `delete_config`, `set_config`, `propose_config`, `list_proposals`. Tool discovery only includes tools permitted by the project scope; `propose_config` records a change for human review, which the **Proposals** tab in the UI applies or rejects.
 
 ## Go SDK
 

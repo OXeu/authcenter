@@ -10,7 +10,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/OXeu/configcenter/internal/apikey"
 	"github.com/OXeu/configcenter/internal/auth"
 	"github.com/OXeu/configcenter/internal/slug"
 	"github.com/OXeu/configcenter/internal/store"
@@ -22,38 +21,40 @@ func (s *Server) MountAPI(r *gin.Engine) {
 	ui.GET("/settings", auth.RequireAdmin(), s.apiSettings)
 	ui.PUT("/settings", auth.RequireAdmin(), s.apiSaveSettings)
 	ui.GET("/me", s.apiMe)
-	ui.GET("/keys", auth.RequireAdmin(), s.globalKeyHandler(s.apiListKeys))
-	ui.POST("/keys", auth.RequireAdmin(), s.globalKeyHandler(s.apiCreateKey))
-	ui.DELETE("/keys/:id", auth.RequireAdmin(), s.globalKeyHandler(s.apiDeleteKey))
-	ui.POST("/keys/:id/rotate", auth.RequireAdmin(), s.globalKeyHandler(s.apiRotateKey))
 	management := r.Group("/api/v1", s.authenticator.ManagementMiddleware())
+	ui.GET("/key-scopes", s.apiKeyScopes)
+	management.GET("/keys", s.apiListKeys)
+	management.POST("/keys", s.apiCreateKey)
+	management.PATCH("/keys/:id", s.apiUpdateKey)
+	management.DELETE("/keys/:id", s.apiDeleteKey)
+	management.POST("/keys/:id/rotate", s.apiRotateKey)
 	management.GET("/projects", s.apiListProjects)
-	management.POST("/projects", auth.RequireWriter(), s.apiCreateProject)
-	management.PATCH("/projects/:project", auth.RequireWriter(), s.withProject(s.apiUpdateProject))
-	management.DELETE("/projects/:project", auth.RequireWriter(), s.withProject(s.apiDeleteProject))
-	management.GET("/projects/:project/environments", s.withProject(s.apiListEnvironments))
-	management.POST("/projects/:project/environments", auth.RequireWriter(), s.withProject(s.apiCreateEnvironment))
-	management.DELETE("/projects/:project/environments/:env", auth.RequireWriter(), s.withProject(s.apiDeleteEnvironment))
-	management.GET("/projects/:project/environments/:env/items", s.withProject(s.apiListItems))
-	management.PUT("/projects/:project/environments/:env/items/:key", auth.RequireWriter(), s.withProject(s.apiPutItem))
-	management.DELETE("/projects/:project/environments/:env/items/:key", auth.RequireWriter(), s.withProject(s.apiDeleteItem))
-	management.GET("/projects/:project/keys", s.withProject(s.apiListKeys))
-	management.POST("/projects/:project/keys", auth.RequireWriter(), s.withProject(s.apiCreateKey))
-	management.DELETE("/projects/:project/keys/:id", auth.RequireWriter(), s.withProject(s.apiDeleteKey))
-	management.GET("/projects/:project/proposals", s.withProject(s.apiListProposals))
-	management.POST("/projects/:project/proposals/:id/review", auth.RequireWriter(), s.withProject(s.apiReviewProposal))
-	management.POST("/projects/:project/keys/:id/rotate", auth.RequireWriter(), s.withProject(s.apiRotateKey))
+	management.POST("/projects", auth.RequireScope(store.ProjectsWrite), s.apiCreateProject)
+	management.PATCH("/projects/:project", s.withProject(store.ProjectsWrite, s.apiUpdateProject))
+	management.DELETE("/projects/:project", s.withProject(store.ProjectsDelete, s.apiDeleteProject))
+	management.GET("/projects/:project/environments", s.withProject(store.EnvironmentsRead, s.apiListEnvironments))
+	management.POST("/projects/:project/environments", s.withProject(store.EnvironmentsWrite, s.apiCreateEnvironment))
+	management.DELETE("/projects/:project/environments/:env", s.withProject(store.EnvironmentsDelete, s.apiDeleteEnvironment))
+	management.GET("/projects/:project/environments/:env/items", s.withProject(store.ConfigRead, s.apiListItems))
+	management.PUT("/projects/:project/environments/:env/items/:key", s.withProject(store.ConfigWrite, s.apiPutItem))
+	management.DELETE("/projects/:project/environments/:env/items/:key", s.withProject(store.ConfigDelete, s.apiDeleteItem))
+	management.GET("/projects/:project/keys", s.apiListKeys)
+	management.POST("/projects/:project/keys", s.apiCreateKey)
+	management.DELETE("/projects/:project/keys/:id", s.apiDeleteKey)
+	management.GET("/projects/:project/proposals", s.withProject(store.ProposalsRead, s.apiListProposals))
+	management.POST("/projects/:project/proposals/:id/review", s.withProject(store.ProposalsReview, s.apiReviewProposal))
+	management.POST("/projects/:project/keys/:id/rotate", s.apiRotateKey)
 	ui.DELETE("/users/:id", auth.RequireAdmin(), s.apiDeleteUser)
 	ui.GET("/users", auth.RequireAdmin(), s.apiListUsers)
 	ui.PATCH("/users/:id", auth.RequireAdmin(), s.apiSetRole)
 
 	key := r.Group("/api/v1/agent", s.authenticator.BearerMiddleware())
-	key.GET("/project", s.apiProgrammaticProject)
-	key.GET("/environments/:env/values", s.apiProgrammaticItems)
+	key.GET("/project", auth.RequireScope(store.ProjectsRead), auth.RequireScope(store.EnvironmentsRead), s.apiProgrammaticProject)
+	key.GET("/environments/:env/values", auth.RequireScope(store.ConfigRead), s.apiProgrammaticItems)
 }
 
 // withProject resolves the :project route parameter before the handler runs.
-func (s *Server) withProject(fn func(*gin.Context, store.Project)) gin.HandlerFunc {
+func (s *Server) withProject(permission store.Permission, fn func(*gin.Context, store.Project)) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		project, err := s.store.ProjectBySlug(c.Request.Context(), c.Param("project"))
 		if err != nil {
@@ -61,6 +62,11 @@ func (s *Server) withProject(fn func(*gin.Context, store.Project)) gin.HandlerFu
 			return
 		}
 		if !s.allowProject(c, project) {
+			return
+		}
+		id, _ := auth.FromContext(c.Request.Context())
+		if !id.Allows(project.ID, permission) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient api key scope"})
 			return
 		}
 		c.Set("cc_project", project)
@@ -71,6 +77,8 @@ func (s *Server) withProject(fn func(*gin.Context, store.Project)) gin.HandlerFu
 func (s *Server) fail(c *gin.Context, err error) {
 	status := http.StatusInternalServerError
 	switch {
+	case errors.Is(err, store.ErrKeyChanged):
+		status = http.StatusConflict
 	case errors.Is(err, store.ErrNotFound):
 		status = http.StatusNotFound
 	case errors.Is(err, slug.ErrInvalid), errors.Is(err, slug.ErrInvalidKey), errors.Is(err, errBadRequest):
@@ -124,25 +132,6 @@ func toItemJSON(i store.ConfigItem) itemJSON {
 	return itemJSON{Key: i.Key, Value: i.Value, Description: i.Description, UpdatedAt: i.UpdatedAt}
 }
 
-type keyJSON struct {
-	ID         uint       `json:"id"`
-	Scope      string     `json:"scope"`
-	Name       string     `json:"name"`
-	Prefix     string     `json:"prefix"`
-	Role       store.Role `json:"role"`
-	CreatedAt  time.Time  `json:"created_at"`
-	LastUsedAt *time.Time `json:"last_used_at"`
-	ExpiresAt  *time.Time `json:"expires_at"`
-}
-
-func toKeyJSON(k store.APIKey) keyJSON {
-	scope := "project"
-	if k.IsGlobal() {
-		scope = "global"
-	}
-	return keyJSON{ID: k.ID, Scope: scope, Name: k.Name, Prefix: k.Prefix, Role: k.Role, CreatedAt: k.CreatedAt, LastUsedAt: k.LastUsedAt, ExpiresAt: k.ExpiresAt}
-}
-
 // apiMe returns the signed-in user and the CSRF token of the session.
 func (s *Server) apiMe(c *gin.Context) {
 	id, ok := auth.FromContext(c.Request.Context())
@@ -162,6 +151,12 @@ func (s *Server) apiListProjects(c *gin.Context) {
 	out := make([]projectJSON, 0, len(projects))
 	id, _ := auth.FromContext(c.Request.Context())
 	for _, p := range projects {
+		if id.APIKey != nil {
+			if id.APIKey.Allows(p.ID, store.ProjectsRead) {
+				out = append(out, toProjectJSON(p))
+			}
+			continue
+		}
 		if p.OwnerID != id.ActorID() && (id.Role != store.RoleAdmin || c.Query("view") == "mine") {
 			continue
 		}
@@ -355,80 +350,6 @@ func (s *Server) apiDeleteItem(c *gin.Context, project store.Project) {
 		return
 	}
 	if err := s.store.DeleteItem(c.Request.Context(), project.ID, env.ID, c.Param("key")); err != nil {
-		s.fail(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
-func (s *Server) apiListKeys(c *gin.Context, project store.Project) {
-	keys, err := s.store.ListAPIKeys(c.Request.Context(), project.ID)
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	out := make([]keyJSON, 0, len(keys))
-	for _, k := range keys {
-		out = append(out, toKeyJSON(k))
-	}
-	c.JSON(http.StatusOK, gin.H{"keys": out})
-}
-
-type keyInput struct {
-	Name      string     `json:"name"`
-	Role      store.Role `json:"role"`
-	ExpiresAt *time.Time `json:"expires_at"`
-}
-
-func (s *Server) apiCreateKey(c *gin.Context, project store.Project) {
-	var in keyInput
-	if err := bindJSON(c, &in); err != nil {
-		s.fail(c, err)
-		return
-	}
-	if project.ID == 0 {
-		if in.Role != "" && in.Role != store.RoleAdmin {
-			s.fail(c, fmt.Errorf("%w: global keys require the admin role", errBadRequest))
-			return
-		}
-		in.Role = store.RoleAdmin
-	} else if in.Role == "" {
-		in.Role = store.RoleViewer
-	}
-	in.Name = strings.TrimSpace(in.Name)
-	if in.Name == "" || len(in.Name) > 128 {
-		s.fail(c, fmt.Errorf("%w: key name is required and must not exceed 128 bytes", errBadRequest))
-		return
-	}
-	if !in.Role.Valid() {
-		s.fail(c, fmt.Errorf("%w: invalid role", errBadRequest))
-		return
-	}
-	token, digest, err := apikey.Generate()
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	id, _ := auth.FromContext(c.Request.Context())
-	userID := id.ActorID()
-	key, err := s.store.CreateAPIKey(c.Request.Context(), store.APIKey{
-		ProjectID: project.ID, Name: in.Name, Digest: digest[:], Prefix: apikey.Display(token),
-		Role: in.Role, CreatedBy: userID, CreatedAt: time.Now().UTC(), ExpiresAt: in.ExpiresAt,
-	})
-	if err != nil {
-		s.fail(c, err)
-		return
-	}
-	c.JSON(http.StatusCreated, gin.H{"key": toKeyJSON(key), "token": token})
-}
-
-func (s *Server) apiDeleteKey(c *gin.Context, project store.Project) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		s.fail(c, fmt.Errorf("%w: invalid key id", errBadRequest))
-		return
-	}
-	if err := s.store.DeleteAPIKey(c.Request.Context(), project.ID, uint(id)); err != nil {
 		s.fail(c, err)
 		return
 	}

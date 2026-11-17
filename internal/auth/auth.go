@@ -20,7 +20,6 @@ import (
 // Authenticator resolves browser sessions and API keys.
 type Authenticator struct {
 	store Store
-	keys  ProjectLookup
 	ttl   time.Duration
 	now   func() time.Time
 }
@@ -33,18 +32,13 @@ const (
 
 // Store is the subset of persistence the authenticator needs.
 type Store interface {
-	ProjectLookup
 	SessionUser(ctx context.Context, id string) (store.Session, store.User, error)
 	CreateSession(ctx context.Context, sess store.Session) error
 	DeleteSession(ctx context.Context, id string) error
 	ProjectBySlug(ctx context.Context, slug string) (store.Project, error)
+	ProjectByID(ctx context.Context, id uint) (store.Project, error)
 	APIKeyByDigest(ctx context.Context, digest [32]byte) (store.APIKey, error)
 	TouchAPIKey(ctx context.Context, id uint)
-}
-
-// ProjectLookup resolves the project a bearer token belongs to.
-type ProjectLookup interface {
-	SlugForKey(ctx context.Context, header string) (string, error)
 }
 
 // AgentStore additionally resolves sessions for the MCP endpoint.
@@ -122,32 +116,15 @@ func (i Identity) CanWrite() bool {
 }
 
 // New builds an Authenticator.
-func New(s Store, keys ProjectLookup, ttl time.Duration) *Authenticator {
+func New(s Store, ttl time.Duration) *Authenticator {
 	return &Authenticator{
 		store: s,
-		keys:  keys,
 		ttl:   ttl,
 		now:   func() time.Time { return time.Now().UTC() },
 	}
 }
 
-type (
-	identityKey struct{}
-	projectKey  struct{}
-)
-
-// WithProjectSlug records which project a bearer token was resolved to.
-func WithProjectSlug(ctx context.Context, slug string) context.Context {
-	return context.WithValue(ctx, projectKey{}, slug)
-}
-
-func projectSlug(ctx context.Context) string {
-	slug, ok := ctx.Value(projectKey{}).(string)
-	if !ok {
-		return ""
-	}
-	return slug
-}
+type identityKey struct{}
 
 // FromContext returns the principal stored on the request context.
 func FromContext(ctx context.Context) (Identity, bool) {
@@ -266,36 +243,31 @@ func (a *Authenticator) BearerMiddleware() gin.HandlerFunc {
 		if !ok {
 			return
 		}
-		slugParam := c.Param("project")
-		if slugParam == "" {
-			slugParam = projectSlug(c.Request.Context())
+		projectSlug := c.Param("project")
+		if projectSlug == "" {
+			projectSlug = c.Query("project")
 		}
-		if slugParam == "" && key.IsGlobal() {
-			slugParam = c.Query("project")
-			if slugParam == "" {
-				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "project is required for a global api key"})
-				return
-			}
+		var project store.Project
+		var err error
+		switch {
+		case projectSlug != "":
+			project, err = a.store.ProjectBySlug(c.Request.Context(), projectSlug)
+		case len(key.Scopes) == 1 && key.Scopes[0].ProjectID != 0:
+			project, err = a.store.ProjectByID(c.Request.Context(), key.Scopes[0].ProjectID)
+		default:
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "project is required for a multi-project api key"})
+			return
 		}
-		if slugParam == "" {
-			var err error
-			slugParam, err = a.keys.SlugForKey(c.Request.Context(), c.GetHeader("Authorization"))
-			if err != nil {
-				a.unauthorised(c, err)
-				return
-			}
-		}
-		project, err := a.store.ProjectBySlug(c.Request.Context(), slugParam)
 		if err != nil {
 			a.unauthorised(c, err)
 			return
 		}
-		if !key.IsGlobal() && key.ProjectID != project.ID {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "api key does not belong to this project"})
+		if !key.HasProject(project.ID) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "api key scope does not include this project"})
 			return
 		}
 		a.store.TouchAPIKey(c.Request.Context(), key.ID)
-		ctx := WithIdentity(c.Request.Context(), Identity{APIKey: &key, Project: &project, Role: key.Role})
+		ctx := WithIdentity(c.Request.Context(), Identity{APIKey: &key, Project: &project})
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}

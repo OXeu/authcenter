@@ -48,6 +48,6 @@ func (s *Store) DeleteUser(ctx context.Context, id, successor uint) error {
 }
 
 // RotateAPIKey replaces a scoped key's credential.
-func (s *Store) RotateAPIKey(ctx context.Context, projectID, id uint, digest []byte, prefix string) error {
-	return s.mustAffect(ctx, s.db.WithContext(ctx).Model(&APIKey{}).Where("project_id = ? AND id = ?", projectID, id).Updates(map[string]any{"digest": digest, "prefix": prefix, "last_used_at": nil}), "rotate key")
+func (s *Store) RotateAPIKey(ctx context.Context, id uint, revision uint64, digest []byte, prefix string) error {
+	return keyMutation(s.db.WithContext(ctx).Model(&APIKey{}).Where("id = ? AND revision = ?", id, revision).Updates(map[string]any{"digest": digest, "prefix": prefix, "last_used_at": nil, "revision": revision + 1}), "rotate key")
 }

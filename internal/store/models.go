@@ -99,23 +99,20 @@ type MCPProposal struct {
 	ReviewedAt    *time.Time
 }
 
-// APIKey authenticates a project client or, with ProjectID zero and RoleAdmin, a global manager.
+// APIKey authenticates a client with explicitly granted project permissions.
 type APIKey struct {
-	ID         uint       `gorm:"primaryKey"`
-	ProjectID  uint       `gorm:"index;not null"`
-	Name       string     `gorm:"not null"`
-	Digest     []byte     `gorm:"uniqueIndex;size:32;not null"`
-	Prefix     string     `gorm:"not null"`
-	Role       Role       `gorm:"not null"`
-	CreatedBy  uint       `gorm:"not null"`
-	CreatedAt  time.Time  `gorm:"not null"`
-	LastUsedAt *time.Time `gorm:""`
-	ExpiresAt  *time.Time `gorm:""`
-}
-
-// IsGlobal reports whether the key can manage all projects.
-func (k APIKey) IsGlobal() bool {
-	return k.ProjectID == 0 && k.Role == RoleAdmin
+	ID              uint       `gorm:"primaryKey"`
+	LegacyProjectID uint       `gorm:"column:project_id;index;not null;default:0"`
+	Scopes          []KeyScope `gorm:"serializer:json;type:text"`
+	Revision        uint64     `gorm:"not null;default:1"`
+	Name            string     `gorm:"not null"`
+	Digest          []byte     `gorm:"uniqueIndex;size:32;not null"`
+	Prefix          string     `gorm:"not null"`
+	LegacyRole      Role       `gorm:"column:role;not null;default:viewer"`
+	CreatedBy       uint       `gorm:"not null"`
+	CreatedAt       time.Time  `gorm:"not null"`
+	LastUsedAt      *time.Time `gorm:""`
+	ExpiresAt       *time.Time `gorm:""`
 }
 
 // Proposal statuses.

@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/OXeu/configcenter/internal/apikey"
-
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -48,6 +46,9 @@ func Open(ctx context.Context, dialector gorm.Dialector, adminEmail, adminName s
 		return nil, err
 	}
 	if err := s.initializeOwnership(ctx); err != nil {
+		return nil, err
+	}
+	if err := s.migrateKeyScopes(ctx); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -247,6 +248,9 @@ func (s *Store) UpdateProject(ctx context.Context, id uint, name, description st
 // DeleteProject removes a project and everything scoped to it.
 func (s *Store) DeleteProject(ctx context.Context, id uint) error {
 	err := s.Transaction(ctx, func(tx *Store) error {
+		if err := tx.removeProjectKeyScopes(ctx, id); err != nil {
+			return err
+		}
 		scoped := []struct {
 			model any
 			query string
@@ -254,7 +258,6 @@ func (s *Store) DeleteProject(ctx context.Context, id uint) error {
 		}{
 			{&Environment{}, "project_id = ?", id},
 			{&ConfigItem{}, "project_id = ?", id},
-			{&APIKey{}, "project_id = ?", id},
 			{&MCPProposal{}, "project_id = ?", id},
 			{&Project{}, "id = ?", id},
 		}
@@ -365,10 +368,10 @@ func (s *Store) CreateAPIKey(ctx context.Context, k APIKey) (APIKey, error) {
 	return k, nil
 }
 
-// ListAPIKeys returns the keys of a project without digests.
-func (s *Store) ListAPIKeys(ctx context.Context, projectID uint) ([]APIKey, error) {
+// ListAPIKeys returns keys without credential digests.
+func (s *Store) ListAPIKeys(ctx context.Context) ([]APIKey, error) {
 	var keys []APIKey
-	if err := s.db.WithContext(ctx).Where("project_id = ?", projectID).Order("id DESC").Find(&keys).Error; err != nil {
+	if err := s.db.WithContext(ctx).Omit("digest").Order("id DESC").Find(&keys).Error; err != nil {
 		return nil, fmt.Errorf("list api keys: %w", err)
 	}
 	return keys, nil
@@ -380,27 +383,6 @@ func (s *Store) APIKeyByDigest(ctx context.Context, digest [32]byte) (APIKey, er
 	var k APIKey
 	err := s.db.WithContext(ctx).Where("digest = ?", digest[:]).First(&k).Error
 	return k, queryErr("load api key", err)
-}
-
-// SlugForKey resolves the project slug of an `Authorization: ApiKey` header
-// without consuming it, so middleware can route a key to its own project.
-func (s *Store) SlugForKey(ctx context.Context, header string) (string, error) {
-	token, err := apikey.ParseHeader(header)
-	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrNotFound, err)
-	}
-	key, err := s.APIKeyByDigest(ctx, apikey.Hash(token))
-	if err != nil {
-		return "", err
-	}
-	if key.ProjectID == 0 {
-		return "", ErrNotFound
-	}
-	var project Project
-	if err := s.db.WithContext(ctx).Select("slug").First(&project, key.ProjectID).Error; err != nil {
-		return "", queryErr("load project for key", err)
-	}
-	return project.Slug, nil
 }
 
 // TouchAPIKey records last use of a key; failures are not fatal to the request.
@@ -417,10 +399,10 @@ func (s *Store) DeleteExpiredSessions(ctx context.Context) error {
 	return nil
 }
 
-// DeleteAPIKey revokes a key inside a project.
-func (s *Store) DeleteAPIKey(ctx context.Context, projectID, id uint) error {
-	res := s.db.WithContext(ctx).Where("project_id = ? AND id = ?", projectID, id).Delete(&APIKey{})
-	return s.mustAffect(ctx, res, "delete api key")
+// DeleteAPIKey revokes an authorized key.
+func (s *Store) DeleteAPIKey(ctx context.Context, id uint, revision uint64) error {
+	res := s.db.WithContext(ctx).Where("id = ? AND revision = ?", id, revision).Delete(&APIKey{})
+	return keyMutation(res, "delete api key")
 }
 
 // CreateProposal stores an agent proposal.

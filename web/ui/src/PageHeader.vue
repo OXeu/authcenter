@@ -126,16 +126,16 @@ async function logout() {
               <p class="text-sm text-muted-foreground">{{ roleLabel }}</p>
             </div>
           </div>
-          <div v-if="data.isAdmin" class="border-t border-gray-200 pt-1">
+          <div class="border-t border-gray-200 pt-1">
             <a
               class="btn-ghost w-full justify-start gap-1"
               href="/keys"
-              :aria-label="msg('title.globalKeys')"
+              :aria-label="msg('title.keys')"
             >
               <i class="ri-key-2-line" aria-hidden="true"></i>
-              <span>{{ msg('nav.globalKeys') }}</span>
+              <span>{{ msg('nav.keys') }}</span>
             </a>
-            <a class="btn-ghost w-full justify-start gap-1" href="/users">
+            <a v-if="data.isAdmin" class="btn-ghost w-full justify-start gap-1" href="/users">
               <i class="ri-group-line" aria-hidden="true"></i>
               <span>{{ msg('nav.users') }}</span>
             </a>

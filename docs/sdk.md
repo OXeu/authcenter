@@ -2,7 +2,7 @@
 
 [文档首页](/docs/) · [HTTP API](/docs/api) · [MCP 接口](/docs/mcp) · [Markdown 原文](/docs/sdk.md)
 
-SDK 使用项目 API Key；全局 Key 请使用 [HTTP API](/docs/api) 或 [MCP](/docs/mcp)，SDK 不提供选择项目的参数。
+SDK 使用只授权一个具体项目的 API Key，配置读取需要 `config:read`；调用项目环境发现方法还需要 `projects:read` 和 `environments:read`。多项目或 `*` scope 请使用 [HTTP API](/docs/api) 或 [MCP](/docs/mcp)，SDK 不提供选择项目的参数。
 
 ## 安装
 

@@ -12,7 +12,7 @@ Content-Type: application/json
 Accept: application/json
 ```
 
-项目 Key 只能访问自身项目，路径中的项目必须与密钥所属项目一致。管理员在「全局密钥」页面创建的全局 Key 可访问任意项目，仍需在每次请求的路径中指定项目。密钥覆盖项目内的全部环境。
+所有 API Key 使用统一的 scope 模型。路径中的项目必须被 Key 的某项 scope 覆盖，工具执行还需要该项目下的操作权限；`project: "*"` 覆盖所有项目。单项目、多项目和全部项目的 Key 都必须在 MCP 路径中指定目标项目，每项授权覆盖项目内的全部环境。详见 [scope 配置与权限表](/docs/api)。
 
 浏览器会话也可调用读取工具，但必须携带 `X-CSRF-Token` 且具备该项目的访问权限；写入工具要求 API Key。外部 Agent 使用 API Key，不需要浏览器 Cookie 或 CSRF Token。完整密钥只在创建或轮换时显示，吊销、过期或轮换后的旧密钥立即失效。
 
@@ -63,17 +63,19 @@ curl --fail-with-body --silent --show-error \
 
 所有参数均位于 `params.arguments` 中，以下字段均为字符串。工具 schema 声明 `additionalProperties: false`；客户端应只发送列出的字段。
 
-| 工具                | 必填参数                       | 可选参数          | 权限与行为                                       |
-| ------------------- | ------------------------------ | ----------------- | ------------------------------------------------ |
-| `list_environments` | 无                             | 无                | 读取；返回项目 slug 和环境的 slug、名称          |
-| `list_config`       | `environment`                  | `prefix`          | 读取；按配置键前缀过滤，返回环境 slug 和配置数组 |
-| `get_config`        | `environment`、`key`           | 无                | 读取单个配置项                                   |
-| `list_proposals`    | 无                             | 无                | 读取当前项目待审核提案                           |
-| `set_config`        | `environment`、`key`、`value`  | `description`     | 写入；立即创建或更新配置                         |
-| `delete_config`     | `environment`、`key`           | 无                | 写入；立即删除配置                               |
-| `propose_config`    | `environment`、`key`、`action` | `value`、`reason` | 写入；创建待审核提案，不立即修改配置             |
+| 工具                | 必填参数                       | 可选参数          | 权限与行为                                                |
+| ------------------- | ------------------------------ | ----------------- | --------------------------------------------------------- |
+| `list_environments` | 无                             | 无                | `environments:read`；返回项目 slug 和环境的 slug、名称    |
+| `list_config`       | `environment`                  | `prefix`          | `config:read`；按配置键前缀过滤，返回环境 slug 和配置数组 |
+| `get_config`        | `environment`、`key`           | 无                | `config:read`；读取单个配置项                             |
+| `list_proposals`    | 无                             | 无                | `proposals:read`；读取当前项目待审核提案                  |
+| `set_config`        | `environment`、`key`、`value`  | `description`     | `config:write`；立即创建或更新配置                        |
+| `delete_config`     | `environment`、`key`           | 无                | `config:delete`；立即删除配置                             |
+| `propose_config`    | `environment`、`key`、`action` | `value`、`reason` | `proposals:write`；创建待审核提案，不立即修改配置         |
 
-viewer Key 只暴露前四个工具，直接调用后三个工具也会被拒绝。editor Key 和全局 Key 可使用全部七个工具。兼容已有的项目 admin/user Key：它们具有项目内写权限，不会因此变成全局 Key。MCP 不提供创建或删除项目、环境的工具，这些操作使用管理界面或[全局 Key 的 HTTP 管理接口](/docs/api)。
+`tools/list` 只返回当前项目 scope 允许调用的工具；直接调用未授权工具也会被拒绝。例如 `config:read` 只显示 `list_config` 与 `get_config`，`config:write` 只显示 `set_config`，不会自动包含读取或删除。不同项目的权限分别计算，不会合并成跨项目授权。
+
+MCP 不提供项目、环境或 Key 的管理工具，这些操作使用管理界面或 [HTTP API](/docs/api)。旧 viewer / editor / 全局 Key 的 token 可继续使用，服务启动时会将原权限迁移为对应 scopes。
 
 ## 读取与写入示例
 
@@ -157,15 +159,15 @@ viewer Key 只暴露前四个工具，直接调用后三个工具也会被拒绝
 
 请求体上限为 1 MiB。依次检查 HTTP 状态、顶层 `error` 和 `result.isError`，HTTP 200 并不代表工具成功。
 
-| 情况                                                  | 响应                                                        |
-| ----------------------------------------------------- | ----------------------------------------------------------- |
-| 密钥缺失、错误、过期、已吊销，或目标项目不存在        | HTTP 401，JSON `error`                                      |
-| 项目 Key 访问其他已存在项目                           | HTTP 403，JSON `error`                                      |
-| 无法解析 JSON，包括请求体超限                         | HTTP 400，JSON-RPC `error.code = -32700`                    |
-| 非法 JSON-RPC 版本或缺少方法                          | HTTP 200，`error.code = -32600`                             |
-| 未知方法或工具名                                      | HTTP 200，`error.code = -32601`                             |
-| 工具调用参数类型无法解析                              | HTTP 200，`error.code = -32602`                             |
-| 结果编码失败                                          | HTTP 200，`error.code = -32603`                             |
-| 环境不存在、键不存在、只读 Key 写入或其他工具执行失败 | HTTP 200，`result.isError = true`，`content` 中提供错误文本 |
+| 情况                                                        | 响应                                                        |
+| ----------------------------------------------------------- | ----------------------------------------------------------- |
+| 密钥缺失、错误、过期、已吊销，或目标项目不存在              | HTTP 401，JSON `error`                                      |
+| 项目 Key 访问其他已存在项目                                 | HTTP 403，JSON `error`                                      |
+| 无法解析 JSON，包括请求体超限                               | HTTP 400，JSON-RPC `error.code = -32700`                    |
+| 非法 JSON-RPC 版本或缺少方法                                | HTTP 200，`error.code = -32600`                             |
+| 未知方法或工具名                                            | HTTP 200，`error.code = -32601`                             |
+| 工具调用参数类型无法解析                                    | HTTP 200，`error.code = -32602`                             |
+| 结果编码失败                                                | HTTP 200，`error.code = -32603`                             |
+| 环境不存在、键不存在、缺少工具所需 scope 或其他工具执行失败 | HTTP 200，`result.isError = true`，`content` 中提供错误文本 |
 
 设置超时并保留请求 ID 以匹配响应。密钥、配置值和提案内容不应写入诊断日志。只对适合重试的操作做有界重试；认证或参数错误需先修正请求。
