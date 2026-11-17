@@ -2,8 +2,9 @@ package configcenter_test
 
 import (
 	"context"
-	"fmt"
+	"crypto/rand"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -22,7 +23,16 @@ func TestAgainstRunningServer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	client, err := configcenter.New(configcenter.Config{BaseURL: baseURL, APIKey: key, Environment: "production"})
+	path, err := filepath.Abs(filepath.Join("..", "..", ".tmp", "sdk-live-"+rand.Text()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(path); err != nil {
+			t.Error(err)
+		}
+	})
+	client, err := configcenter.New(configcenter.Config{LocalPath: filepath.Join(path, "cache.kv"), DotenvFiles: []string{}, BaseURL: baseURL, APIKey: key, Environment: "production"})
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}
@@ -32,5 +42,5 @@ func TestAgainstRunningServer(t *testing.T) {
 	if len(client.All()) == 0 {
 		t.Fatal("expected at least one item in production")
 	}
-	fmt.Printf("loaded %d items from %s\n", len(client.All()), baseURL)
+	t.Logf("loaded %d items", len(client.All()))
 }

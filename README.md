@@ -95,7 +95,7 @@ MCP exposes every API operation: project and environment management, configurati
 
 ## Go SDK
 
-`sdk/configcenter` is a separate module (`github.com/OXeu/configcenter/sdk/configcenter`) with bbolt-backed local fallback:
+`sdk/configcenter` is a separate module (`github.com/OXeu/configcenter/sdk/configcenter`) with bbolt-backed fallback/cache and godotenv support:
 
 ```go
 client, err := configcenter.New(configcenter.Config{
@@ -109,7 +109,7 @@ if err := client.Watch(ctx, configcenter.WatchOptions{Interval: 30 * time.Second
 
 The key decides the project, so the SDK never takes a project name.
 
-When both `BaseURL` and `APIKey` are empty, reads and `Put(ctx, key, value)` use `.tmp/configcenter.kv`; set `LocalPath` to choose another file. Environments are isolated within the file. Optional `LocalDefaults` initializes missing keys atomically without replacing existing values. Partial remote configuration and remote request failures return errors; they never switch storage implicitly. See the [SDK guide](docs/sdk.md) for local and remote writes.
+Reads resolve each key from ConfigCenter, then the local fallback/cache KV, then godotenv files, then `Config.Defaults` or the getter's default. Empty strings count as configured values. Successful remote reads and writes persist in the same KV file, isolated by server, API key and environment. `LocalPath` defaults to `.tmp/configcenter.kv`; `DotenvFiles` defaults to an optional `.env` without changing process environment variables. Source failures return errors while exposing available fallback values. When both remote connection fields are empty, `Put` writes locally; partial remote configuration is rejected. See the [SDK guide](docs/sdk.md) for initialization, source composition and error handling.
 
 ## Development
 

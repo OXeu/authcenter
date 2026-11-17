@@ -21,6 +21,7 @@ const DefaultLocalPath = ".tmp/configcenter.kv"
 type localStore struct {
 	mu          sync.Mutex
 	path        string
+	namespace   string
 	environment string
 	defaults    map[string]string
 }
@@ -49,7 +50,7 @@ func newLocalStore(path, environment string, defaults map[string]string) (*local
 		}
 		initial[key] = value
 	}
-	return &localStore{path: absolute, environment: environment, defaults: initial}, nil
+	return &localStore{path: absolute, namespace: "configcenter.v1", environment: environment, defaults: initial}, nil
 }
 
 func (s *localStore) transaction(ctx context.Context, fn func(*bolt.Bucket) error) (resultErr error) {
@@ -79,7 +80,7 @@ func (s *localStore) transaction(ctx context.Context, fn func(*bolt.Bucket) erro
 		if err := ctx.Err(); err != nil {
 			return fmt.Errorf("local transaction cancelled: %w", err)
 		}
-		root, err := tx.CreateBucketIfNotExists([]byte("configcenter.v1"))
+		root, err := tx.CreateBucketIfNotExists([]byte(s.namespace))
 		if err != nil {
 			return fmt.Errorf("create local namespace: %w", err)
 		}
@@ -121,7 +122,7 @@ func writeLocalItem(bucket *bolt.Bucket, item Item) error {
 	return nil
 }
 
-func (s *localStore) read(ctx context.Context, prefix string) ([]Item, error) {
+func (s *localStore) Read(ctx context.Context, prefix string) ([]Item, error) {
 	items := []Item{}
 	err := s.transaction(ctx, func(bucket *bolt.Bucket) error {
 		cursor := bucket.Cursor()
@@ -140,7 +141,27 @@ func (s *localStore) read(ctx context.Context, prefix string) ([]Item, error) {
 		}
 		return nil
 	})
-	return items, err
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (s *localStore) cache(ctx context.Context, items []Item) error {
+	if len(items) == 0 {
+		return nil
+	}
+	return s.transaction(ctx, func(bucket *bolt.Bucket) error {
+		for _, item := range items {
+			if err := validateKey(item.Key); err != nil {
+				return err
+			}
+			if err := writeLocalItem(bucket, item); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (s *localStore) put(ctx context.Context, key, value string) (Item, error) {

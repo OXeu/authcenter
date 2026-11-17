@@ -163,7 +163,7 @@ func TestLocalConcurrentWritesAndCancellation(t *testing.T) {
 	}
 }
 
-func TestRemoteErrorsNeverFallBackToLocalKV(t *testing.T) {
+func TestRemoteErrorsExposeFallbackWithoutRedirectingWrites(t *testing.T) {
 	path := localTestPath(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusServiceUnavailable) }))
 	defer server.Close()
@@ -177,8 +177,8 @@ func TestRemoteErrorsNeverFallBackToLocalKV(t *testing.T) {
 	if err := client.Put(t.Context(), "key", "value"); err == nil {
 		t.Fatal("remote write redirected locally")
 	}
-	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
-		t.Fatal("remote failure created a local database")
+	if got := client.GetDefault("key", ""); got != "local" {
+		t.Fatalf("fallback = %q, want local", got)
 	}
 	for _, cfg := range []Config{{BaseURL: server.URL, LocalPath: path}, {APIKey: "cc_test", LocalPath: path}} {
 		if _, err := New(cfg); err == nil {

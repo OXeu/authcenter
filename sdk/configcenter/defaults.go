@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"sort"
 	"strings"
@@ -16,6 +17,8 @@ import (
 // EnsureDefaults atomically creates missing keys in the selected backend and reloads the snapshot.
 // Remote initialization requires a server with the defaults endpoint and config:write permission.
 func (c *Client) EnsureDefaults(ctx context.Context, defaults map[string]string) error {
+	c.local.mu.Lock()
+	defer c.local.mu.Unlock()
 	keys := make([]string, 0, len(defaults))
 	for key := range defaults {
 		if err := validateKey(key); err != nil {
@@ -34,9 +37,7 @@ func (c *Client) EnsureDefaults(ctx context.Context, defaults map[string]string)
 }
 
 func (c *Client) ensureDefaults(ctx context.Context, defaults map[string]string) error {
-	if c.local != nil {
-		c.local.mu.Lock()
-		defer c.local.mu.Unlock()
+	if c.IsLocal() {
 		if err := c.local.transaction(ctx, func(bucket *bolt.Bucket) error {
 			for key, value := range defaults {
 				if bucket.Get([]byte(key)) != nil {
@@ -50,25 +51,18 @@ func (c *Client) ensureDefaults(ctx context.Context, defaults map[string]string)
 		}); err != nil {
 			return err
 		}
-		items, err := c.local.read(ctx, "")
-		if err != nil {
-			return err
-		}
-		c.replace(items, "")
-		return nil
+		return c.loadSnapshot(ctx, "")
 	}
-	if err := c.Load(ctx); err != nil {
+	items, err := (remoteSource{client: c}).Read(ctx, "")
+	if err != nil {
 		return err
 	}
-	missing := false
-	for key := range defaults {
-		if _, ok := c.Get(key); !ok {
-			missing = true
-			break
-		}
+	missing := maps.Clone(defaults)
+	for _, item := range items {
+		delete(missing, item.Key)
 	}
-	if !missing {
-		return nil
+	if len(missing) == 0 {
+		return c.loadSnapshot(ctx, "")
 	}
 	path, err := c.environmentPath(ctx)
 	if err != nil {
@@ -94,5 +88,5 @@ func (c *Client) ensureDefaults(ctx context.Context, defaults map[string]string)
 	if resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("configcenter defaults endpoint: status %d (requires config:write and a server supporting initialization)", resp.StatusCode)
 	}
-	return c.Load(ctx)
+	return c.loadSnapshot(ctx, "")
 }

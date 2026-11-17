@@ -28,7 +28,7 @@ func TestLoadUsesEnvironmentPathAndKey(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
-	client, err := New(Config{BaseURL: srv.URL, APIKey: "cc_test"})
+	client, err := New(Config{LocalPath: localTestPath(t), DotenvFiles: []string{}, BaseURL: srv.URL, APIKey: "cc_test"})
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestMissingProjectIsNotFound(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	client, err := New(Config{BaseURL: srv.URL, APIKey: "cc_test", Environment: "staging"})
+	client, err := New(Config{LocalPath: localTestPath(t), DotenvFiles: []string{}, BaseURL: srv.URL, APIKey: "cc_test", Environment: "staging"})
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}

@@ -15,6 +15,8 @@ import (
 // Put persists a value and updates the loaded snapshot if its prefix includes key.
 // Remote writes need projects:read, environments:read and config:write permissions.
 func (c *Client) Put(ctx context.Context, key, value string) error {
+	c.local.mu.Lock()
+	defer c.local.mu.Unlock()
 	if err := c.put(ctx, key, value); err != nil {
 		return fmt.Errorf("write configuration key %q: %w", key, err)
 	}
@@ -25,9 +27,7 @@ func (c *Client) put(ctx context.Context, key, value string) error {
 	if err := validateKey(key); err != nil {
 		return err
 	}
-	if c.local != nil {
-		c.local.mu.Lock()
-		defer c.local.mu.Unlock()
+	if c.IsLocal() {
 		item, err := c.local.put(ctx, key, value)
 		if err != nil {
 			return err
@@ -60,7 +60,11 @@ func (c *Client) put(ctx context.Context, key, value string) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("configcenter: write status %d", resp.StatusCode)
 	}
-	c.cachePut(Item{Key: key, Value: value, UpdatedAt: time.Now().UTC()})
+	item := Item{Key: key, Value: value, UpdatedAt: time.Now().UTC()}
+	c.cachePut(item)
+	if err := c.cache.cache(ctx, []Item{item}); err != nil {
+		return fmt.Errorf("configcenter: remote write succeeded but caching failed: %w", err)
+	}
 	return nil
 }
 

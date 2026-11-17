@@ -33,7 +33,7 @@ func TestPutUsesBoundProjectAndExplicitWritePermission(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	client, err := New(Config{BaseURL: server.URL, APIKey: "cc_test"})
+	client, err := New(Config{LocalPath: localTestPath(t), DotenvFiles: []string{}, BaseURL: server.URL, APIKey: "cc_test"})
 	if err != nil {
 		t.Fatal(err)
 	}
