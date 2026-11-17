@@ -3,7 +3,7 @@ import { dangerOperations } from '../../web/ui/src/danger.ts'
 
 export function checkDangerTemplate(source: string, filename = ''): string[] {
   const errors: string[] = []
-  const trusted = filename === 'web/ui/src/DangerActions.vue'
+  const trusted = filename === 'web/ui/src/DangerActionButton.vue'
   const dropdown = filename === 'web/ui/src/DropdownMenu.vue'
   const words =
     /删除|撤销|吊销|拒绝|批准|清空|销毁|退出登录|登出|注销|\b(delete|remove|revoke|reject|approve|review|destroy|purge|(?:log|sign)[\s_-]*(?:out|off))\b|common\.delete|nav\.signOut|projects\.(revoke|approve|reject)/iu
@@ -25,11 +25,13 @@ export function checkDangerTemplate(source: string, filename = ''): string[] {
         )
       )
         errors.push('danger-requires-more-trigger')
-      const control = ['button', 'a', 'input'].includes(node.tag) || /button$/iu.test(node.tag)
+      const sharedButton = ['DangerActionButton', 'danger-action-button'].includes(node.tag)
+      if (sharedButton && !inDropdown) errors.push('danger-requires-dropdown')
+      const control =
+        !sharedButton && (['button', 'a', 'input'].includes(node.tag) || /button$/iu.test(node.tag))
       const dangerous = marked || (control && words.test(node.loc.source))
       if (dangerous && !trusted) errors.push('danger-use-shared-actions')
       if (dangerous && trusted) {
-        if (!inDropdown) errors.push('danger-requires-dropdown')
         if (!attrs.class?.split(/\s/u).includes('btn-danger')) errors.push('danger-requires-style')
         if (
           !bindings.some(

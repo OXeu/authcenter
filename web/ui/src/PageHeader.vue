@@ -1,6 +1,6 @@
 <script setup>
 import DropdownMenu from './DropdownMenu.vue'
-import DangerActions from './DangerActions.vue'
+import DangerActionButton from './DangerActionButton.vue'
 import { computed, nextTick, ref, watch } from 'vue'
 import { api } from './core.ts'
 import { createPage } from './page.ts'
@@ -50,9 +50,9 @@ const identityLabel = computed(() => `${data.me?.name ?? ''} ${roleLabel.value}`
 const roleLabel = computed(() => (data.me === null ? '' : msg(`role.${data.me.role}`)))
 const form = createForm(createPage(data))
 const userMenu = ref(/** @type {InstanceType<typeof DropdownMenu> | null} */ (null))
-const accountActions = computed(() => [
+const signOutAction = computed(() =>
   dangerAction(form, 'signOut', msg('nav.signOut'), data.me?.name ?? '', logout),
-])
+)
 watch(
   () => form.open,
   async (open) => {
@@ -160,11 +160,7 @@ async function logout() {
             </a>
           </div>
           <div class="mt-1 border-t pt-1">
-            <DangerActions
-              :actions="accountActions"
-              :label="msg('common.more')"
-              :disabled="form.busy"
-            />
+            <DangerActionButton :action="signOutAction" :disabled="form.busy" />
           </div>
         </div>
       </DropdownMenu>

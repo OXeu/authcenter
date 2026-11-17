@@ -57,8 +57,10 @@ function header(lang = 'en') {
 async function requestSignOut(wrapper: ReturnType<typeof header>) {
   const account = wrapper.get('button[aria-label^="Reader "]')
   if (account.attributes('aria-expanded') === 'false') await account.trigger('click')
-  await wrapper.get('.dropdown-content button[aria-controls]').trigger('click')
+  expect(wrapper.find('.dropdown-content .dropdown').exists()).toBe(false)
+  expect(wrapper.get('[data-danger-action="signOut"]').classes()).toContain('btn-danger')
   await wrapper.get('[data-danger-action="signOut"]').trigger('click')
+  expect(wrapper.find('.dropdown-content').exists()).toBe(false)
   await vi.dynamicImportSettled()
   await flushPromises()
 }

@@ -81,21 +81,36 @@ it('rejects custom secondary menus', () => {
     'secondary-menu-requires-dropdown',
   )
 })
-it('checks style, dropdown and confirmation in the shared implementation', () => {
+it('checks style and confirmation in the shared button', () => {
   const errors = checkDangerTemplate(
     '<button data-danger-action="deleteItem">Delete</button>',
-    'web/ui/src/DangerActions.vue',
+    'web/ui/src/DangerActionButton.vue',
   )
-  expect(errors).toContain('danger-requires-dropdown')
   expect(errors).toContain('danger-requires-style')
   expect(errors).toContain('danger-requires-confirmation')
 })
 it('accepts registered sign-out actions with shared confirmation and styling', () => {
   expect(
     checkDangerTemplate(
-      '<DropdownMenu><button class="btn-danger" data-danger-action="signOut" @click="action.request()">Sign out</button></DropdownMenu>',
-      'web/ui/src/DangerActions.vue',
+      '<button class="btn-danger" data-danger-action="signOut" @click="action.request()">Sign out</button>',
+      'web/ui/src/DangerActionButton.vue',
     ),
+  ).toEqual([])
+})
+it.each(['DangerActionButton', 'danger-action-button'])(
+  'requires %s to be inside an existing dropdown',
+  (tag) => {
+    const button = `<${tag} :action="signOutAction" :disabled="form.busy" />`
+    expect(checkDangerTemplate(button)).toContain('danger-requires-dropdown')
+    expect(checkDangerTemplate(`<DropdownMenu>${button}</DropdownMenu>`)).toEqual([])
+  },
+)
+it('keeps the translated More trigger for standalone action menus', () => {
+  expect(checkDangerTemplate('<DangerActions :actions="actions" label="Actions" />')).toContain(
+    'danger-requires-more-trigger',
+  )
+  expect(
+    checkDangerTemplate('<DangerActions :actions="actions" :label="msg(\'common.more\')" />'),
   ).toEqual([])
 })
 
