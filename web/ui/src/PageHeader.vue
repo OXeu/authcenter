@@ -128,20 +128,20 @@ async function logout() {
           </div>
           <div class="border-t border-gray-200 pt-1">
             <a
-              class="btn-ghost w-full justify-start gap-1"
+              class="btn-ghost w-full justify-start gap-2"
               href="/keys"
               :aria-label="msg('title.keys')"
             >
               <i class="ri-key-2-line" aria-hidden="true"></i>
               <span>{{ msg('nav.keys') }}</span>
             </a>
-            <a v-if="data.isAdmin" class="btn-ghost w-full justify-start gap-1" href="/users">
+            <a v-if="data.isAdmin" class="btn-ghost w-full justify-start gap-2" href="/users">
               <i class="ri-group-line" aria-hidden="true"></i>
               <span>{{ msg('nav.users') }}</span>
             </a>
           </div>
           <div class="mt-1 border-t pt-1">
-            <button class="btn-ghost w-full justify-start gap-1" type="button" @click="logout">
+            <button class="btn-ghost w-full justify-start gap-2" type="button" @click="logout">
               <i class="ri-logout-box-r-line" aria-hidden="true"></i>
               <span>{{ msg('nav.signOut') }}</span>
             </button>
