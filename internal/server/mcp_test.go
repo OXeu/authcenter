@@ -233,12 +233,16 @@ func TestMCPToolParityAndPermissions(t *testing.T) {
 
 type mcpTransport struct {
 	token string
+	host  string
 	base  http.RoundTripper
 }
 
 func (t mcpTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	r = r.Clone(r.Context())
 	r.Header.Set("Authorization", "Bearer "+t.token)
+	if t.host != "" {
+		r.Host = t.host
+	}
 	return t.base.RoundTrip(r)
 }
 
@@ -249,7 +253,7 @@ func TestMCPSDKAndLiveAuthorization(t *testing.T) {
 	server := httptest.NewServer(f.router)
 	defer server.Close()
 	client := mcp.NewClient(&mcp.Implementation{Name: "authcenter-test", Version: "1.0.0"}, nil)
-	session, err := client.Connect(t.Context(), &mcp.StreamableClientTransport{Endpoint: server.URL + "/mcp", HTTPClient: &http.Client{Transport: mcpTransport{token, http.DefaultTransport}}}, nil)
+	session, err := client.Connect(t.Context(), &mcp.StreamableClientTransport{Endpoint: server.URL + "/mcp", HTTPClient: &http.Client{Transport: mcpTransport{token: token, base: http.DefaultTransport}}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -283,6 +287,68 @@ func TestMCPSDKAndLiveAuthorization(t *testing.T) {
 	}
 	if mcpRequest(t, f.router, token, "tools/list", nil).Code != 401 {
 		t.Fatal("deleted client remains authorized")
+	}
+}
+
+func TestMCPBehindLoopbackProxy(t *testing.T) {
+	f := newFlows(t)
+	f.srv.cfg.PublicURL = "https://auth.xeu.life"
+	_, tokens := mcpTokens(t, f)
+	token := tokens["access_token"].(string)
+	server := httptest.NewServer(f.router)
+	defer server.Close()
+	for _, tc := range []struct {
+		name, method, token, origin string
+		status                      int
+	}{
+		{"tools", "POST", token, "", 200},
+		{"same origin", "POST", token, f.srv.cfg.PublicURL, 200},
+		{"no event stream", "GET", token, "", 405},
+		{"no session deletion", "DELETE", token, "", 405},
+		{"unauthenticated GET", "GET", "", "", 401},
+		{"unauthenticated POST", "POST", "", "", 401},
+		{"invalid token", "POST", "invalid", "", 401},
+		{"foreign origin", "POST", token, "https://other.example", 403},
+		{"null origin", "POST", token, "null", 403},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req, err := http.NewRequestWithContext(t.Context(), tc.method, server.URL+"/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Host = "auth.xeu.life"
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept", "application/json, text/event-stream")
+			req.Header.Set("MCP-Protocol-Version", "2025-11-25")
+			if tc.token != "" {
+				req.Header.Set("Authorization", "Bearer "+tc.token)
+			}
+			if tc.origin != "" {
+				req.Header.Set("Origin", tc.origin)
+			}
+			response, err := server.Client().Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer response.Body.Close()
+			if response.StatusCode != tc.status {
+				t.Fatalf("proxied MCP status = %d, want %d", response.StatusCode, tc.status)
+			}
+			if tc.status == 401 && !strings.Contains(response.Header.Get("WWW-Authenticate"), f.srv.cfg.PublicURL+"/.well-known/oauth-protected-resource/mcp") {
+				t.Fatal("proxied authentication lost resource discovery")
+			}
+		})
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: "proxy-test", Version: "1.0.0"}, nil)
+	transport := mcpTransport{token: token, host: "auth.xeu.life", base: http.DefaultTransport}
+	session, err := client.Connect(t.Context(), &mcp.StreamableClientTransport{Endpoint: server.URL + "/mcp", HTTPClient: &http.Client{Transport: transport}}, nil)
+	if err != nil {
+		t.Fatal("proxied MCP initialization failed", err)
+	}
+	defer session.Close()
+	result, err := session.CallTool(t.Context(), &mcp.CallToolParams{Name: "get_identity", Arguments: map[string]any{}})
+	if err != nil || result.IsError {
+		t.Fatal("proxied MCP tool call failed", result, err)
 	}
 }
 

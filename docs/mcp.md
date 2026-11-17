@@ -78,4 +78,6 @@ curl https://auth.example/mcp \
 
 请求体上限 1 MiB。携带 Origin 时必须与 `AC_PUBLIC_URL` 相同。有效授权下 GET 和 DELETE 返回 405；没有服务器推送流或会话删除接口。服务无需额外启动进程，沿用 AuthCenter 的 HTTPS 地址和 configcenter 配置。
 
+SCF 或反向代理可以保留公网 Host 并通过回环地址转发请求。服务关闭 SDK 针对本地 MCP 的回环 Host 限制，仍执行 Origin、Bearer 令牌、scope 和 resource 校验。
+
 协议参考：[MCP 授权规范](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization)、[官方 Go SDK](https://github.com/modelcontextprotocol/go-sdk/releases/tag/v1.8.0)。

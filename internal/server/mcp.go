@@ -42,7 +42,11 @@ func (s *Server) mountMCP(r *gin.Engine) {
 			return adminTools
 		}
 		return userTools
-	}, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true, MaxRequestBodyBytes: 1 << 20, PropagateRequestCancellation: true})
+	}, &mcp.StreamableHTTPOptions{
+		Stateless: true, JSONResponse: true, MaxRequestBodyBytes: 1 << 20, PropagateRequestCancellation: true,
+		// SCF forwards public Host headers over loopback; Origin and OAuth checks run before the SDK.
+		DisableLocalhostProtection: true,
+	})
 	r.Any("/mcp", s.mcpAuthenticate, gin.WrapH(handler))
 }
 
