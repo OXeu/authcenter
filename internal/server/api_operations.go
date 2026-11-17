@@ -58,6 +58,9 @@ func (s *Server) apiOperations() []apiOperation {
 	prefix := argument("prefix", "query", false)
 	newKey := argument("new_key", "body", false)
 	newKey.Target = "key"
+	defaults := typedArgument("defaults", "object", true)
+	defaults.Schema["additionalProperties"] = map[string]any{"type": "string"}
+	defaults.Schema["minProperties"], defaults.Schema["maxProperties"] = 1, 500
 	scopes := typedArgument("scopes", "array", true)
 	permissions := make([]string, 0, len(store.KeyPermissions()))
 	for _, permission := range store.KeyPermissions() {
@@ -93,6 +96,7 @@ func (s *Server) apiOperations() []apiOperation {
 		{Name: "list_config", Description: "List configuration items, optionally filtered by key prefix.", Method: http.MethodGet, Path: items, Permissions: []store.Permission{store.ConfigRead}, ProjectHandler: s.apiListItems, Arguments: []mcpArgument{project, env, prefix}},
 		{Name: "get_config", Description: "Read one configuration item.", Method: http.MethodGet, Path: items + "/:key", Permissions: []store.Permission{store.ConfigRead}, ProjectHandler: s.apiGetItem, Arguments: []mcpArgument{project, env, key}},
 		{Name: "set_config", Description: "Create or update a configuration item immediately; optionally rename its key.", Method: http.MethodPut, Path: items + "/:key", Permissions: []store.Permission{store.ConfigWrite}, ProjectHandler: s.apiPutItem, Arguments: []mcpArgument{project, env, key, argument("value", "body", true), description, newKey}},
+		{Name: "initialize_config", Description: "Atomically create missing configuration keys without overwriting existing values.", Method: http.MethodPost, Path: envs + "/:env/defaults", Permissions: []store.Permission{store.ConfigWrite}, ProjectHandler: s.apiInitializeItems, Arguments: []mcpArgument{project, env, defaults}},
 		{Name: "delete_config", Description: "Delete a configuration item immediately.", Method: http.MethodDelete, Path: items + "/:key", Permissions: []store.Permission{store.ConfigDelete}, ProjectHandler: s.apiDeleteItem, Arguments: []mcpArgument{project, env, key}},
 		{Name: "list_proposals", Description: "List project change proposals, optionally filtered by status.", Method: http.MethodGet, Path: proposals, Permissions: []store.Permission{store.ProposalsRead}, ProjectHandler: s.apiListProposals, Arguments: []mcpArgument{project, argument("status", "query", false)}},
 		{Name: "propose_config", Description: "Submit a configuration change for review. Set actions require a value.", Method: http.MethodPost, Path: proposals, Permissions: []store.Permission{store.ProposalsWrite}, ProjectHandler: s.apiCreateProposal, Arguments: []mcpArgument{project, argument("environment", "body", true), argument("key", "body", true), enumArgument("action", store.ActionSet, store.ActionDelete), argument("value", "body", false), argument("reason", "body", false)}},
