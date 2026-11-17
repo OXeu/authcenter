@@ -59,6 +59,20 @@ it.each([
   '<button>{{ msg("projects.revoke") }}</button>',
   '<button data-danger-action="deleteItem">操作</button>',
   '<DropdownMenu><button>Delete</button></DropdownMenu>',
+  '<button>退出登录</button>',
+  '<button>注销</button>',
+  '<button>登出</button>',
+  '<button>Sign out</button>',
+  '<button>Log out</button>',
+  '<button>Logout</button>',
+  '<button>Log off</button>',
+  '<button>Sign-out</button>',
+  '<button>{{ msg("nav.signOut") }}</button>',
+  '<button @click="logout">Account</button>',
+  '<button @click="signOut()">Account</button>',
+  '<a href="/logout">Account</a>',
+  '<button data-danger-action="signOut">Account</button>',
+  '<DropdownMenu><button>退出登录</button></DropdownMenu>',
 ])('rejects dangerous controls outside the shared component: %s', (source) => {
   expect(checkDangerTemplate(source)).toContain('danger-use-shared-actions')
 })
@@ -75,6 +89,14 @@ it('checks style, dropdown and confirmation in the shared implementation', () =>
   expect(errors).toContain('danger-requires-dropdown')
   expect(errors).toContain('danger-requires-style')
   expect(errors).toContain('danger-requires-confirmation')
+})
+it('accepts registered sign-out actions with shared confirmation and styling', () => {
+  expect(
+    checkDangerTemplate(
+      '<DropdownMenu><button class="btn-danger" data-danger-action="signOut" @click="action.request()">Sign out</button></DropdownMenu>',
+      'web/ui/src/DangerActions.vue',
+    ),
+  ).toEqual([])
 })
 
 describe('icon button label lengths', () => {

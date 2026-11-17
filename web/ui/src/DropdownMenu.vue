@@ -27,7 +27,7 @@ function blur(event: FocusEvent) {
 }
 </script>
 <template>
-  <div class="dropdown" @keydown.esc.stop="escape" @focusout="blur">
+  <div class="dropdown" @click.stop @keydown.esc.stop="escape" @focusout="blur">
     <button
       ref="trigger"
       type="button"

@@ -204,7 +204,9 @@ describe('Vue pages', () => {
     expect(menu.find(`.role-badge .${icon}`).exists()).toBe(true)
     expect(menu.find('a[href="/keys"]').exists()).toBe(true)
     expect(menu.find('a[href="/users"]').exists()).toBe(role === 'admin')
-    expect(menu.get('button').text()).toBe('Sign out')
+    expect(menu.get('button').text()).toBe('More')
+    await menu.get('button').trigger('click')
+    expect(menu.get('[data-danger-action="signOut"]').text()).toBe('Sign out')
     wrapper.unmount()
   })
   it.each([

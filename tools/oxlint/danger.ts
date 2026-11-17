@@ -6,7 +6,7 @@ export function checkDangerTemplate(source: string, filename = ''): string[] {
   const trusted = filename === 'web/ui/src/DangerActions.vue'
   const dropdown = filename === 'web/ui/src/DropdownMenu.vue'
   const words =
-    /删除|撤销|吊销|拒绝|批准|清空|销毁|\b(delete|remove|revoke|reject|approve|review|destroy|purge)\b|common\.delete|projects\.(revoke|approve|reject)/iu
+    /删除|撤销|吊销|拒绝|批准|清空|销毁|退出登录|登出|注销|\b(delete|remove|revoke|reject|approve|review|destroy|purge|(?:log|sign)[\s_-]*(?:out|off))\b|common\.delete|nav\.signOut|projects\.(revoke|approve|reject)/iu
   function walk(node: any, inDropdown = false) {
     if (node.type === 1) {
       const attrs = Object.fromEntries(

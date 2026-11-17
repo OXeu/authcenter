@@ -1,8 +1,13 @@
 <script setup>
 import DropdownMenu from './DropdownMenu.vue'
-import { computed, ref, watch } from 'vue'
+import DangerActions from './DangerActions.vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { api } from './core.ts'
 import { createPage } from './page.ts'
+import { createForm } from './forms.ts'
+import { dangerAction } from './danger.ts'
+
+const DialogPanel = defineAsyncComponent(() => import('./DialogPanel.vue'))
 
 /**
  * @typedef {import('./data.ts').PageData} PageData
@@ -44,14 +49,14 @@ const avatarInitial = computed(() => {
 })
 const identityLabel = computed(() => `${data.me?.name ?? ''} ${roleLabel.value}`)
 const roleLabel = computed(() => (data.me === null ? '' : msg(`role.${data.me.role}`)))
+const form = createForm(createPage(data))
+const accountActions = computed(() => [
+  dangerAction(form, 'signOut', msg('nav.signOut'), data.me?.name ?? '', logout),
+])
 /** @returns {Promise<void>} */
 async function logout() {
-  try {
-    await api('/logout', { method: 'POST', csrf: data.csrf })
-    location.assign('/login')
-  } catch (err) {
-    createPage(data).report(err)
-  }
+  await api('/logout', { method: 'POST', csrf: data.csrf })
+  location.assign('/login')
 }
 </script>
 
@@ -141,15 +146,17 @@ async function logout() {
             </a>
           </div>
           <div class="mt-1 border-t pt-1">
-            <button class="btn-ghost w-full justify-start gap-2" type="button" @click="logout">
-              <i class="ri-logout-box-r-line" aria-hidden="true"></i>
-              <span>{{ msg('nav.signOut') }}</span>
-            </button>
+            <DangerActions
+              :actions="accountActions"
+              :label="msg('common.more')"
+              :disabled="form.busy"
+            />
           </div>
         </div>
       </DropdownMenu>
     </template>
   </header>
+  <DialogPanel v-if="form.open" :form="form" :msg="msg" />
   <main v-if="!headerOnly" id="main" class="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
     <h1 class="break-words text-xl font-semibold">{{ title }}</h1>
     <p v-if="subtitle" class="text-sm text-muted-foreground">{{ subtitle }}</p>
