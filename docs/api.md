@@ -102,7 +102,7 @@ curl https://auth.example/oauth/revoke -u 'CLIENT_ID:CLIENT_SECRET' -d token=TOK
 }
 ```
 
-PATCH 使用相同资料字段，`logo` 为空或省略时保留原图；不修改客户端密钥、ID、所有者或客户端类型。每个应用最多 20 个回调。
+PATCH 使用相同资料字段，`logo` 为空或省略时保留原图；不修改客户端密钥、ID、所有者或客户端类型。每个应用最多 20 个回调。动态注册的 MCP 客户端不通过 PATCH 编辑，管理员可以删除以撤销访问。
 
 ## API Key 管理
 

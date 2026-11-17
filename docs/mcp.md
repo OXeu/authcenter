@@ -4,11 +4,31 @@ AuthCenter 在 `/mcp` 提供 Streamable HTTP MCP 服务。MCP 与 `/api/v1` 使�
 
 ## OAuth 接入
 
-1. 登录 `/applications`，为 MCP 客户端创建应用，登记客户端提供的完整回调地址。桌面客户端使用公开客户端；能够安全保存密钥的服务端客户端可选择机密客户端。保存 `client_id`，机密客户端还需保存创建时展示的 `client_secret`。现有应用若未包含 `mcp` scope，需要新建应用。
-2. 在 MCP 客户端配置服务 URL `https://auth.example/mcp`，并配置上一步的客户端凭据。支持预注册 OAuth 客户端的工具可直接接入；本服务不提供动态客户端注册。
-3. 客户端从 HTTP 401 的 `WWW-Authenticate` 发现 `/.well-known/oauth-protected-resource/mcp`，再从 `/.well-known/oauth-authorization-server` 获取授权与令牌端点。
-4. 客户端通过浏览器发起授权码请求。无论公开或机密客户端，都必须使用 S256 PKCE、明确的 `redirect_uri`、`scope=mcp` 和 `resource=https://auth.example/mcp`。需要刷新令牌时增加 `offline_access`。
-5. 用户登录并确认授权；回调包含 `code`、原始 `state` 和授权服务器 `iss`。客户端核对 `state`、`iss`，再使用同一资源地址和 PKCE verifier 兑换令牌。
+1. 在 Cursor 等 MCP 客户端配置服务 URL `https://auth.example/mcp`，然后点击认证。客户端通过受保护资源元数据和授权服务器元数据发现端点，再向 `POST /oauth/register` 动态注册，无需手动创建应用或配置客户端密钥。
+2. 动态注册接受 `client_name`、`redirect_uris`、`grant_types`、`response_types`、`token_endpoint_auth_method` 和 `scope`。`redirect_uris` 需要 1–20 个字符串；不对 URI 内容做格式、协议、域名或路径校验，完整保留客户端提交的列表。Cursor 的 `cursor://anysphere.cursor-mcp/oauth/callback`、其他自定义协议和非本机 HTTP 地址均可注册。回调是否能被客户端接收由客户端负责。
+3. 动态客户端使用 `token_endpoint_auth_method=none`，支持 `authorization_code` 和可选 `refresh_token`，响应类型为 `code`。授权范围限定为 `mcp` 和可选 `offline_access`；注册响应返回实际支持的范围。注册端点限制请求体为 16 KiB，每个来源 IP 每分钟最多成功注册 30 次。
+4. 客户端通过浏览器发起授权码请求，必须使用 S256 PKCE、明确的 `redirect_uri` 和 `resource=https://auth.example/mcp`。省略 scope 时默认 `mcp`；需要刷新令牌时注册 `refresh_token` 并请求 `mcp offline_access`。授权请求必须完整匹配已注册回调之一，换码时还必须与授权码绑定的回调完全相同。
+5. 用户登录并确认授权；回调包含 `code`、原始 `state` 和授权服务器 `iss`。客户端核对 `state`、`iss`，再使用同一资源地址和 PKCE verifier 兑换令牌。OAuth 响应中的 `code`、`error`、`state`、`iss` 覆盖回调 URI 内的同名参数，其他查询参数和 fragment 保留。
+
+动态注册示例：
+
+```json
+{
+  "client_name": "Cursor",
+  "redirect_uris": [
+    "cursor://anysphere.cursor-mcp/oauth/callback",
+    "https://www.cursor.com/agents/mcp/oauth/callback",
+    "http://localhost:8787/callback"
+  ],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none"
+}
+```
+
+也可继续在 `/applications` 手动预注册应用，并在客户端配置 `client_id` 和机密客户端的 `client_secret`。手动注册应用的既有 OAuth 流程保持兼容；用于 MCP 时同样需要 PKCE 和资源绑定。动态客户端不在管理页面编辑元数据，管理员可删除，用户可在“我的授权”撤销其授权。
+
+出现 `SSE error: Non-200 status code (401)` 时，先检查动态注册、授权和令牌交换是否成功：未获得有效令牌的 MCP 请求返回 401。旧连接若缓存了缺少注册端点的元数据或失效凭据，需要重新连接并认证。元数据、注册、令牌和撤销端点支持不携带 Cookie 的 CORS 预检。
 
 ```http
 GET /oauth/authorize?response_type=code&client_id=CLIENT_ID&redirect_uri=https%3A%2F%2Fclient.example%2Fcallback&scope=mcp%20offline_access&resource=https%3A%2F%2Fauth.example%2Fmcp&code_challenge=CHALLENGE&code_challenge_method=S256&state=RANDOM_STATE

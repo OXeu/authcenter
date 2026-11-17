@@ -2,7 +2,7 @@ package store
 
 import "time"
 
-// OAuthClient is an administrator-registered relying application.
+// OAuthClient is a manually or dynamically registered relying application.
 type OAuthClient struct {
 	ID           string    `gorm:"primaryKey;size:64" json:"id"`
 	Name         string    `gorm:"not null" json:"name"`
@@ -12,6 +12,7 @@ type OAuthClient struct {
 	LogoType     string    `json:"-"`
 	SecretHash   string    `gorm:"size:64" json:"-"`
 	Public       bool      `gorm:"not null" json:"public"`
+	Dynamic      bool      `gorm:"not null;default:false" json:"dynamic,omitempty"`
 	RedirectURIs []string  `gorm:"serializer:json;type:text;not null" json:"redirect_uris"`
 	Scopes       []string  `gorm:"serializer:json;type:text;not null" json:"scopes"`
 	Disabled     bool      `gorm:"not null" json:"disabled"`

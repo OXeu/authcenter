@@ -7,6 +7,7 @@ import type { PageData } from './data.ts'
 import type { PageContext } from './page.ts'
 
 export type Application = {
+  dynamic?: boolean
   id: string
   name: string
   homepage: string

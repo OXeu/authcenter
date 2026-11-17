@@ -83,6 +83,36 @@ describe('Vue pages', () => {
     expect(wrapper.findAll('main input:not(dialog input)')).toHaveLength(0)
     wrapper.unmount()
   })
+  it('lists dynamic OAuth clients without editable metadata or a missing logo', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        clients: [
+          {
+            id: 'cursor',
+            name: 'Cursor',
+            dynamic: true,
+            homepage: '',
+            redirect_uris: ['cursor://anysphere.cursor-mcp/oauth/callback'],
+          },
+        ],
+      }),
+    } as Response)
+    const wrapper = mount(App, { props: { data } })
+    await vi.dynamicImportSettled()
+    await flushPromises()
+    const table = wrapper.get('table')
+    expect(table.text()).toContain('Cursor')
+    expect(table.find('img').exists()).toBe(false)
+    expect(table.findAll('button').some((button) => button.text() === 'Edit')).toBe(false)
+    await table
+      .findAll('button')
+      .find((button) => button.text() === 'More')!
+      .trigger('click')
+    expect(wrapper.find('[data-danger-action="deleteClient"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
   it('requires More and confirmation before deleting, and allows cancellation', async () => {
     const wrapper = mount(App, { props: { data } })
     await vi.dynamicImportSettled()

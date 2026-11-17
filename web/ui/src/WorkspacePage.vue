@@ -40,6 +40,12 @@ function cell(row: Record<string, any>, column: string) {
 function logo(row: Record<string, any>) {
   return `/applications/${encodeURIComponent(row.id)}/logo`
 }
+function showLogo(row: Record<string, any>, column: string) {
+  return clients.value && column === 'name' && !row.dynamic
+}
+function canEdit(row: Record<string, any>) {
+  return !applications.value || (clients.value && !row.dynamic)
+}
 onMounted(refresh)
 </script>
 <template>
@@ -84,7 +90,7 @@ onMounted(refresh)
         <tr v-for="row in state.rows" :key="row.id">
           <td v-for="column in columns" :key="column" :data-label="msg(labels[column])">
             <img
-              v-if="clients && column === 'name'"
+              v-if="showLogo(row, column)"
               :src="logo(row)"
               alt=""
               width="32"
@@ -94,12 +100,7 @@ onMounted(refresh)
             <span class="whitespace-pre-wrap break-all">{{ cell(row, column) }}</span>
           </td>
           <td :data-label="msg('common.actions')">
-            <button
-              v-if="clients || !applications"
-              class="btn-ghost"
-              :disabled="state.busy"
-              @click="edit(row)"
-            >
+            <button v-if="canEdit(row)" class="btn-ghost" :disabled="state.busy" @click="edit(row)">
               {{ msg('common.edit') }}
             </button>
             <DangerActions

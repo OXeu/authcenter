@@ -116,6 +116,9 @@ func (s *Server) authorize(c *gin.Context) {
 	scopes := strings.Fields(q.Get("scope"))
 	if len(scopes) == 0 {
 		scopes = []string{"profile", "email"}
+		if client.Dynamic || q.Get("resource") == s.mcpResource() {
+			scopes = []string{mcpScope}
+		}
 	}
 	for _, scope := range scopes {
 		if !slices.Contains(client.Scopes, scope) {
@@ -125,6 +128,10 @@ func (s *Server) authorize(c *gin.Context) {
 	}
 	resource := q.Get("resource")
 	isMCP := slices.Contains(scopes, mcpScope)
+	if client.Dynamic && !isMCP {
+		fail("invalid_scope")
+		return
+	}
 	if resource != "" && resource != s.mcpResource() || isMCP && resource != s.mcpResource() {
 		fail("invalid_target")
 		return

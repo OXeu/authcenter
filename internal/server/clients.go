@@ -131,6 +131,10 @@ func (s *Server) apiUpdateClient(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if client.Dynamic {
+		c.Status(http.StatusForbidden)
+		return
+	}
 	var in clientInput
 	if err := bindJSON(c, &in); err != nil {
 		s.fail(c, err)

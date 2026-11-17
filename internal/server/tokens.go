@@ -17,12 +17,17 @@ import (
 )
 
 func (s *Server) mountTokenEndpoints(r *gin.Engine) {
-	r.GET("/.well-known/oauth-authorization-server", func(c *gin.Context) {
-		c.JSON(200, gin.H{"issuer": s.cfg.PublicURL, "authorization_endpoint": s.cfg.PublicURL + "/oauth/authorize", "token_endpoint": s.cfg.PublicURL + "/oauth/token", "revocation_endpoint": s.cfg.PublicURL + "/oauth/revoke", "userinfo_endpoint": s.cfg.PublicURL + "/oauth/userinfo", "response_types_supported": []string{"code"}, "grant_types_supported": []string{"authorization_code", "refresh_token"}, "token_endpoint_auth_methods_supported": []string{"client_secret_basic", "client_secret_post", "none"}, "code_challenge_methods_supported": []string{"S256"}, "scopes_supported": supportedScopes})
+	public := r.Group("", oauthPublic)
+	public.GET("/.well-known/oauth-authorization-server", func(c *gin.Context) {
+		c.JSON(200, gin.H{"issuer": s.cfg.PublicURL, "authorization_endpoint": s.cfg.PublicURL + "/oauth/authorize", "token_endpoint": s.cfg.PublicURL + "/oauth/token", "registration_endpoint": s.cfg.PublicURL + "/oauth/register", "revocation_endpoint": s.cfg.PublicURL + "/oauth/revoke", "userinfo_endpoint": s.cfg.PublicURL + "/oauth/userinfo", "response_types_supported": []string{"code"}, "grant_types_supported": []string{"authorization_code", "refresh_token"}, "token_endpoint_auth_methods_supported": []string{"client_secret_basic", "client_secret_post", "none"}, "code_challenge_methods_supported": []string{"S256"}, "scopes_supported": supportedScopes})
 	})
-	r.POST("/oauth/token", s.token)
-	r.POST("/oauth/revoke", s.revokeToken)
-	r.GET("/oauth/userinfo", s.userinfo)
+	public.POST("/oauth/register", s.registerClient)
+	public.POST("/oauth/token", s.token)
+	public.POST("/oauth/revoke", s.revokeToken)
+	public.GET("/oauth/userinfo", s.userinfo)
+	for _, path := range []string{"/.well-known/oauth-authorization-server", "/oauth/register", "/oauth/token", "/oauth/revoke", "/oauth/userinfo"} {
+		public.OPTIONS(path, func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	}
 }
 
 func (s *Server) authenticateClient(c *gin.Context) (store.OAuthClient, bool) {

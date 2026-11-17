@@ -137,3 +137,44 @@ it('submits consent once and follows the validated server callback', async () =>
   expect(location.assign).toHaveBeenCalledWith('https://app.example/callback?code=code')
   wrapper.unmount()
 })
+
+it.each([
+  ['cursor://anysphere.cursor-mcp/oauth/callback', true],
+  ['cursor://anysphere.cursor-mcp/oauth/callback', false],
+  ['another-app://custom-host/oauth/callback', true],
+  ['http://desktop.example:8787/callback', true],
+] as const)('returns dynamic consent to %s (approve=%s)', async (callback, approve) => {
+  const redirect = `${callback}?${approve ? 'code=one' : 'error=access_denied'}&state=state`
+  vi.mocked(fetch).mockResolvedValueOnce(reply({ redirect }))
+  const consent: PageData = {
+    ...data,
+    authorization: {
+      id: 'dynamic-request',
+      client: {
+        id: 'dynamic-client',
+        name: 'Cursor',
+        homepage: '',
+        public: true,
+        dynamic: true,
+        redirect_uris: [callback],
+        scopes: ['mcp'],
+      },
+      scopes: ['mcp'],
+      redirect_uri: callback,
+    },
+  }
+  const wrapper = mount(ConsentPage, { props: { data: consent, page: createPage(consent) } })
+  expect(wrapper.text()).toContain(callback)
+  expect(wrapper.find('img').exists()).toBe(false)
+  const button = wrapper.findAll('button')[approve ? 1 : 0]!
+  await button.trigger('click')
+  await flushPromises()
+  expect(fetch).toHaveBeenCalledWith(
+    '/oauth/authorize',
+    expect.objectContaining({
+      body: JSON.stringify({ request: 'dynamic-request', approve }),
+    }),
+  )
+  expect(location.assign).toHaveBeenCalledWith(redirect)
+  wrapper.unmount()
+})

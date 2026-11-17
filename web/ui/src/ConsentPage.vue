@@ -27,9 +27,18 @@ async function decide(approve: boolean) {
 </script>
 <template>
   <section class="card mt-4 max-w-xl space-y-4">
-    <img :src="logo" alt="" width="64" height="64" class="rounded-sm" />
+    <img
+      v-if="!authorization.client.dynamic"
+      :src="logo"
+      alt=""
+      width="64"
+      height="64"
+      class="rounded-sm"
+    />
     <h2 class="text-lg font-semibold">{{ authorization.client.name }}</h2>
-    <p class="break-all">{{ authorization.client.homepage }}</p>
+    <p v-if="authorization.client.homepage" class="break-all">
+      {{ authorization.client.homepage }}
+    </p>
     <p>{{ msg('oauth.requestAccess') }}</p>
     <ul class="list-disc pl-5">
       <li v-for="scope in authorization.scopes" :key="scope">{{ msg(`oauth.scope.${scope}`) }}</li>

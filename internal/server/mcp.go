@@ -27,8 +27,11 @@ func (s *Server) mountMCP(r *gin.Engine) {
 	metadata := func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"resource": s.mcpResource(), "resource_name": "AuthCenter MCP", "authorization_servers": []string{s.cfg.PublicURL}, "scopes_supported": []string{mcpScope, "offline_access"}, "bearer_methods_supported": []string{"header"}})
 	}
-	r.GET("/.well-known/oauth-protected-resource/mcp", metadata)
-	r.GET("/.well-known/oauth-protected-resource", metadata)
+	public := r.Group("", oauthPublic)
+	for _, path := range []string{"/.well-known/oauth-protected-resource/mcp", "/.well-known/oauth-protected-resource"} {
+		public.GET(path, metadata)
+		public.OPTIONS(path, func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	}
 	api := gin.New()
 	s.MountAPI(api)
 	userTools := s.mcpServer(api, false)
