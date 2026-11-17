@@ -16,6 +16,8 @@ const data = {
   registration: true,
   oauthEnabled: true,
 } as PageData
+const qrCode =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6vCEAAAAASUVORK5CYII='
 const reply = (body: unknown) => ({ ok: true, status: 200, json: async () => body }) as Response
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn())
@@ -56,7 +58,7 @@ it('keeps password and verification inputs in the shared dialog until both facto
   expect(location.assign).toHaveBeenCalledWith('/oauth/authorize?request=resume')
   wrapper.unmount()
 })
-it('shows the authenticator secret only inside the enrollment dialog and verifies before enabling', async () => {
+it('shows the enrollment QR code and manual key in the dialog and verifies before enabling', async () => {
   vi.mocked(fetch)
     .mockResolvedValueOnce(
       reply({
@@ -67,7 +69,12 @@ it('shows the authenticator secret only inside the enrollment dialog and verifie
       }),
     )
     .mockResolvedValueOnce(
-      reply({ request: 'request', secret: 'SECRET', uri: 'otpauth://totp/example' }),
+      reply({
+        request: 'request',
+        secret: 'SECRET',
+        uri: 'otpauth://totp/example',
+        qr_code: qrCode,
+      }),
     )
     .mockResolvedValueOnce({ ok: true, status: 204 } as Response)
     .mockResolvedValueOnce(reply({ totp_enabled: true, password_enabled: true }))
@@ -81,11 +88,18 @@ it('shows the authenticator secret only inside the enrollment dialog and verifie
   await wrapper.get('form').trigger('submit')
   await flushPromises()
   expect(wrapper.get('dialog').text()).toContain('SECRET')
+  expect(wrapper.get('dialog').text()).toContain('Scan this QR code')
+  expect(wrapper.get('dialog img').attributes('src')).toBe(qrCode)
+  expect(wrapper.get('dialog img').attributes('alt')).toBe('Authenticator setup QR code')
+  expect(wrapper.findAll('img')).toHaveLength(1)
+  expect(wrapper.get('dialog').text()).not.toContain('otpauth://')
   await wrapper.get('input').setValue('123456')
   await wrapper.get('form').trigger('submit')
   await flushPromises()
   expect(wrapper.find('dialog').exists()).toBe(false)
   expect(wrapper.text()).toContain('Authenticator enabled')
+  expect(wrapper.find('img').exists()).toBe(false)
+  expect(wrapper.text()).not.toContain('SECRET')
   wrapper.unmount()
 })
 it('submits consent once and follows the validated server callback', async () => {

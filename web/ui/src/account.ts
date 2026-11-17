@@ -121,7 +121,7 @@ export function createAccount(page: PageContext) {
         method: 'POST',
         csrf: page.csrf,
         body: form.values,
-      })) as { request: string; secret: string; uri: string }
+      })) as { request: string; secret: string; qr_code: string }
       form.show(
         msg('account.verify'),
         [{ key: 'code', label: 'login.code', required: true, autocomplete: 'one-time-code' }],
@@ -135,7 +135,12 @@ export function createAccount(page: PageContext) {
           await saved()
         },
       )
-      form.info = `${msg('account.secret')}: ${result.secret}\n${result.uri}`
+      form.image = {
+        src: result.qr_code,
+        alt: msg('account.qrCode'),
+        caption: msg('account.scan'),
+      }
+      form.info = `${msg('account.secret')}: ${result.secret}`
       form.keepOpen = true
     })
   }

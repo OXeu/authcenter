@@ -6,6 +6,7 @@ export function createForm(page: import('./page.ts').PageContext) {
     open: false,
     keepOpen: false,
     info: '',
+    image: null as { src: string; alt: string; caption: string } | null,
     secondaryLabel: '',
     secondaryAction: async () => {},
     async secondary() {
@@ -36,6 +37,7 @@ export function createForm(page: import('./page.ts').PageContext) {
       this.danger = false
       this.keepOpen = false
       this.info = ''
+      this.image = null
       this.secondaryLabel = ''
       this.secondaryAction = async () => {}
       this.title = title

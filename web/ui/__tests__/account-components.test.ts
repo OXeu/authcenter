@@ -93,10 +93,27 @@ it('allows authenticator enrollment without a local password', async () => {
     .trigger('click')
   expect(wrapper.find('dialog input').exists()).toBe(false)
   vi.mocked(fetch).mockResolvedValueOnce(
-    reply({ request: 'totp-request', secret: 'SECRET', uri: 'otpauth://example' }),
+    reply({
+      request: 'totp-request',
+      secret: 'SECRET',
+      uri: 'otpauth://example',
+      qr_code: 'data:image/png;base64,cXI=',
+    }),
   )
   await wrapper.get('form').trigger('submit')
   await flushPromises()
   expect(wrapper.get('dialog').text()).toContain('SECRET')
+  expect(wrapper.get('dialog img').attributes('src')).toBe('data:image/png;base64,cXI=')
+  await wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Cancel')!
+    .trigger('click')
+  expect(wrapper.find('img').exists()).toBe(false)
+  await wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Set password')!
+    .trigger('click')
+  expect(wrapper.find('dialog img').exists()).toBe(false)
+  expect(wrapper.get('dialog').text()).not.toContain('SECRET')
   wrapper.unmount()
 })

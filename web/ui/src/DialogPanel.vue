@@ -58,6 +58,16 @@ async function upload(event, key) {
   <dialog ref="dialog" class="dialog-panel" :aria-label="form.title" @cancel="cancel">
     <form class="space-y-3" @submit.prevent="form.submit">
       <h2 class="text-base font-semibold">{{ form.title }}</h2>
+      <figure v-if="form.image" class="space-y-2">
+        <figcaption class="field">{{ form.image.caption }}</figcaption>
+        <img
+          :src="form.image.src"
+          :alt="form.image.alt"
+          width="256"
+          height="256"
+          class="mx-auto h-auto max-w-full"
+        />
+      </figure>
       <template v-if="!form.token">
         <div v-for="field in form.fields" :key="field.key" class="field">
           <label v-if="!field.multiOptions" :for="`${formId}-${field.key}`">{{

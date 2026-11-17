@@ -2,6 +2,7 @@ package server
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"github.com/OXeu/authcenter/internal/credentials"
 	"github.com/OXeu/authcenter/internal/store"
 	"github.com/gin-gonic/gin"
+	"github.com/skip2/go-qrcode"
 )
 
 const loginChallengeCookie = "ac_login_challenge"
@@ -259,12 +261,17 @@ func (s *Server) enrollTOTP(c *gin.Context) {
 		return
 	}
 	challenge := store.LoginChallenge{ID: rand.Text(), UserID: user.ID, Email: user.Email, Purpose: "enroll", Secret: encrypted, ExpiresAt: time.Now().UTC().Add(5 * time.Minute)}
+	uri := "otpauth://totp/" + url.PathEscape("AuthCenter:"+user.Email) + "?secret=" + secret + "&issuer=AuthCenter&algorithm=SHA1&digits=6&period=30"
+	qrCode, err := qrcode.Encode(uri, qrcode.Medium, 256)
+	if err != nil {
+		s.fail(c, fmt.Errorf("encode authenticator QR code: %w", err))
+		return
+	}
 	if err := s.store.CreateLoginChallenge(c.Request.Context(), challenge); err != nil {
 		s.fail(c, err)
 		return
 	}
-	uri := "otpauth://totp/" + url.PathEscape("AuthCenter:"+user.Email) + "?secret=" + secret + "&issuer=AuthCenter&algorithm=SHA1&digits=6&period=30"
-	c.JSON(200, gin.H{"request": challenge.ID, "secret": secret, "uri": uri})
+	c.JSON(200, gin.H{"request": challenge.ID, "secret": secret, "uri": uri, "qr_code": "data:image/png;base64," + base64.StdEncoding.EncodeToString(qrCode)})
 }
 
 func (s *Server) verifyTOTPEnrollment(c *gin.Context) {

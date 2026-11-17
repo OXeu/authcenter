@@ -192,6 +192,8 @@
   "account.enable": "绑定身份验证器",
   "account.verify": "验证身份验证器",
   "account.secret": "在身份验证器中手动输入此密钥",
+  "account.qrCode": "身份验证器绑定二维码",
+  "account.scan": "使用身份验证器扫描此二维码，再输入六位验证码完成绑定。",
   "docs.configuration": "运行配置",
   "docs.security": "登录与安全",
   "error.rateLimit": "尝试次数过多，请稍后重试。",

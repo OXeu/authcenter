@@ -192,6 +192,8 @@
   "account.enable": "Set up authenticator",
   "account.verify": "Verify authenticator",
   "account.secret": "Enter this key in your authenticator",
+  "account.qrCode": "Authenticator setup QR code",
+  "account.scan": "Scan this QR code with your authenticator, then enter the six-digit code to finish setup.",
   "docs.configuration": "Configuration",
   "docs.security": "Security",
   "error.rateLimit": "Too many attempts. Please wait and try again.",
