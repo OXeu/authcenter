@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test'
 import { mount } from '@vue/test-utils'
 import DropdownSelect from '../src/DropdownSelect.vue'
+import DropdownMenu from '../src/DropdownMenu.vue'
 
 function dropdown() {
   return mount(DropdownSelect, {
@@ -64,6 +65,46 @@ describe('dropdown selection', () => {
     await wrapper.setProps({ disabled: true })
     expect(wrapper.find('[role="listbox"]').exists()).toBe(false)
     expect(trigger.attributes('disabled')).toBeDefined()
+    wrapper.unmount()
+  })
+})
+
+describe('dropdown menu', () => {
+  it('stays open when clicking the panel, account details or disabled actions', async () => {
+    const wrapper = mount(DropdownMenu, {
+      props: { label: 'Account' },
+      slots: { default: '<p>Account details</p><button disabled>Unavailable</button>' },
+      attachTo: document.body,
+    })
+    const trigger = wrapper.get('button[aria-controls]')
+    await trigger.trigger('click')
+    const panel = wrapper.get<HTMLElement>('.dropdown-content')
+    panel.element.focus()
+    await panel.trigger('click')
+    await panel.get('p').trigger('click')
+    await panel.get('button').trigger('click')
+    expect(trigger.attributes('aria-expanded')).toBe('true')
+    expect(wrapper.find('.dropdown-content').exists()).toBe(true)
+    await panel.trigger('keydown', { key: 'Escape' })
+    expect(wrapper.find('.dropdown-content').exists()).toBe(false)
+    expect(document.activeElement).toBe(trigger.element)
+    wrapper.unmount()
+  })
+
+  it.each(['a', 'button'])('closes when selecting nested content in a %s action', async (tag) => {
+    const wrapper = mount(DropdownMenu, {
+      props: { label: 'Account' },
+      slots: {
+        default: '<a href="#keys"><span>API keys</span></a><button><span>Sign out</span></button>',
+      },
+      attachTo: document.body,
+    })
+    const trigger = wrapper.get('button[aria-controls]')
+    await trigger.trigger('click')
+    await wrapper.get(`.dropdown-content ${tag} span`).trigger('click')
+    expect(wrapper.find('.dropdown-content').exists()).toBe(false)
+    expect(trigger.attributes('aria-expanded')).toBe('false')
+    expect(document.activeElement).toBe(trigger.element)
     wrapper.unmount()
   })
 })

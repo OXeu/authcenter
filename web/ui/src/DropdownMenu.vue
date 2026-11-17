@@ -4,7 +4,10 @@ const props = defineProps<{ label: string; disabled?: boolean; compact?: boolean
 const open = ref(false)
 const trigger = ref<HTMLButtonElement | null>(null)
 const id = useId()
-function select() {
+function select(event: MouseEvent) {
+  if (!(event.target instanceof Element)) return
+  const action = event.target.closest('a[href], button')
+  if (!action || action.matches(':disabled, [aria-disabled="true"]')) return
   close()
   trigger.value?.focus()
 }
@@ -35,7 +38,7 @@ function blur(event: FocusEvent) {
     >
       <slot name="trigger">{{ props.label }}</slot>
     </button>
-    <div v-if="open" :id="id" class="dropdown-content" @click="select">
+    <div v-if="open" :id="id" class="dropdown-content" tabindex="-1" @click="select">
       <slot />
     </div>
   </div>
