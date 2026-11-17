@@ -169,6 +169,7 @@
   "oauth.scope.profile": "Your name and avatar",
   "oauth.scope.email": "Your email address",
   "oauth.scope.offline_access": "Continued access using refresh tokens",
+  "oauth.scope.mcp": "Manage your account and applications through MCP, including administrator actions if you are an administrator",
   "oauth.account": "Signed in as",
   "oauth.deny": "Decline",
   "oauth.allow": "Authorize",

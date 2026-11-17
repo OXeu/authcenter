@@ -274,6 +274,7 @@ func (s *Server) router() *gin.Engine {
 	})
 
 	s.mountTokenEndpoints(r)
+	s.mountMCP(r)
 	r.Use(s.authenticator.BrowserMiddleware())
 	r.Use(s.languageMiddleware())
 

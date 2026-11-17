@@ -85,6 +85,11 @@ func (s *Server) token(c *gin.Context) {
 	if !ok {
 		return
 	}
+	resource := c.PostForm("resource")
+	if resource != "" && resource != s.mcpResource() {
+		oauthError(c, 400, "invalid_target")
+		return
+	}
 	access, refresh := rand.Text()+rand.Text(), rand.Text()+rand.Text()
 	refreshHash := digest(refresh)
 	token := store.OAuthToken{AccessHash: digest(access), RefreshHash: &refreshHash, ExpiresAt: time.Now().UTC().Add(time.Hour), RefreshExpiresAt: time.Now().UTC().Add(30 * 24 * time.Hour)}
@@ -113,13 +118,17 @@ func (s *Server) token(c *gin.Context) {
 			oauthError(c, 400, "invalid_grant")
 			return
 		}
-		grant, err = s.store.RedeemAuthorizationCode(c.Request.Context(), digest(c.PostForm("code")), client.ID, redirect, challenge, token)
+		if resource != "" && (challenge == "" || c.PostForm("redirect_uri") == "") {
+			oauthError(c, 400, "invalid_grant")
+			return
+		}
+		grant, err = s.store.RedeemAuthorizationCode(c.Request.Context(), digest(c.PostForm("code")), client.ID, redirect, challenge, resource, token)
 	case "refresh_token":
 		if c.PostForm("scope") != "" {
 			oauthError(c, 400, "invalid_scope")
 			return
 		}
-		grant, err = s.store.RotateOAuthToken(c.Request.Context(), digest(c.PostForm("refresh_token")), client.ID, token)
+		grant, err = s.store.RotateOAuthToken(c.Request.Context(), digest(c.PostForm("refresh_token")), client.ID, resource, token)
 	default:
 		oauthError(c, 400, "unsupported_grant_type")
 		return
@@ -167,7 +176,7 @@ func (s *Server) userinfo(c *gin.Context) {
 		return
 	}
 	grant, err := s.store.AccessTokenGrant(c.Request.Context(), digest(parts[1]))
-	if err != nil {
+	if err != nil || grant.Resource != "" {
 		c.Header("WWW-Authenticate", `Bearer error="invalid_token"`)
 		oauthError(c, 401, "invalid_token")
 		return

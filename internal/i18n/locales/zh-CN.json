@@ -169,6 +169,7 @@
   "oauth.scope.profile": "姓名与头像",
   "oauth.scope.email": "邮箱地址",
   "oauth.scope.offline_access": "通过刷新令牌持续访问",
+  "oauth.scope.mcp": "通过 MCP 管理你的账户和应用；管理员还可执行用户与系统设置管理操作",
   "oauth.account": "当前账户",
   "oauth.deny": "拒绝",
   "oauth.allow": "允许授权",

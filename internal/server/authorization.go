@@ -101,7 +101,7 @@ func (s *Server) authorize(c *gin.Context) {
 		return
 	}
 	fail := func(code string) {
-		c.Redirect(http.StatusFound, authorizeRedirect(redirect, q.Get("state"), "error", code))
+		c.Redirect(http.StatusFound, s.resourceRedirect(redirect, q.Get("state"), "error", code, q.Get("resource")))
 	}
 	if q.Get("response_type") != "" && q.Get("response_type") != "code" {
 		fail("unsupported_response_type")
@@ -117,8 +117,22 @@ func (s *Server) authorize(c *gin.Context) {
 			return
 		}
 	}
+	resource := q.Get("resource")
+	isMCP := slices.Contains(scopes, mcpScope)
+	if resource != "" && resource != s.mcpResource() || isMCP && resource != s.mcpResource() {
+		fail("invalid_target")
+		return
+	}
+	if resource != "" && !isMCP {
+		fail("invalid_scope")
+		return
+	}
+	if isMCP && q.Get("redirect_uri") == "" {
+		fail("invalid_request")
+		return
+	}
 	challenge := q.Get("code_challenge")
-	if challenge != "" || client.Public {
+	if challenge != "" || client.Public || isMCP {
 		decoded, decodeErr := base64.RawURLEncoding.DecodeString(challenge)
 		if decodeErr != nil || len(decoded) != 32 || len(challenge) != 43 || q.Get("code_challenge_method") != "S256" {
 			fail("invalid_request")
@@ -128,7 +142,7 @@ func (s *Server) authorize(c *gin.Context) {
 		fail("invalid_request")
 		return
 	}
-	request := store.AuthorizationRequest{ID: rand.Text(), ClientID: client.ID, RedirectURI: redirect, Scope: strings.Join(scopes, " "), State: q.Get("state"), Challenge: challenge, ExpiresAt: time.Now().UTC().Add(10 * time.Minute)}
+	request := store.AuthorizationRequest{ID: rand.Text(), ClientID: client.ID, RedirectURI: redirect, Scope: strings.Join(scopes, " "), Resource: resource, State: q.Get("state"), Challenge: challenge, ExpiresAt: time.Now().UTC().Add(10 * time.Minute)}
 	if err := s.store.CreateAuthorizationRequest(c.Request.Context(), request); err != nil {
 		oauthError(c, 500, "server_error")
 		return
@@ -195,7 +209,7 @@ func (s *Server) consent(c *gin.Context) {
 		return
 	}
 	code := rand.Text() + rand.Text()
-	grant := store.OAuthGrant{ID: rand.Text(), ClientID: request.ClientID, UserID: user.ID, Scope: request.Scope}
+	grant := store.OAuthGrant{ID: rand.Text(), ClientID: request.ClientID, UserID: user.ID, Scope: request.Scope, Resource: request.Resource}
 	record := store.AuthorizationCode{Digest: digest(code), GrantID: grant.ID, ClientID: request.ClientID, RedirectURI: request.RedirectURI, Challenge: request.Challenge, ExpiresAt: time.Now().UTC().Add(5 * time.Minute)}
 	if err := s.store.DecideAuthorization(c.Request.Context(), request, grant, record, *in.Approve); err != nil {
 		oauthError(c, 400, "invalid_request")
@@ -207,5 +221,13 @@ func (s *Server) consent(c *gin.Context) {
 		key, value = "error", "access_denied"
 	}
 	c.Header("Cache-Control", "no-store")
-	c.JSON(200, gin.H{"redirect": authorizeRedirect(request.RedirectURI, request.State, key, value)})
+	c.JSON(200, gin.H{"redirect": s.resourceRedirect(request.RedirectURI, request.State, key, value, request.Resource)})
+}
+
+func (s *Server) resourceRedirect(uri, state, key, value, resource string) string {
+	redirect := authorizeRedirect(uri, state, key, value)
+	if resource != "" {
+		return authorizeRedirect(redirect, state, "iss", s.cfg.PublicURL)
+	}
+	return redirect
 }

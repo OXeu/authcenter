@@ -26,7 +26,7 @@ func digest(value string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-var supportedScopes = []string{"profile", "email", "offline_access"}
+var supportedScopes = []string{"profile", "email", "offline_access", mcpScope}
 
 type clientInput struct {
 	Name         string   `json:"name"`

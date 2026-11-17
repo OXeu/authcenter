@@ -24,6 +24,7 @@ type AuthorizationRequest struct {
 	ClientID    string `gorm:"size:64;index;not null"`
 	RedirectURI string `gorm:"type:text;not null"`
 	Scope       string `gorm:"not null"`
+	Resource    string `gorm:"size:2048;not null;default:''"`
 	State       string `gorm:"type:text"`
 	Challenge   string `gorm:"size:64;not null"`
 	CSRFHash    string `gorm:"size:64"`
@@ -38,6 +39,7 @@ type OAuthGrant struct {
 	ClientID  string    `gorm:"size:64;index;not null" json:"client_id"`
 	UserID    uint      `gorm:"index;not null" json:"-"`
 	Scope     string    `gorm:"not null" json:"scope"`
+	Resource  string    `gorm:"size:2048;not null;default:''" json:"resource,omitempty"`
 	Revoked   bool      `gorm:"not null" json:"revoked"`
 	CreatedAt time.Time `json:"created_at"`
 }

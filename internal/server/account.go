@@ -31,6 +31,9 @@ func sessionID(c *gin.Context) string {
 	if id, ok := auth.FromContext(c.Request.Context()); ok && id.APIKey != nil {
 		return "apikey:" + strconv.FormatUint(uint64(id.APIKey.ID), 10)
 	}
+	if grant, ok := c.Request.Context().Value(mcpGrantKey{}).(string); ok {
+		return "mcp:" + grant
+	}
 	session, err := c.Cookie("ac_session")
 	if err != nil {
 		return ""

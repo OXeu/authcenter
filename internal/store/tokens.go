@@ -30,7 +30,7 @@ func (s *Store) lockGrant(ctx context.Context, id, clientID string) (OAuthGrant,
 }
 
 // RedeemAuthorizationCode atomically consumes a code and issues its tokens.
-func (s *Store) RedeemAuthorizationCode(ctx context.Context, digest, clientID, redirectURI, challenge string, token OAuthToken) (OAuthGrant, error) {
+func (s *Store) RedeemAuthorizationCode(ctx context.Context, digest, clientID, redirectURI, challenge, resource string, token OAuthToken) (OAuthGrant, error) {
 	var grant OAuthGrant
 	replay := false
 	err := s.Transaction(ctx, func(tx *Store) error {
@@ -59,6 +59,9 @@ func (s *Store) RedeemAuthorizationCode(ctx context.Context, digest, clientID, r
 		if err != nil {
 			return err
 		}
+		if grant.Resource != resource {
+			return ErrInvalidGrant
+		}
 		result := tx.db.WithContext(ctx).Model(&AuthorizationCode{}).Where("digest = ? AND used = ?", digest, false).Update("used", true)
 		if err := tx.mustAffect(ctx, result, "consume code"); err != nil {
 			return err
@@ -79,7 +82,7 @@ func (s *Store) RedeemAuthorizationCode(ctx context.Context, digest, clientID, r
 }
 
 // RotateOAuthToken replaces a refresh token and revokes its family on reuse.
-func (s *Store) RotateOAuthToken(ctx context.Context, digest, clientID string, next OAuthToken) (OAuthGrant, error) {
+func (s *Store) RotateOAuthToken(ctx context.Context, digest, clientID, resource string, next OAuthToken) (OAuthGrant, error) {
 	var grant OAuthGrant
 	replay := false
 	err := s.Transaction(ctx, func(tx *Store) error {
@@ -94,6 +97,9 @@ func (s *Store) RotateOAuthToken(ctx context.Context, digest, clientID string, n
 		grant, err = tx.lockGrant(ctx, previous.GrantID, clientID)
 		if err != nil {
 			return err
+		}
+		if grant.Resource != resource {
+			return ErrInvalidGrant
 		}
 		if previous.Used {
 			replay = true
