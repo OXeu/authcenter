@@ -1,4 +1,4 @@
-.PHONY: all build assets lint test check sdk-lint sdk-test run fmt
+.PHONY: all build assets lint test check sdk-lint sdk-test run fmt scf-package
 
 BIN ?= .tmp/bin/authcenter
 TMP_ROOT := $(CURDIR)/.tmp
@@ -38,3 +38,9 @@ check: assets lint sdk-lint test sdk-test
 # Runtime settings are loaded through the configcenter SDK.
 run: build
 	exec ./$(BIN)
+
+scf-package: assets
+	mkdir -p $(TMP_ROOT)/scf
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 TMPDIR=$(TMP_ROOT) go build -trimpath -ldflags='-s -w' -o $(TMP_ROOT)/scf/authcenter ./cmd/authcenter
+	cp scf_bootstrap $(TMP_ROOT)/scf/scf_bootstrap
+	chmod 755 $(TMP_ROOT)/scf/scf_bootstrap

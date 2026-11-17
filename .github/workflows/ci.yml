@@ -63,31 +63,13 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Build Linux deployment package
-        run: |
-          mkdir -p .tmp/scf
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build BIN=.tmp/scf/authcenter
-          cp scf_bootstrap .tmp/scf/scf_bootstrap
-          chmod +x .tmp/scf/scf_bootstrap
-      - name: Prepare runtime configuration
-        env:
-          RUNTIME_ENV: ${{ secrets.SCF_RUNTIME_ENV }}
-          TENCENT_SECRET_ID: ${{ secrets.TENCENT_SECRET_ID }}
-          TENCENT_SECRET_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
-        run: |
-          test -n "$TENCENT_SECRET_ID"
-          test -n "$TENCENT_SECRET_KEY"
-          test -n "$SCF_REGION"
-          test -n "$SCF_VPC_ID"
-          test -n "$SCF_SUBNET_ID"
-          test -n "$RUNTIME_ENV"
-          umask 077
-          printf '%s\n' "$RUNTIME_ENV" > .tmp/scf/.env.local
       - name: Deploy Tencent SCF
-        uses: woodyyan/tencent-serverless-action@56a4f1cf4ccd306834307c882a893ceb2c7e49e1
         env:
+          SCF_RUNTIME_ENV: ${{ secrets.SCF_RUNTIME_ENV }}
           TENCENT_SECRET_ID: ${{ secrets.TENCENT_SECRET_ID }}
           TENCENT_SECRET_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
-      - name: Remove runtime configuration
-        if: always()
-        run: rm -f .tmp/scf/.env.local
+        run: npm run deploy:scf
+      - name: Verify deployed service
+        env:
+          SCF_PUBLIC_URL: ${{ vars.SCF_PUBLIC_URL }}
+        run: npm run verify:scf

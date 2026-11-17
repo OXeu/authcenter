@@ -10,7 +10,9 @@
     "test": "vp test",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
     "typecheck": "node node_modules/typescript-native/bin/tsc -p tsconfig.native.json && vue-tsc -p tsconfig.json",
-    "build:docs": "node tools/build-docs.ts"
+    "build:docs": "node tools/build-docs.ts",
+    "deploy:scf": "node tools/deploy-scf.ts",
+    "verify:scf": "node tools/verify-scf.ts"
   },
   "devDependencies": {
     "@shikijs/transformers": "^4.6.0",

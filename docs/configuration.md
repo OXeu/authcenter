@@ -8,7 +8,7 @@ AuthCenter 使用 `github.com/OXeu/configcenter/sdk/configcenter` 读取配置�
 
 ```dotenv
 AC_CONFIGCENTER_URL=https://config.example.com
-AC_CONFIGCENTER_KEY=cc_project_scoped_key
+AC_CONFIGCENTER_API_KEY=cc_project_scoped_key
 AC_CONFIGCENTER_ENVIRONMENT=production
 ```
 
@@ -63,3 +63,29 @@ AC_BOOTSTRAP_ADMIN_EMAIL=admin@example.com
 加密密钥应持久保存，所有实例使用相同值。直接替换会使已绑定的 TOTP 密钥无法解密。生产共享数据库与此密钥，不使用临时 SQLite 文件。初始管理员邮箱应使用实际可收信的地址。
 
 腾讯 SCF 部署沿用仓库的打包流程；在配置中心将 `AC_ADDR` 设置为 `0.0.0.0:9000`，使用 MySQL 和 HTTPS 公网地址。部署文件仅包含配置中心引导参数，SCF 不覆盖运行配置。
+
+## 本地部署与 GitHub Actions
+
+`AC_CONFIGCENTER_API_KEY` 是连接密钥的标准变量名；旧名 `AC_CONFIGCENTER_KEY` 仅作为兼容别名，两个值同时存在时标准名优先。已废弃的 `AC_SESSION_SECRET` 不再使用。
+
+本地 `.env` 中填写配置中心连接信息，以及 `.env.example` 列出的腾讯云凭据、地域、VPC 和子网参数，然后运行：
+
+```sh
+make check
+npm run deploy:scf
+SCF_PUBLIC_URL=https://YOUR_FUNCTION.ap-guangzhou.tencentscf.com npm run verify:scf
+```
+
+部署会构建 Linux 二进制，并使用固定版本的 `serverless-cloud-framework` CLI。函数包只包含二进制、启动脚本和配置中心引导文件；腾讯云管理凭据不会被打包。部署产物在完成后自动清理，失败日志保存在仅当前用户可读的 `.tmp/scf-deploy.log`。
+
+GitHub 仓库需要以下配置：
+
+| 类别     | 名称                                          | 内容                                                     |
+| -------- | --------------------------------------------- | -------------------------------------------------------- |
+| Secret   | `TENCENT_SECRET_ID` / `TENCENT_SECRET_KEY`    | 腾讯云部署凭据                                           |
+| Secret   | `SCF_RUNTIME_ENV`                             | 三项 `AC_CONFIGCENTER_*` 引导参数组成的 dotenv 文本      |
+| Variable | `SCF_REGION` / `SCF_VPC_ID` / `SCF_SUBNET_ID` | 部署网络                                                 |
+| Variable | `SCF_DEPLOY_ENABLED`                          | `true` 启用 main 分支部署                                |
+| Variable | `SCF_PUBLIC_URL`                              | 已部署的 HTTPS 地址，须与配置中心的 `AC_PUBLIC_URL` 一致 |
+
+推送 main 或手动触发 `CI and deploy` 后，检查任务完成才会部署。部署任务使用与本地相同的脚本，并验证登录页及 OAuth 元数据。自定义域名需先配置 HTTPS 绑定；尚未绑定时可使用 SCF 原生 HTTPS 地址。
