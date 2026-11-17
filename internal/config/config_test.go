@@ -13,7 +13,7 @@ import (
 func TestSDKLoadsAllRuntimeConfiguration(t *testing.T) {
 	key := base64.StdEncoding.EncodeToString(make([]byte, 32))
 	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "ApiKey cc_test" || !strings.Contains(r.URL.Path, "/environments/staging/values") {
+		if r.Header.Get("Authorization") != "Bearer cc_test" || !strings.Contains(r.URL.Path, "/environments/staging/values") {
 			t.Errorf("unexpected configcenter request %s", r.URL.Path)
 		}
 		items := []map[string]string{}
@@ -76,7 +76,7 @@ func TestConfigValidation(t *testing.T) {
 
 func TestBootstrapAPIKeyPrecedenceAndLegacyAlias(t *testing.T) {
 	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "ApiKey cc_correct" {
+		if r.Header.Get("Authorization") != "Bearer cc_correct" {
 			t.Error("wrong bootstrap API key selected")
 		}
 		json.NewEncoder(w).Encode(map[string]any{"items": []map[string]string{{"key": "AC_LOCAL_LOGIN", "value": "false"}}})
