@@ -3,11 +3,11 @@
   configcenter
 </h1>
 
-Self-hosted configuration service: projects as isolation boundaries, environments, OAuth single sign-on, project-scoped API keys, a Vue web UI and an MCP endpoint for agents.
+Self-hosted configuration service: projects as isolation boundaries, environments, OAuth single sign-on, project-scoped and global API keys, a responsive Vue web UI and an MCP endpoint for agents.
 
 ## Integration documentation
 
-Open `/docs/` on your running server for the integration documentation. Public Markdown endpoints `/docs/index.md`, `/docs/api.md` and `/docs/sdk.md` support agents without JavaScript or login. Sources: [overview](docs/index.md), [HTTP API](docs/api.md), [Go SDK](docs/sdk.md). The guides are embedded in the Go binary. Documentation pages share the application header, design tokens and saved light/dark theme; their content is pre-rendered with Shiki code highlighting at build time and Markdown endpoints remain public. Shiki generates light/dark token styles in an external stylesheet, keeping the CSP intact and adding no browser-side highlighter.
+Open `/docs/` on your running server for the integration documentation. Public Markdown endpoints `/docs/index.md`, `/docs/api.md`, `/docs/sdk.md` and `/docs/mcp.md` support agents without JavaScript or login. Sources: [overview](docs/index.md), [HTTP API](docs/api.md), [Go SDK](docs/sdk.md), [MCP](docs/mcp.md). The guides are embedded in the Go binary. Documentation pages share the application header, design tokens and saved light/dark theme; their content is pre-rendered with Shiki code highlighting at build time and Markdown endpoints remain public. Shiki generates light/dark token styles in an external stylesheet, keeping the CSP intact and adding no browser-side highlighter.
 
 ## Stack
 
@@ -58,11 +58,14 @@ The UI ships in English and Simplified Chinese (`internal/i18n/locales`). The he
 
 ## Isolation model
 
-- A **project** is the boundary. Every item, environment, key and proposal belongs to exactly one project.
-- An **API key** belongs to one project. Requests with a key for project `billing` cannot address project `payments` at all: the key's project is implied by the key itself, the path only names the environment.
+- A **project** is the boundary. Every item, environment, project key and proposal belongs to exactly one project.
+- A **project API key** belongs to one project. A key for `billing` cannot access `payments`. Agent REST derives the project from the key; the MCP path must match that project.
+- A **global API key** can manage every project, environment and configuration through the management REST API and MCP. Administrators create, rotate and revoke global keys at `/keys`. Agent REST requires `?project=<slug>` for these keys; MCP takes the project in its path. Global keys do not grant access to user administration, server settings or global key issuance.
 - **Agents** (MCP) and **humans** (web session) share the same authorization rules: viewer keys read, editor keys write, browsers get the mapped role.
 
-## REST API (session, CSRF token in `X-CSRF-Token`)
+## REST API
+
+Project management accepts a browser session with `X-CSRF-Token` on mutations, or a global API key. User administration, settings and global key management require an administrator session. See [HTTP API](docs/api.md) for routes, request bodies and key lifecycle details.
 
 | Method       | Path                                                                   |
 | ------------ | ---------------------------------------------------------------------- |
@@ -82,7 +85,9 @@ The UI ships in English and Simplified Chinese (`internal/i18n/locales`). The he
 
 ## MCP
 
-`POST /mcp/:project` speaks JSON-RPC 2.0 (Streamable HTTP shape, stateless). Authenticate with `Authorization: ApiKey <token>`; the web UI calls the same endpoint with its session cookie and CSRF token, so every change an agent or a person makes takes the same path.
+See the [MCP guide](docs/mcp.md) for authentication, initialization, all seven tools, examples and errors.
+
+`POST /mcp/:project` speaks JSON-RPC 2.0 over stateless HTTP POST with JSON responses. Authenticate with `Authorization: ApiKey <token>`. Browser sessions with a CSRF token can use read tools; configuration write tools require an API key. The web UI uses the management REST API for writes.
 
 Tools: `list_environments`, `list_config`, `get_config`, `delete_config`, `set_config`, `propose_config`, `list_proposals`. Viewer keys only see the read tools; `propose_config` records a change for human review, which the **Proposals** tab in the UI applies or rejects.
 

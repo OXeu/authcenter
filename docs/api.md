@@ -1,6 +1,6 @@
 # HTTP API 接入
 
-[文档首页](/docs/) · [Go SDK](/docs/sdk) · [Markdown 原文](/docs/api.md)
+[文档首页](/docs/) · [Go SDK](/docs/sdk) · [MCP 接口](/docs/mcp) · [Markdown 原文](/docs/api.md)
 
 ## 鉴权与项目隔离
 
@@ -73,22 +73,22 @@ curl --fail-with-body --silent --show-error --get \
 
 使用 `Authorization: ApiKey <token>` 鉴权时不需要 Cookie 或 CSRF Token；显式提供认证头后不会回退到浏览器会话。使用浏览器会话时，修改请求仍需要 `X-CSRF-Token` 和写权限。
 
-| 方法 | 路径 | 请求体 / 行为 |
-| --- | --- | --- |
-| GET | `/api/v1/projects` | 返回 `projects`；默认列出所有项目，`?view=mine` 只列出密钥创建者拥有的项目 |
-| POST | `/api/v1/projects` | `slug`、`name`、可选 `description`；自动创建 `production` 环境，所有者为密钥创建者 |
-| PATCH | `/api/v1/projects/:project` | `name`、`description`；更新名称和描述，不能更改 slug |
-| DELETE | `/api/v1/projects/:project` | 删除项目及其配置、环境、项目 Key 和提案 |
-| GET / POST | `/api/v1/projects/:project/environments` | 读取环境，或用 `slug`、`name` 创建环境 |
-| DELETE | `/api/v1/projects/:project/environments/:env` | 删除环境及其内容 |
-| GET | `/api/v1/projects/:project/environments/:env/items` | 读取配置，支持 `?prefix=` |
-| PUT | `/api/v1/projects/:project/environments/:env/items/:key` | `value`（必填字符串）、可选 `description`；创建或覆盖配置 |
-| DELETE | `/api/v1/projects/:project/environments/:env/items/:key` | 删除配置 |
-| GET / POST | `/api/v1/projects/:project/keys` | 列出项目 Key，或用 `name`、`role`（viewer / editor）、可选 `expires_at` 创建 |
-| POST | `/api/v1/projects/:project/keys/:id/rotate` | 轮换项目 Key，返回一次性可见的 `token` |
-| DELETE | `/api/v1/projects/:project/keys/:id` | 吊销项目 Key |
-| GET | `/api/v1/projects/:project/proposals` | 列出提案，支持 `?status=pending` |
-| POST | `/api/v1/projects/:project/proposals/:id/review` | `approve` 布尔值；批准或拒绝提案 |
+| 方法       | 路径                                                     | 请求体 / 行为                                                                      |
+| ---------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| GET        | `/api/v1/projects`                                       | 返回 `projects`；默认列出所有项目，`?view=mine` 只列出密钥创建者拥有的项目         |
+| POST       | `/api/v1/projects`                                       | `slug`、`name`、可选 `description`；自动创建 `production` 环境，所有者为密钥创建者 |
+| PATCH      | `/api/v1/projects/:project`                              | `name`、`description`；更新名称和描述，不能更改 slug                               |
+| DELETE     | `/api/v1/projects/:project`                              | 删除项目及其配置、环境、项目 Key 和提案                                            |
+| GET / POST | `/api/v1/projects/:project/environments`                 | 读取环境，或用 `slug`、`name` 创建环境                                             |
+| DELETE     | `/api/v1/projects/:project/environments/:env`            | 删除环境及其内容                                                                   |
+| GET        | `/api/v1/projects/:project/environments/:env/items`      | 读取配置，支持 `?prefix=`                                                          |
+| PUT        | `/api/v1/projects/:project/environments/:env/items/:key` | `value`（必填字符串）、可选 `description`；创建或覆盖配置                          |
+| DELETE     | `/api/v1/projects/:project/environments/:env/items/:key` | 删除配置                                                                           |
+| GET / POST | `/api/v1/projects/:project/keys`                         | 列出项目 Key，或用 `name`、`role`（viewer / editor）、可选 `expires_at` 创建       |
+| POST       | `/api/v1/projects/:project/keys/:id/rotate`              | 轮换项目 Key，返回一次性可见的 `token`                                             |
+| DELETE     | `/api/v1/projects/:project/keys/:id`                     | 吊销项目 Key                                                                       |
+| GET        | `/api/v1/projects/:project/proposals`                    | 列出提案，支持 `?status=pending`                                                   |
+| POST       | `/api/v1/projects/:project/proposals/:id/review`         | `approve` 布尔值；批准或拒绝提案                                                   |
 
 路径中的 project、env 使用 slug，key 和各路径段需 URL 编码。新建项目、环境、密钥返回 HTTP 201；读取、更新、写入配置和轮换返回 HTTP 200；删除返回 HTTP 204。缺失或失效凭据返回 401，项目 Key 调用管理接口返回 403，参数错误返回 400，资源不存在返回 404。
 

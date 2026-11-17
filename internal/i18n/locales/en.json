@@ -115,5 +115,6 @@
   "settings.closed": "Closed",
   "login.error.registration_closed": "New user registration is closed. Contact an administrator.",
   "title.globalKeys": "Global keys",
-  "keys.globalDescription": "Global API keys can manage every project, environment and configuration. Only administrators can issue, rotate or revoke them."
+  "keys.globalDescription": "Global API keys can manage every project, environment and configuration. Only administrators can issue, rotate or revoke them.",
+  "docs.mcp": "MCP"
 }

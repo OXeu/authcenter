@@ -216,6 +216,7 @@ describe('Vue pages', () => {
     expect(wrapper.get('header img').attributes('src')).toBe('/static/brand/icon-32.webp')
     expect(wrapper.get('a[href="/docs/api"]').attributes('aria-current')).toBe('page')
     expect(wrapper.find('a[href="/docs/api.md"]').exists()).toBe(true)
+    expect(wrapper.get('a[href="/docs/mcp"]').text()).toBe('MCP')
     expect(wrapper.find('main').exists()).toBe(false)
     expect(wrapper.find('dialog').exists()).toBe(false)
     expect(wrapper.classes()).not.toContain('min-h-screen')

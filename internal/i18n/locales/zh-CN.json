@@ -115,5 +115,6 @@
   "settings.closed": "关闭",
   "login.error.registration_closed": "新用户注册已关闭，请联系管理员。",
   "title.globalKeys": "全局密钥",
-  "keys.globalDescription": "全局 API Key 可管理所有项目、环境和配置，仅管理员可创建、轮换和吊销。"
+  "keys.globalDescription": "全局 API Key 可管理所有项目、环境和配置，仅管理员可创建、轮换和吊销。",
+  "docs.mcp": "MCP"
 }

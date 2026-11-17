@@ -19,6 +19,7 @@ const docsLinks = [
   { page: 'index', href: '/docs/', label: 'docs.overview' },
   { page: 'api', href: '/docs/api', label: 'docs.api' },
   { page: 'sdk', href: '/docs/sdk', label: 'docs.sdk' },
+  { page: 'mcp', href: '/docs/mcp', label: 'docs.mcp' },
 ]
 const rawDocument = computed(() => `/docs/${data.docPage ?? 'index'}.md`)
 const page = createPage(data)
