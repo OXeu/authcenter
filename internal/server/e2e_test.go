@@ -327,14 +327,31 @@ func TestVuePageContractAndEscaping(t *testing.T) {
 	if len(matches) < 2 {
 		t.Fatal("missing hashed frontend assets")
 	}
-	for _, path := range append(matches, []string{"/static/app/remixicon.svg", "/static/brand/icon-32.webp", "/static/brand/icon-512.webp"}...) {
+	sprites := make(map[string]struct{})
+	for _, path := range matches {
+		if !strings.HasSuffix(path, ".css") {
+			continue
+		}
+		css := httptest.NewRecorder()
+		f.router.ServeHTTP(css, httptest.NewRequest(http.MethodGet, path, http.NoBody))
+		for _, sprite := range regexp.MustCompile(`/static/app/remixicon-[a-f0-9]{16}\.svg`).FindAllString(css.Body.String(), -1) {
+			sprites[sprite] = struct{}{}
+		}
+	}
+	if len(sprites) != 1 {
+		t.Fatalf("expected one hashed sprite URL in CSS, got %v", sprites)
+	}
+	for sprite := range sprites {
+		matches = append(matches, sprite)
+	}
+	for _, path := range append(matches, "/static/brand/icon-32.webp", "/static/brand/icon-512.webp") {
 		asset := httptest.NewRecorder()
 		f.router.ServeHTTP(asset, httptest.NewRequest(http.MethodGet, path, http.NoBody))
 		if asset.Code != http.StatusOK || asset.Body.Len() == 0 {
 			t.Fatalf("asset %s = %d", path, asset.Code)
 		}
 		expected := "public, max-age=3600"
-		if strings.HasPrefix(path, "/static/app/") && path != "/static/app/remixicon.svg" {
+		if strings.HasPrefix(path, "/static/app/") {
 			expected = "public, max-age=31536000, immutable"
 		}
 		if asset.Header().Get("Cache-Control") != expected {

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import type { Plugin } from 'vite-plus'
@@ -13,6 +14,7 @@ export function iconSprite(): Plugin {
   const moduleID = 'virtual:remixicon.css'
   const resolvedID = `\0${moduleID}`
   let sprite = ''
+  let fileName = ''
   return {
     name: 'remixicon-sprite',
     resolveId(id) {
@@ -48,13 +50,16 @@ export function iconSprite(): Plugin {
         rules.push(`.ri-${name}{mask-position:0 ${position}%}`)
       }
       sprite = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="${names.size * 24}" viewBox="0 0 24 ${names.size * 24}">${views.join('')}</svg>`
-      return `[class^="ri-"],[class*=" ri-"]{display:inline-block;width:1em;height:1em;background-color:currentColor;mask-image:url("/static/app/remixicon.svg");mask-repeat:no-repeat;mask-size:100% ${names.size * 100}%;vertical-align:-.125em}${rules.join('')}`
+      const hash = createHash('sha256').update(sprite).digest('hex').slice(0, 16)
+      fileName = `remixicon-${hash}.svg`
+      return `[class^="ri-"],[class*=" ri-"]{display:inline-block;width:1em;height:1em;background-color:currentColor;mask-image:url("/static/app/${fileName}");mask-repeat:no-repeat;mask-size:100% ${names.size * 100}%;vertical-align:-.125em}${rules.join('')}`
     },
     generateBundle() {
-      this.emitFile({ type: 'asset', fileName: 'remixicon.svg', source: sprite })
+      this.emitFile({ type: 'asset', fileName, source: sprite })
     },
     configureServer(server) {
-      server.middlewares.use('/static/app/remixicon.svg', (_request, response) => {
+      server.middlewares.use('/static/app/', (request, response, next) => {
+        if (!fileName || request.url?.split('?')[0] !== `/${fileName}`) return next()
         response.setHeader('Content-Type', 'image/svg+xml')
         response.end(sprite)
       })

@@ -249,9 +249,7 @@ func (s *Server) router() *gin.Engine {
 				c.Status(http.StatusNotFound)
 				return
 			}
-			if name != "remixicon.svg" {
-				c.Header("Cache-Control", "public, max-age=31536000, immutable")
-			}
+			c.Header("Cache-Control", "public, max-age=31536000, immutable")
 			serveStaticFile(c, frontend, name)
 			return
 		}
