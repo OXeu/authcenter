@@ -7,6 +7,28 @@ import (
 	"slices"
 )
 
+func (s *Store) migrateOpenIDClients(ctx context.Context) error {
+	return s.Transaction(ctx, func(tx *Store) error {
+		var clients []OAuthClient
+		if err := tx.db.WithContext(ctx).Select("id", "scopes").Where("dynamic = ?", false).Find(&clients).Error; err != nil {
+			return queryErr("load clients for OpenID migration", err)
+		}
+		for _, client := range clients {
+			if slices.Contains(client.Scopes, "openid") {
+				continue
+			}
+			scopes, err := json.Marshal(append(client.Scopes, "openid"))
+			if err != nil {
+				return fmt.Errorf("encode OpenID scopes: %w", err)
+			}
+			if err := tx.db.WithContext(ctx).Model(&OAuthClient{}).Where("id = ?", client.ID).Update("scopes", string(scopes)).Error; err != nil {
+				return queryErr("enable OpenID scope", err)
+			}
+		}
+		return nil
+	})
+}
+
 // CreateOAuthClient registers an application.
 func (s *Store) CreateOAuthClient(ctx context.Context, client OAuthClient) error {
 	if err := s.db.WithContext(ctx).Create(&client).Error; err != nil {

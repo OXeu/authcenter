@@ -23,6 +23,8 @@ GitHub OAuth 使用 GitHub 的 access token 和用户接口识别用户，不依
 
 普通 OAuth 2.0 客户端无需 nonce 或 issuer 校验。机密客户端可选择 S256 PKCE，公开客户端必须使用。注册时不校验回调 URI 的格式、协议、域名或路径；授权时按注册的原始字符串完整匹配，没有通配符匹配。授权码兑换仍绑定原始回调值，注册不会授予任何用户权限。
 
+[OpenID Connect](oidc.md) 请求额外校验回调 URI，并将 nonce 绑定到授权请求和签名 ID Token。客户端必须验证签名、issuer、audience、有效期及传入的 nonce。签名私钥保存在 ConfigCenter 的密钥设置中，JWKS 只公开公钥；ID Token 有效期为五分钟，退出登录或撤销授权不会立即撤销已经签发的 ID Token。
+
 ```text
 业务应用 → /oauth/authorize → 登录 → 用户同意 → 已登记回调
 业务应用 → /oauth/token → access_token → /oauth/userinfo

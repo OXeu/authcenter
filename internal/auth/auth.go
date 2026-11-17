@@ -171,6 +171,10 @@ func (a *Authenticator) BrowserMiddleware() gin.HandlerFunc {
 			return
 		}
 		id, ok := FromContext(c.Request.Context())
+		if c.Request.Method == http.MethodPost && c.Request.URL.Path == "/oauth/authorize" && c.ContentType() == "application/x-www-form-urlencoded" {
+			c.Next()
+			return
+		}
 		if !ok || id.User == nil {
 			c.Next()
 			return

@@ -26,7 +26,9 @@ func (s *Server) mountTokenEndpoints(r *gin.Engine) {
 	public.POST("/oauth/token", s.token)
 	public.POST("/oauth/revoke", s.revokeToken)
 	public.GET("/oauth/userinfo", s.userinfo)
-	for _, path := range []string{"/oauth/register", "/oauth/token", "/oauth/revoke", "/oauth/userinfo"} {
+	public.POST("/oauth/userinfo", s.userinfo)
+	public.GET("/oauth/jwks", s.jwks)
+	for _, path := range []string{"/oauth/register", "/oauth/token", "/oauth/revoke", "/oauth/userinfo", "/oauth/jwks"} {
 		public.OPTIONS(path, func(c *gin.Context) { c.Status(http.StatusNoContent) })
 	}
 }
@@ -104,10 +106,7 @@ func (s *Server) token(c *gin.Context) {
 	switch c.PostForm("grant_type") {
 	case "authorization_code":
 		redirect := c.PostForm("redirect_uri")
-		if redirect == "" {
-			redirect = client.RedirectURIs[0]
-		}
-		if !slices.Contains(client.RedirectURIs, redirect) {
+		if redirect != "" && !slices.Contains(client.RedirectURIs, redirect) {
 			oauthError(c, 400, "invalid_grant")
 			return
 		}
@@ -151,6 +150,15 @@ func (s *Server) token(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	c.Header("Pragma", "no-cache")
 	body := gin.H{"access_token": access, "token_type": "Bearer", "expires_in": 3600, "scope": grant.Scope}
+	if c.PostForm("grant_type") == "authorization_code" && slices.Contains(strings.Fields(grant.Scope), "openid") {
+		identity, err := s.idToken(c, grant, access)
+		if err != nil {
+			s.log.Error("issue ID Token", "error", err)
+			oauthError(c, http.StatusInternalServerError, "server_error")
+			return
+		}
+		body["id_token"] = identity
+	}
 	if slices.Contains(strings.Fields(grant.Scope), "offline_access") {
 		body["refresh_token"] = refresh
 	}
@@ -199,6 +207,7 @@ func (s *Server) userinfo(c *gin.Context) {
 	}
 	if slices.Contains(scopes, "email") {
 		body["email"] = user.Email
+		body["email_verified"] = user.EmailVerified
 	}
 	c.Header("Cache-Control", "no-store")
 	c.JSON(200, body)

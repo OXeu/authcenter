@@ -37,12 +37,22 @@ func (s *Store) RedeemAuthorizationCode(ctx context.Context, digest, clientID, r
 		if err := tx.lockAuthorizationClient(ctx, clientID); err != nil {
 			return err
 		}
-		if err := tx.validateOAuthRedirect(ctx, clientID, redirectURI); err != nil {
-			return err
-		}
 		var code AuthorizationCode
 		if err := tx.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&code, "digest = ? AND client_id = ?", digest, clientID).Error; err != nil {
 			return queryErr("load code", err)
+		}
+		if redirectURI == "" {
+			if code.RedirectRequired {
+				return ErrInvalidGrant
+			}
+			client, err := tx.AuthorizationClientByID(ctx, clientID)
+			if err != nil {
+				return err
+			}
+			redirectURI = client.RedirectURIs[0]
+		}
+		if err := tx.validateOAuthRedirect(ctx, clientID, redirectURI); err != nil {
+			return err
 		}
 		if code.RedirectURI != redirectURI || code.Challenge != challenge {
 			return ErrInvalidGrant

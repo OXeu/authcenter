@@ -35,6 +35,7 @@ var definitions = []Setting{
 	{Key: "AC_LOCAL_LOGIN", Value: "true", Options: []string{"true", "false"}},
 	{Key: "AC_ALLOW_REGISTRATION", Value: "true", Options: []string{"true", "false"}},
 	{Key: "AC_ENCRYPTION_KEY", Secret: true, Restart: true},
+	{Key: "AC_OIDC_SIGNING_KEYS", Secret: true},
 	{Key: "AC_RESEND_API_KEY", Secret: true},
 	{Key: "AC_RESEND_FROM"},
 	{Key: "AC_OAUTH_ISSUER", Value: "https://github.com/login/oauth"},

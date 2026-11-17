@@ -27,6 +27,7 @@ type AuthorizationRequest struct {
 	Scope       string `gorm:"not null"`
 	Resource    string `gorm:"size:2048;not null;default:''"`
 	State       string `gorm:"type:text"`
+	Nonce       string `gorm:"type:text"`
 	Challenge   string `gorm:"size:64;not null"`
 	CSRFHash    string `gorm:"size:64"`
 	UserID      uint
@@ -40,6 +41,7 @@ type OAuthGrant struct {
 	ClientID  string    `gorm:"size:64;index;not null" json:"client_id"`
 	UserID    uint      `gorm:"index;not null" json:"-"`
 	Scope     string    `gorm:"not null" json:"scope"`
+	Nonce     string    `gorm:"type:text" json:"-"`
 	Resource  string    `gorm:"size:2048;not null;default:''" json:"resource,omitempty"`
 	Revoked   bool      `gorm:"not null" json:"revoked"`
 	CreatedAt time.Time `json:"created_at"`
@@ -47,13 +49,14 @@ type OAuthGrant struct {
 
 // AuthorizationCode stores only a digest of a short-lived, single-use code.
 type AuthorizationCode struct {
-	Digest      string    `gorm:"primaryKey;size:64"`
-	GrantID     string    `gorm:"size:64;index;not null"`
-	ClientID    string    `gorm:"size:64;not null"`
-	RedirectURI string    `gorm:"type:text;not null"`
-	Challenge   string    `gorm:"size:64;not null"`
-	Used        bool      `gorm:"not null"`
-	ExpiresAt   time.Time `gorm:"index;not null"`
+	RedirectRequired bool      `gorm:"not null;default:false"`
+	Digest           string    `gorm:"primaryKey;size:64"`
+	GrantID          string    `gorm:"size:64;index;not null"`
+	ClientID         string    `gorm:"size:64;not null"`
+	RedirectURI      string    `gorm:"type:text;not null"`
+	Challenge        string    `gorm:"size:64;not null"`
+	Used             bool      `gorm:"not null"`
+	ExpiresAt        time.Time `gorm:"index;not null"`
 }
 
 // OAuthToken stores opaque token digests and rotation history.

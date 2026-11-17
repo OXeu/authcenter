@@ -18,7 +18,7 @@ GET /oauth/authorize?client_id=CLIENT_ID&redirect_uri=https%3A%2F%2Fapp.example%
 - `email`：邮箱。
 - `offline_access`：签发刷新令牌，允许持续访问。
 
-不需要 `nonce` 或 issuer 参数，不返回 `id_token`，也不要求客户端进行 OIDC issuer 验证。机密客户端 PKCE 可选；提供 challenge 时必须完成验证。公开客户端必须附带 `code_challenge` 和 `code_challenge_method=S256`。challenge 为 `BASE64URL(SHA256(code_verifier))`，verifier 为 43–128 个合法字符。
+不含 `openid` 的普通 OAuth 请求无需 `nonce`，也不返回 `id_token`。配置签名密钥后可使用 [OpenID Connect](oidc.md)，请求 `openid profile email` 并验证 ID Token 的签名、issuer、audience 和 nonce。机密客户端 PKCE 可选；提供 challenge 时必须完成验证。公开客户端必须附带 `code_challenge` 和 `code_challenge_method=S256`。challenge 为 `BASE64URL(SHA256(code_verifier))`，verifier 为 43–128 个合法字符。
 
 用户明确允许后回调附带 `code` 和原始 `state`；拒绝则附带 `error=access_denied`。无效客户端或未登记的回调直接返回 HTTP 400，不跳转。
 
@@ -64,7 +64,7 @@ curl https://auth.example/oauth/revoke -u 'CLIENT_ID:CLIENT_SECRET' -d token=TOK
 
 用户信息始终包含稳定的 `sub` 和数值 `id`；按 scope 返回 `name`、`picture`、`avatar_url`、`email`。撤销接口接受访问令牌或刷新令牌并撤销整组授权；未知令牌也返回 200。令牌只在它所属的客户端下可撤销。用户也可在“我的授权”撤销访问；删除应用立即使其令牌失效。
 
-`GET /.well-known/oauth-authorization-server` 和 `GET /.well-known/openid-configuration` 提供相同的 OAuth 授权服务器元数据，包括授权、注册、令牌、撤销和用户信息端点，以及支持的 scope、授权类型、客户端认证方法和 S256 PKCE。两个发现端点均支持匿名访问和 CORS 预检。`openid-configuration` 用于发现兼容，不声明 `openid` scope、ID Token 签名算法或 JWKS。
+`GET /.well-known/oauth-authorization-server` 和 `GET /.well-known/openid-configuration` 提供授权、令牌、撤销和用户信息端点，以及支持的 scope、授权类型、客户端认证方法和 S256 PKCE。配置 `AC_OIDC_SIGNING_KEYS` 后，两者还声明 `openid`、RS256 和 `/oauth/jwks` 公钥端点；OpenID 文档不声明仅用于 MCP 的动态注册端点。发现端点与 JWKS 均支持匿名访问和 CORS 预检。
 
 ## 管理 API
 

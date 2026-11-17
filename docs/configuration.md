@@ -33,6 +33,7 @@ SDK 的读取、单项写入和批量写入统一使用 `Authorization: Bearer <
 | `AC_LOCAL_LOGIN`           | `true`；开启密码 + 两步验证                                                    |
 | `AC_ALLOW_REGISTRATION`    | `true`；控制新账号注册                                                         |
 | `AC_ENCRYPTION_KEY`        | 开启本地登录时必填，32 个随机字节的标准 Base64；用于 TOTP 加密和邮箱验证码摘要 |
+| `AC_OIDC_SIGNING_KEYS`     | 可选；Base64 编码的 RSA 私钥 PEM 集合，配置后启用 [OpenID Connect](oidc.md) |
 | `AC_RESEND_API_KEY`        | Resend 发信 API Key                                                            |
 | `AC_RESEND_FROM`           | 已验证发信域的发件人，如 `AuthCenter <auth@example.com>`                       |
 | `AC_OAUTH_ISSUER`          | `https://github.com/login/oauth`                                               |

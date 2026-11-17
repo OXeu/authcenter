@@ -6,7 +6,7 @@ AuthCenter 为业务应用提供 OAuth 2.0 授权服务。用户通过 GitHub，
 
 机密客户端通过授权码和客户端密钥兑换令牌。公开客户端不持有密钥，必须使用 S256 PKCE。服务支持刷新和撤销令牌，并提供用户信息接口。
 
-AuthCenter 的业务应用接入采用普通 OAuth 2.0，不要求 OIDC nonce、issuer 验证，也不签发 ID Token。回调地址仍须在应用登记列表内。省略回调地址时使用第一个已登记地址。
+AuthCenter 支持普通 OAuth 2.0 和 [OpenID Connect 授权码流程](oidc.md)。配置签名密钥并请求 `openid` 后可获得签名 ID Token；普通 OAuth 请求保持原有行为。回调地址须在应用登记列表内，OIDC 请求必须明确提供回调。
 
 ## 下一步
 

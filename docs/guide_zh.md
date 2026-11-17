@@ -5,7 +5,7 @@
 - GitHub OAuth 登录；账号密码 + TOTP 身份验证器或 Resend 邮箱验证码。
 - 登录用户可注册应用，上传 Logo，填写名称、主页和多个回调地址，并在后续编辑。
 - 授权码、S256 PKCE、用户同意页面、用户信息、刷新令牌轮换及撤销。
-- 普通 OAuth 2.0 接入：无需 `nonce`、issuer 校验或 `id_token`。机密客户端可不使用 PKCE；公开客户端必须使用 PKCE。
+- OAuth 2.0 与 [OpenID Connect](oidc.md) 授权码接入：配置签名密钥后支持 `openid`、RS256 ID Token 和 JWKS。机密客户端可不使用 PKCE；公开客户端必须使用 PKCE。
 - 所有运行配置由 configcenter Go SDK 加载，中英文界面、共享原生对话框和危险操作确认。
 
 ## 启动

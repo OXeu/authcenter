@@ -17,6 +17,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/OXeu/authcenter/internal/auth"
+	"github.com/OXeu/authcenter/internal/oidc"
 )
 
 // Config holds every runtime setting of the server.
@@ -37,6 +38,7 @@ type Config struct {
 	ResendKey         string
 	ResendFrom        string
 	EncryptionKey     []byte
+	OIDC              *oidc.Signer      `json:"-"`
 	Source            *Manager          `json:"-"`
 	Values            map[string]string `json:"-"`
 }
@@ -110,6 +112,14 @@ func fromSnapshot(env func(string, string) string) (Config, error) {
 	}
 
 	var errs []error
+	if keys := env("AC_OIDC_SIGNING_KEYS", ""); keys != "" {
+		signer, err := oidc.NewSigner(keys)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("AC_OIDC_SIGNING_KEYS: %w", err))
+		} else {
+			cfg.OIDC = signer
+		}
+	}
 	public, parseErr := url.Parse(cfg.PublicURL)
 	if parseErr != nil || !validPublicURL(public) {
 		errs = append(errs, errors.New("AC_PUBLIC_URL must be an HTTPS origin, or HTTP loopback origin"))

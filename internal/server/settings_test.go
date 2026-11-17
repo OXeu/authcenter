@@ -133,3 +133,35 @@ func TestConfigurationRefreshWithConcurrentRequests(t *testing.T) {
 	}
 	group.Wait()
 }
+
+func TestOpenIDSettingsValidateRedactAndRefreshSigningKeys(t *testing.T) {
+	f, _ := settingsFlow(t)
+	keys := signingConfiguration(t)
+	response := f.request("PUT", "/api/v1/settings", map[string]any{"values": map[string]string{"AC_OIDC_SIGNING_KEYS": keys}})
+	if response.Code != http.StatusNoContent {
+		t.Fatal("valid signing keys rejected", response.Code, response.Body.String())
+	}
+	if f.srv.runtime.current.Load().cfg.OIDC != nil {
+		t.Fatal("signing keys activated before refresh")
+	}
+	response = f.request("GET", "/api/v1/settings", nil)
+	if response.Code != http.StatusOK || strings.Contains(response.Body.String(), keys) {
+		t.Fatal("signing keys exposed in settings")
+	}
+	response = f.request("POST", "/api/v1/settings/refresh", nil)
+	if response.Code != http.StatusOK || f.srv.runtime.current.Load().cfg.OIDC == nil {
+		t.Fatal("signing keys not activated", response.Code)
+	}
+	response = f.request("GET", "/.well-known/openid-configuration", nil)
+	if responseJSON(t, response)["jwks_uri"] != f.srv.cfg.PublicURL+"/oauth/jwks" {
+		t.Fatal("discovery did not follow refreshed configuration")
+	}
+	active := f.srv.runtime.current.Load()
+	response = f.request("PUT", "/api/v1/settings", map[string]any{"values": map[string]string{"AC_OIDC_SIGNING_KEYS": "invalid-private-value"}})
+	if response.Code != http.StatusBadRequest || strings.Contains(response.Body.String(), "invalid-private-value") || f.srv.runtime.current.Load() != active {
+		t.Fatal("invalid key was accepted, exposed or replaced active keys")
+	}
+	if response := f.request("POST", "/api/v1/settings/refresh", nil); response.Code != http.StatusOK || f.srv.runtime.current.Load().cfg.OIDC.Keys()[0] != active.cfg.OIDC.Keys()[0] {
+		t.Fatal("failed save damaged persisted signing configuration")
+	}
+}

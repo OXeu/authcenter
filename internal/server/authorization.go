@@ -19,8 +19,23 @@ const authorizationCookie = "ac_authorization"
 
 func (s *Server) mountAuthorization(r *gin.Engine) {
 	r.GET("/oauth/authorize", s.authorize)
-	r.POST("/oauth/authorize", auth.RequireUser(), s.consent)
+	r.POST("/oauth/authorize", s.authorizationPost, auth.RequireUser(), s.consent)
 	r.GET("/applications/:id/logo", s.clientLogo)
+}
+
+func (s *Server) authorizationPost(c *gin.Context) {
+	if c.ContentType() != "application/x-www-form-urlencoded" {
+		c.Next()
+		return
+	}
+	c.Abort()
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 8192)
+	if err := c.Request.ParseForm(); err != nil || c.Request.URL.RawQuery != "" || c.Request.PostForm.Get("client_id") == "" {
+		oauthError(c, http.StatusBadRequest, "invalid_request")
+		return
+	}
+	c.Request.URL.RawQuery = c.Request.PostForm.Encode()
+	s.authorize(c)
 }
 
 func (s *Server) loginDestination(c *gin.Context) string {
@@ -78,7 +93,7 @@ func validVerifier(verifier string) bool {
 func (s *Server) authorize(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	c.Header("Referrer-Policy", "no-referrer")
-	if c.Query("request") != "" {
+	if c.Query("request") != "" && c.Query("client_id") == "" {
 		s.authorizationPage(c)
 		return
 	}
@@ -126,6 +141,10 @@ func (s *Server) authorize(c *gin.Context) {
 			return
 		}
 	}
+	if code := s.validateOpenIDRequest(c, q, scopes, client.Public); code != "" {
+		fail(code)
+		return
+	}
 	resource := q.Get("resource")
 	isMCP := slices.Contains(scopes, mcpScope)
 	if client.Dynamic && !isMCP {
@@ -155,7 +174,7 @@ func (s *Server) authorize(c *gin.Context) {
 		fail("invalid_request")
 		return
 	}
-	request := store.AuthorizationRequest{ID: rand.Text(), ClientID: client.ID, RedirectURI: redirect, Scope: strings.Join(scopes, " "), Resource: resource, State: q.Get("state"), Challenge: challenge, ExpiresAt: time.Now().UTC().Add(10 * time.Minute)}
+	request := store.AuthorizationRequest{ID: rand.Text(), ClientID: client.ID, RedirectURI: redirect, Scope: strings.Join(scopes, " "), Resource: resource, State: q.Get("state"), Nonce: q.Get("nonce"), Challenge: challenge, ExpiresAt: time.Now().UTC().Add(10 * time.Minute)}
 	if err := s.store.CreateAuthorizationRequest(c.Request.Context(), request); err != nil {
 		oauthError(c, 500, "server_error")
 		return
@@ -222,8 +241,8 @@ func (s *Server) consent(c *gin.Context) {
 		return
 	}
 	code := rand.Text() + rand.Text()
-	grant := store.OAuthGrant{ID: rand.Text(), ClientID: request.ClientID, UserID: user.ID, Scope: request.Scope, Resource: request.Resource}
-	record := store.AuthorizationCode{Digest: digest(code), GrantID: grant.ID, ClientID: request.ClientID, RedirectURI: request.RedirectURI, Challenge: request.Challenge, ExpiresAt: time.Now().UTC().Add(5 * time.Minute)}
+	grant := store.OAuthGrant{ID: rand.Text(), ClientID: request.ClientID, UserID: user.ID, Scope: request.Scope, Nonce: request.Nonce, Resource: request.Resource}
+	record := store.AuthorizationCode{Digest: digest(code), GrantID: grant.ID, ClientID: request.ClientID, RedirectURI: request.RedirectURI, RedirectRequired: slices.Contains(strings.Fields(request.Scope), "openid"), Challenge: request.Challenge, ExpiresAt: time.Now().UTC().Add(5 * time.Minute)}
 	if err := s.store.DecideAuthorization(c.Request.Context(), request, grant, record, *in.Approve); err != nil {
 		oauthError(c, 400, "invalid_request")
 		return
