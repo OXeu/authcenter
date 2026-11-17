@@ -36,7 +36,10 @@ Application management in the actual web UI, rendered with synthetic example dat
 
 Install Git, Make, Node.js 24.15+ with npm, and Go 1.26.10, with Git access to the pinned center-common repository. A running ConfigCenter is required: create a dedicated project, its `production` environment and a key with configuration-read permission.
 
-In that project, set `AC_LOCAL_LOGIN=false` for a minimal GitHub-only setup, and configure `AC_OAUTH_CLIENT_ID`, `AC_OAUTH_CLIENT_SECRET` and the intended `AC_BOOTSTRAP_ADMIN_EMAIL`. Register `http://127.0.0.1:8081/oauth/callback` at GitHub. Replace the connection URL and API key below with your own values.
+1. In that project, set `AC_LOCAL_LOGIN=false` for a minimal GitHub-only setup.
+2. Configure `AC_OAUTH_CLIENT_ID`, `AC_OAUTH_CLIENT_SECRET` and the intended `AC_BOOTSTRAP_ADMIN_EMAIL`.
+3. Register `http://127.0.0.1:8081/oauth/callback` at GitHub.
+4. Replace the connection URL and API key below with your own values.
 
 ```sh
 git clone https://github.com/OXeu/authcenter.git
