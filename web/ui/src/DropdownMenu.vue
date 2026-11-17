@@ -7,6 +7,7 @@ const trigger = ref<HTMLButtonElement | null>(null)
 const panel = ref<HTMLElement | null>(null)
 const position = useDropdownPosition(trigger, panel, open)
 const id = useId()
+defineExpose({ focus: () => trigger.value?.focus() })
 function select(event: MouseEvent) {
   if (!(event.target instanceof Element)) return
   const action = event.target.closest('a[href], button')

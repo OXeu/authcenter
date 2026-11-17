@@ -1,7 +1,7 @@
 <script setup>
 import DropdownMenu from './DropdownMenu.vue'
 import DangerActions from './DangerActions.vue'
-import { computed, defineAsyncComponent, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, ref, watch } from 'vue'
 import { api } from './core.ts'
 import { createPage } from './page.ts'
 import { createForm } from './forms.ts'
@@ -50,9 +50,19 @@ const avatarInitial = computed(() => {
 const identityLabel = computed(() => `${data.me?.name ?? ''} ${roleLabel.value}`)
 const roleLabel = computed(() => (data.me === null ? '' : msg(`role.${data.me.role}`)))
 const form = createForm(createPage(data))
+const userMenu = ref(/** @type {InstanceType<typeof DropdownMenu> | null} */ (null))
 const accountActions = computed(() => [
   dangerAction(form, 'signOut', msg('nav.signOut'), data.me?.name ?? '', logout),
 ])
+watch(
+  () => form.open,
+  async (open) => {
+    if (!open) {
+      await nextTick()
+      userMenu.value?.focus()
+    }
+  },
+)
 /** @returns {Promise<void>} */
 async function logout() {
   await api('/logout', { method: 'POST', csrf: data.csrf })
@@ -94,7 +104,7 @@ async function logout() {
       >
     </DropdownMenu>
     <template v-if="data.loggedIn && data.me">
-      <DropdownMenu :label="identityLabel" compact>
+      <DropdownMenu ref="userMenu" :label="identityLabel" compact>
         <template #trigger>
           <div class="user-avatar" role="img" :aria-label="identityLabel">
             <img
