@@ -276,6 +276,23 @@ describe('Vue pages', () => {
     expect(localStorage.getItem('ac_theme')).toBe('light')
     wrapper.unmount()
   })
+  it('keeps local file validation in the dialog without showing a submission toast', async () => {
+    const page = createPage(data)
+    const form = createForm(page)
+    form.show('Create', [{ key: 'logo', label: 'apps.logo', file: true }], { logo: '' }, vi.fn())
+    const wrapper = mount(DialogPanel, { props: { form, msg: page.msg } })
+    const input = wrapper.get('input[type="file"]')
+    const file = new File([new Uint8Array(512 * 1024 + 1)], 'logo.png', { type: 'image/png' })
+    Object.defineProperty(input.element, 'files', { value: [file] })
+    vi.mocked(notify).mockClear()
+    await input.trigger('change')
+    expect(wrapper.get('dialog .field:last-of-type').text()).toBe(
+      'Choose a PNG or JPEG up to 512 KiB.',
+    )
+    expect(form.values.logo).toBe('')
+    expect(notify).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
   it('blocks repeated submit and escape while saving', async () => {
     const form = createForm(createPage(data))
     let finish!: () => void

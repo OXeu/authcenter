@@ -1,12 +1,11 @@
-import { mountToaster, toast } from '@yusufceng1z/ding'
+import { injectStyles, toast } from '@yusufceng1z/ding'
 
 import { createCopy } from './i18n.ts'
 
 let mounted = false
 
 /**
- * Mounts the toast viewport once; the library injects its own stylesheet and
- * live regions, so no component renders a message element.
+ * Initializes Ding styles and localized settings for the shared ToastViewport.
  * @param {string} lang
  * @param {string} [nonce]
  * @param {import('./theme.ts').Theme} [theme]
@@ -20,9 +19,10 @@ export function mountToasts(
   const { msg } = createCopy(lang)
   if (!mounted) {
     mounted = true
-    mountToaster({ position: 'bottom-right', theme, nonce })
+    injectStyles(undefined, { nonce })
   }
   toast.configure({
+    position: 'bottom-right',
     labels: { region: msg('toast.region'), dismiss: msg('toast.dismiss') },
     held: 'queue',
     theme,

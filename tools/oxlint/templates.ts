@@ -1,8 +1,10 @@
 import { parse } from '@vue/compiler-dom'
 import { overridesDropdownPosition } from './dropdown.ts'
+import { checkFormFeedback } from './form-feedback.ts'
 
-export function checkTemplate(source: string, filename = ''): string[] {
-  const errors: string[] = []
+export function checkTemplate(source: string, filename = '', script = ''): string[] {
+  const toast = filename === 'web/ui/src/ToastViewport.vue'
+  const errors = toast ? [] : checkFormFeedback(source, script)
   const emoji = /\p{Extended_Pictographic}/u
   /** @param {any} node @param {boolean} dialog */
   function walk(node: any, dialog: boolean = false) {
@@ -78,7 +80,9 @@ export function checkTemplate(source: string, filename = ''): string[] {
       )
         errors.push('no-native-select: use DropdownSelect instead')
       if (node.tag === 'svg') errors.push('inline-icon')
-      if (['alert', 'status', 'log', 'tooltip'].includes(attrs.role)) errors.push('inline-message')
+      if (!toast && ['alert', 'status', 'log', 'tooltip'].includes(attrs.role))
+        errors.push('inline-message')
+      if (attrs['aria-live'] && attrs['aria-live'] !== 'off') errors.push('inline-message')
       if (
         /\b(alert|notice|callout|tooltip|popover|inline-error|toast-container)\b/u.test(
           attrs.class ?? '',

@@ -3,6 +3,9 @@ import { flushPromises, mount } from '@vue/test-utils'
 import PageHeader from '../src/PageHeader.vue'
 import { createCopy } from '../src/i18n.ts'
 import type { PageData } from '../src/data.ts'
+import { notify } from '../src/toast.ts'
+
+vi.mock('../src/toast.ts', () => ({ notify: vi.fn() }))
 
 const data: PageData = {
   page: 'docs',
@@ -30,6 +33,7 @@ const data: PageData = {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks()
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 204 }))
   vi.stubGlobal('location', { assign: vi.fn() })
   HTMLDialogElement.prototype.showModal = function () {
@@ -124,7 +128,9 @@ describe('sign-out confirmation', () => {
     await wrapper.get('dialog form').trigger('submit')
     await flushPromises()
     expect(wrapper.get('dialog').element.open).toBe(true)
-    expect(wrapper.get('dialog .field').text()).toBe('Server error, try again.')
+    expect(notify).toHaveBeenCalledWith('error', 'Something went wrong', 'Server error, try again.')
+    expect(wrapper.get('dialog').text()).not.toContain('Server error, try again.')
+    expect(wrapper.find('dialog .field').exists()).toBe(false)
     expect(location.assign).not.toHaveBeenCalled()
     await wrapper.get('dialog form').trigger('submit')
     await flushPromises()

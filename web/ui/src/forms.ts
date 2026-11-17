@@ -20,7 +20,7 @@ export function createForm(page: import('./page.ts').PageContext) {
     danger: false,
     title: '',
     busy: false,
-    error: '',
+    validationError: '',
     token: '',
     fields: /** @type {any[]} */ ([]) as any[],
     values: /** @type {Record<string, string>} */ ({}) as Record<string, string>,
@@ -41,19 +41,19 @@ export function createForm(page: import('./page.ts').PageContext) {
       this.fields = fields
       this.values = { ...values }
       this.action = action
-      this.error = ''
+      this.validationError = ''
       this.token = ''
       this.open = true
     },
     async submit() {
       if (this.busy) return
       this.busy = true
-      this.error = ''
+      this.validationError = ''
       try {
         await this.action()
         if (!this.token && !this.keepOpen) this.open = false
       } catch (err) {
-        this.error = page.describe(err)
+        page.report(err)
       } finally {
         this.busy = false
       }

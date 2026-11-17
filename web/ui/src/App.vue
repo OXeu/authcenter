@@ -3,6 +3,7 @@ import { computed, defineAsyncComponent, onMounted, watch } from 'vue'
 import LoginPanel from './LoginPanel.vue'
 import ConsentPage from './ConsentPage.vue'
 import AccountPage from './AccountPage.vue'
+import ToastViewport from './ToastViewport.vue'
 import PageHeader from './PageHeader.vue'
 import { createPage } from './page.ts'
 import { useTheme } from './theme.ts'
@@ -41,6 +42,7 @@ onMounted(() => {
     class="bg-background text-foreground"
     :class="{ 'min-h-screen': !isDocs }"
   >
+    <ToastViewport />
     <PageHeader
       :data="data"
       :msg="msg"

@@ -2,6 +2,7 @@ import { beforeEach, expect, it, vi } from 'vite-plus/test'
 import { createWorkspace } from '../src/workspace.ts'
 import { createPage } from '../src/page.ts'
 import type { PageData } from '../src/data.ts'
+import { notify } from '../src/toast.ts'
 vi.mock('../src/toast.ts', () => ({ notify: vi.fn() }))
 const data = { page: 'applications', lang: 'en', messages: {}, csrf: 'csrf' } as PageData
 beforeEach(() =>
@@ -47,6 +48,7 @@ it('edits application metadata without replacing its credentials', async () => {
     expect.objectContaining({ method: 'PATCH' }),
   )
   expect(w.form.open).toBe(false)
+  expect(notify).toHaveBeenCalledWith('success', 'Saved')
 })
 it('defers deletion until confirmation and preserves failed forms', async () => {
   const w = createWorkspace(data, createPage(data))
@@ -55,7 +57,8 @@ it('defers deletion until confirmation and preserves failed forms', async () => 
   vi.mocked(fetch).mockRejectedValueOnce(new Error('network'))
   await w.form.submit()
   expect(w.form.open).toBe(true)
-  expect(w.form.error).not.toBe('')
+  expect(notify).toHaveBeenCalledWith('error', 'Something went wrong', 'Network error, try again.')
+  expect(w.form.validationError).toBe('')
   expect(w.form.busy).toBe(false)
 })
 it('revokes grants through the scoped grants endpoint', async () => {

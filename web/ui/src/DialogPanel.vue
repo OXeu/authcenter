@@ -1,18 +1,26 @@
 <script setup>
-import { ref, watch, nextTick, useId } from 'vue'
+import { onBeforeUnmount, ref, watch, nextTick, useId } from 'vue'
 import DropdownSelect from './DropdownSelect.vue'
+import { attachToasts } from './toast-host.ts'
 const formId = useId()
 const props = defineProps({
   form: { type: Object, required: true },
   msg: { type: Function, required: true },
 })
 const dialog = ref(/** @type {HTMLDialogElement | null} */ (null))
+let detachToasts = () => {}
+onBeforeUnmount(() => detachToasts())
 watch(
   () => props.form.open,
   async (open) => {
     await nextTick()
-    if (open) dialog.value?.showModal()
-    else dialog.value?.close()
+    if (open && dialog.value) {
+      dialog.value.showModal()
+      detachToasts = attachToasts(dialog.value)
+    } else {
+      detachToasts()
+      dialog.value?.close()
+    }
   },
   { immediate: true },
 )
@@ -29,7 +37,7 @@ async function upload(event, key) {
   const file = /** @type {HTMLInputElement} */ (event.target).files?.[0]
   if (!file) return
   if (file.size > 512 * 1024) {
-    props.form.error = props.msg('apps.logoLimit')
+    props.form.validationError = props.msg('apps.logoLimit')
     return
   }
   props.form.busy = true
@@ -39,7 +47,7 @@ async function upload(event, key) {
     for (const byte of bytes) binary += String.fromCharCode(byte)
     props.form.values[key] = btoa(binary)
   } catch {
-    props.form.error = props.msg('apps.logoLimit')
+    props.form.validationError = props.msg('apps.logoLimit')
   } finally {
     props.form.busy = false
   }
@@ -113,7 +121,7 @@ async function upload(event, key) {
       <p v-if="form.token" class="field">
         {{ msg('apps.secretOnce') }}<code class="break-all">{{ form.token }}</code>
       </p>
-      <p v-if="form.error" class="field">{{ form.error }}</p>
+      <p v-if="form.validationError" class="field">{{ form.validationError }}</p>
       <div class="flex flex-wrap justify-end gap-2">
         <button
           v-if="form.secondaryLabel"
