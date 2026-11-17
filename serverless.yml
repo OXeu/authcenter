@@ -6,9 +6,9 @@ inputs:
   name: configcenter
   src: ./.tmp/scf
   type: web
-  runtime: Nodejs18.15
+  runtime: Go1
   region: ${env:SCF_REGION}
-  memorySize: 512
+  memorySize: 64
   timeout: 30
   initTimeout: 60
   publicAccess: true
