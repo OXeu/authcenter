@@ -13,6 +13,7 @@ describe('checkbox rules', () => {
     '<input v-bind="{ type: \'checkbox\' }" />',
     '<component is="input" type="checkbox" />',
     '<component :is="\'input\'" type="checkbox" />',
+    '<component :is="tag" type="checkbox" />',
   ])('rejects native checkboxes: %s', (source) => {
     expect(checkTemplate(`<dialog>${source}</dialog>`)).toContain(
       'no-native-checkbox: use CheckboxField instead',
@@ -24,6 +25,7 @@ describe('checkbox rules', () => {
     )
     expect(checkTemplate('<dialog><CheckboxField label="Enabled" /></dialog>')).toEqual([])
     expect(checkTemplate('<dialog><input :type="\'text\'" /></dialog>')).toEqual([])
+    expect(checkTemplate('<dialog><input :type="\'file\'" /></dialog>')).toEqual([])
     expect(checkTemplate('<CheckboxField label="Enabled" />')).toContain('input-outside-dialog')
     expect(checkTemplate('<checkbox-field label="Enabled" />')).toContain('input-outside-dialog')
   })
@@ -43,6 +45,9 @@ describe('dropdown overlay rules', () => {
   it.each([
     'class="dropdown-panel static"',
     'class="dropdown-panel sm:relative"',
+    'class="dropdown-panel sm:[position:static]"',
+    'class="dropdown-panel contents"',
+    'class="dropdown-panel" v-bind="panelProps"',
     'class="dropdown-panel" style="position: static"',
     'class="dropdown-panel" :style="panelStyle"',
     'class="dropdown-panel" :class="panelClass"',
@@ -56,11 +61,19 @@ describe('dropdown overlay rules', () => {
     '@media (max-width: 639px) { .table .dropdown-content { @apply static mt-1; } }',
     '.dropdown-options { position: relative !important; }',
     '.dropdown-panel { @apply sm:sticky; }',
+    '.dropdown-panel { @apply sm:[position:static]; }',
     '.dropdown-panel { all: initial; }',
+    '.dropdown-panel { display: contents; }',
   ])('rejects CSS overrides at every breakpoint: %s', (source) => {
     expect(checkDropdownStyles(source)).toContain('dropdown-no-position-override')
   })
   it('requires fixed positioning and preserves parent overflow when opened', () => {
+    expect(
+      checkDropdownStyles(
+        '@media (max-width: 639px) { .dropdown-panel { position: fixed; } }',
+        true,
+      ),
+    ).toContain('dropdown-requires-fixed-style')
     expect(checkDropdownStyles('.dropdown-panel { color: red; }', true)).toContain(
       'dropdown-requires-fixed-style',
     )
