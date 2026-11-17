@@ -9,7 +9,7 @@
     "noEmit": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "lib": ["ES2022", "DOM"],
+    "lib": ["ES2023", "DOM"],
     "types": ["node", "vite-plus/client"],
     "allowImportingTsExtensions": true
   },

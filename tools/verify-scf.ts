@@ -39,13 +39,13 @@ async function verify(): Promise<boolean> {
   }
 }
 
-let passed = false
-for (let attempt = 0; attempt < 6; attempt++) {
-  if (await verify()) {
-    passed = true
-    break
-  }
+async function verifyWithRetries(attempts: number): Promise<boolean> {
+  if (await verify()) return true
+  if (attempts === 1) return false
   await setTimeout(5000)
+  return verifyWithRetries(attempts - 1)
 }
-if (!passed) throw new Error('Deployed login page or OAuth metadata failed verification')
+
+if (!(await verifyWithRetries(6)))
+  throw new Error('Deployed login page or OAuth metadata failed verification')
 process.stdout.write(`Verified login page and OAuth metadata at ${origin}\n`)

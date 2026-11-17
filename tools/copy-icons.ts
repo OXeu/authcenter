@@ -37,7 +37,7 @@ export function iconSprite(): Plugin {
       )
       const views: string[] = []
       const rules: string[] = []
-      for (const [index, name] of [...names].sort().entries()) {
+      for (const [index, name] of [...names].toSorted().entries()) {
         const path = icons.get(name)
         if (!path) throw new Error(`Unknown Remix Icon: ${name}`)
         const source = readFileSync(path, 'utf8')
