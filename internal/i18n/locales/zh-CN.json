@@ -22,7 +22,7 @@
   "error.conflict": "记录已变更或与现有记录冲突，请刷新后重试。",
   "confirm.ok": "确定",
   "language": "中文",
-  "app.name": "configcenter",
+  "app.name": "authcenter",
   "nav.main": "主导航",
   "nav.projects": "项目",
   "nav.users": "用户管理",

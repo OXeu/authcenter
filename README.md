@@ -1,6 +1,6 @@
 <h1 align="center">
   <img src="assets/icon-128.webp" width="64" height="64" alt="" align="middle" />
-  configcenter
+  authcenter
 </h1>
 
 Self-hosted configuration service: projects as isolation boundaries, environments, OAuth single sign-on, API keys with configurable project and operation scopes, a responsive Vue web UI and an MCP endpoint for agents.
@@ -16,37 +16,37 @@ Go 1.26, gin, gorm (SQLite), a Go HTML/JSON shell plus Vue 3 (built with Vite Pl
 ## Quick start
 
 ```sh
-make build          # bundles the web assets, then builds .tmp/bin/configcenter
-CC_OAUTH_ISSUER=https://idp.example.com \
-CC_OAUTH_CLIENT_ID=configcenter \
-CC_OAUTH_CLIENT_SECRET=... \
-.tmp/bin/configcenter
+make build          # bundles the web assets, then builds .tmp/bin/authcenter
+AC_OAUTH_ISSUER=https://idp.example.com \
+AC_OAUTH_CLIENT_ID=authcenter \
+AC_OAUTH_CLIENT_SECRET=... \
+.tmp/bin/authcenter
 ```
 
 Open http://127.0.0.1:8080. Without OAuth configured the server still starts; only the login link is disabled.
 
-GitHub can be used as the identity provider (`CC_OAUTH_ISSUER=https://github.com`, a GitHub OAuth app with the callback `CC_PUBLIC_URL/oauth/callback`): GitHub publishes no OIDC discovery document, so the client falls back to GitHub's documented OAuth endpoints, sends the client ID and secret in the token request form, skips `openid`/PKCE, reads the profile from `/user` and the primary address from `/user/emails`. Accounts without a public email get `<id>@github.com`.
+GitHub can be used as the identity provider (`AC_OAUTH_ISSUER=https://github.com`, a GitHub OAuth app with the callback `AC_PUBLIC_URL/oauth/callback`): GitHub publishes no OIDC discovery document, so the client falls back to GitHub's documented OAuth endpoints, sends the client ID and secret in the token request form, skips `openid`/PKCE, reads the profile from `/user` and the primary address from `/user/emails`. Accounts without a public email get `<id>@github.com`.
 
 ## Configuration
 
-All settings come from the environment (read once in `internal/config`). The binary loads `.env.local` itself with [godotenv](https://github.com/joho/godotenv) (`CC_ENV_FILE` selects another file); variables already exported win over the file, so `CC_ADDR=127.0.0.1:9000 .tmp/bin/configcenter` and `CC_ADDR=… make run` both work, and a missing file is fine. `CC_OAUTH_ISSUER` and `CC_PUBLIC_URL` are trimmed of trailing slashes, and startup logs the resulting address, public URL and OAuth state.
+All settings come from the environment (read once in `internal/config`). The binary loads `.env.local` itself with [godotenv](https://github.com/joho/godotenv) (`AC_ENV_FILE` selects another file); variables already exported win over the file, so `AC_ADDR=127.0.0.1:9000 .tmp/bin/authcenter` and `AC_ADDR=… make run` both work, and a missing file is fine. `AC_OAUTH_ISSUER` and `AC_PUBLIC_URL` are trimmed of trailing slashes, and startup logs the resulting address, public URL and OAuth state.
 
 | Variable                                        | Default                       | Meaning                                                                  |
 | ----------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------ |
-| `CC_ADDR`                                       | `127.0.0.1:8080`              | Listen address                                                           |
-| `CC_DB_DRIVER`                                  | `sqlite`                      | Database backend: `sqlite` or `mysql`                                    |
-| `CC_DB`                                         | `file:configcenter.db`        | SQLite or MySQL DSN                                                      |
-| `CC_PUBLIC_URL`                                 | `http://127.0.0.1:8080`       | Public base URL                                                          |
-| `CC_OAUTH_ISSUER`                               |                               | OIDC issuer (discovery at `/.well-known/openid-configuration`)           |
-| `CC_OAUTH_CLIENT_ID` / `CC_OAUTH_CLIENT_SECRET` |                               | OAuth client; redirect URI is `CC_PUBLIC_URL/oauth/callback`             |
-| `CC_OAUTH_SCOPES`                               | `openid profile email groups` | Requested scopes                                                         |
-| `CC_OAUTH_REDIRECT_URL`                         | derived                       | Override the callback URL                                                |
-| `CC_OAUTH_GROUPS_CLAIM`                         | `groups`                      | Claim used for group mapping                                             |
-| `CC_OAUTH_ADMIN_GROUPS`                         | `configcenter-admin`          | Groups that grant the admin role                                         |
-| `CC_OAUTH_GROUP_MAP`                            |                               | `group:role,…` for user/admin defaults                                   |
-| `CC_SESSION_SECRET`                             |                               | Required when `CC_ENV=production`                                        |
-| `CC_LANGUAGES`                                  | `en,zh-CN`                    | Enabled UI languages; tags must match `internal/i18n/locales/<tag>.json` |
-| `CC_BOOTSTRAP_ADMIN_EMAIL` / `_NAME`            | `admin@localhost` / `admin`   | First administrator, created when the user table is empty                |
+| `AC_ADDR`                                       | `127.0.0.1:8080`              | Listen address                                                           |
+| `AC_DB_DRIVER`                                  | `sqlite`                      | Database backend: `sqlite` or `mysql`                                    |
+| `AC_DB`                                         | `file:authcenter.db`        | SQLite or MySQL DSN                                                      |
+| `AC_PUBLIC_URL`                                 | `http://127.0.0.1:8080`       | Public base URL                                                          |
+| `AC_OAUTH_ISSUER`                               |                               | OIDC issuer (discovery at `/.well-known/openid-configuration`)           |
+| `AC_OAUTH_CLIENT_ID` / `AC_OAUTH_CLIENT_SECRET` |                               | OAuth client; redirect URI is `AC_PUBLIC_URL/oauth/callback`             |
+| `AC_OAUTH_SCOPES`                               | `openid profile email groups` | Requested scopes                                                         |
+| `AC_OAUTH_REDIRECT_URL`                         | derived                       | Override the callback URL                                                |
+| `AC_OAUTH_GROUPS_CLAIM`                         | `groups`                      | Claim used for group mapping                                             |
+| `AC_OAUTH_ADMIN_GROUPS`                         | `authcenter-admin`          | Groups that grant the admin role                                         |
+| `AC_OAUTH_GROUP_MAP`                            |                               | `group:role,…` for user/admin defaults                                   |
+| `AC_SESSION_SECRET`                             |                               | Required when `AC_ENV=production`                                        |
+| `AC_LANGUAGES`                                  | `en,zh-CN`                    | Enabled UI languages; tags must match `internal/i18n/locales/<tag>.json` |
+| `AC_BOOTSTRAP_ADMIN_EMAIL` / `_NAME`            | `admin@localhost` / `admin`   | First administrator, created when the user table is empty                |
 
 First login creates the user: linked by OAuth subject, adopted by verified email, otherwise new. Roles are managed afterwards in **Users** (admin only); group membership decides the role only when an account is created.
 
@@ -54,7 +54,7 @@ The header theme button switches between light and dark modes. Before a manual c
 
 ## Languages
 
-The UI ships in English and Simplified Chinese (`internal/i18n/locales`). The header dropdown lists `CC_LANGUAGES`, `/language?lang=<tag>` stores the choice in the `cc_lang` cookie and redirects back to the page; without a choice the server negotiates `Accept-Language`. Go supplies translated messages in the page JSON. Vue uses `web/ui/src/i18n.ts` and the same locale catalogs for dialogs, role badges and errors. Add a language by dropping `<tag>.json` into the locales directory and listing the tag in `CC_LANGUAGES`.
+The UI ships in English and Simplified Chinese (`internal/i18n/locales`). The header dropdown lists `AC_LANGUAGES`, `/language?lang=<tag>` stores the choice in the `ac_lang` cookie and redirects back to the page; without a choice the server negotiates `Accept-Language`. Go supplies translated messages in the page JSON. Vue uses `web/ui/src/i18n.ts` and the same locale catalogs for dialogs, role badges and errors. Add a language by dropping `<tag>.json` into the locales directory and listing the tag in `AC_LANGUAGES`.
 
 ## Isolation model
 
@@ -95,21 +95,21 @@ MCP exposes every API operation: project and environment management, configurati
 
 ## Go SDK
 
-`sdk/configcenter` is a separate module (`github.com/OXeu/configcenter/sdk/configcenter`) with a TTL-based memory cache and godotenv support:
+`sdk/authcenter` is a separate module (`github.com/OXeu/authcenter/sdk/authcenter`) with a TTL-based memory cache and godotenv support:
 
 ```go
-client, err := configcenter.New(configcenter.Config{
-	BaseURL: os.Getenv("CC_URL"), APIKey: os.Getenv("CC_KEY"),
+client, err := authcenter.New(authcenter.Config{
+	BaseURL: os.Getenv("AC_URL"), APIKey: os.Getenv("AC_KEY"),
 })
 if err != nil { /* handle */ }
 if err := client.Load(ctx); err != nil { /* handle */ }
 pool := client.Int("db.pool", 10)
-if err := client.Watch(ctx, configcenter.WatchOptions{Interval: 30 * time.Second}); err != nil { /* handle */ }
+if err := client.Watch(ctx, authcenter.WatchOptions{Interval: 30 * time.Second}); err != nil { /* handle */ }
 ```
 
 The key decides the project, so the SDK never takes a project name.
 
-Reads resolve each key from unexpired memory cache, then ConfigCenter, then godotenv files, then `Config.Defaults` or the getter's default. Empty strings count as configured values. Each client has an isolated memory map; `CacheTTL` defaults to 30 seconds and cache hits never extend it. `Load` and `Watch` skip remote requests when their full scope is cached, and refresh after expiry. Getters reject expired entries and use loaded fallbacks without network requests. No cache is persisted to disk. `DotenvFiles` defaults to an optional `.env` without changing process environment variables. Source failures return errors while exposing available fallback values. When both remote connection fields are empty, `Put` writes only to memory with the same TTL; partial remote configuration is rejected. See the [SDK guide](docs/sdk.md) for initialization, source composition and error handling.
+Reads resolve each key from unexpired memory cache, then AuthCenter, then godotenv files, then `Config.Defaults` or the getter's default. Empty strings count as configured values. Each client has an isolated memory map; `CacheTTL` defaults to 30 seconds and cache hits never extend it. `Load` and `Watch` skip remote requests when their full scope is cached, and refresh after expiry. Getters reject expired entries and use loaded fallbacks without network requests. No cache is persisted to disk. `DotenvFiles` defaults to an optional `.env` without changing process environment variables. Source failures return errors while exposing available fallback values. When both remote connection fields are empty, `Put` writes only to memory with the same TTL; partial remote configuration is rejected. See the [SDK guide](docs/sdk.md) for initialization, source composition and error handling.
 
 ## Development
 
@@ -118,16 +118,16 @@ Use Node 22.18+ or 24.11+ (supported Vite Plus LTS versions), npm and Go 1.26.10
 ```sh
 npm ci
 make check   # build, Go lint/tests, Oxlint, Vue type checking, Vitest, SDK lint/tests
-make build   # embed .tmp/ui and produce .tmp/bin/configcenter
+make build   # embed .tmp/ui and produce .tmp/bin/authcenter
 make run     # build and start the Go server
 npm run dev # in a second terminal; open http://localhost:5173/projects
 ```
 
-The Vite development server gets authenticated page JSON from Go at `127.0.0.1:8080` and serves Vue with hot reload. API, OAuth, language and logout requests are proxied to Go. Set `CC_PUBLIC_URL=http://localhost:5173` and register that origin's `/oauth/callback` with your provider when testing OAuth through Vite. Production serves embedded JavaScript and CSS directly from Go; Node is only needed at build time.
+The Vite development server gets authenticated page JSON from Go at `127.0.0.1:8080` and serves Vue with hot reload. API, OAuth, language and logout requests are proxied to Go. Set `AC_PUBLIC_URL=http://localhost:5173` and register that origin's `/oauth/callback` with your provider when testing OAuth through Vite. Production serves embedded JavaScript and CSS directly from Go; Node is only needed at build time.
 
 Vite Plus provides the build, Oxlint, Oxfmt and Vitest. `vue-tsc` checks both scripts and templates. Oxlint custom plugins inspect script ASTs; separate compiler-based Vitest checks enforce template constraints. See [AGENTS.md](AGENTS.md).
 
-Build output stays in ignored `.tmp/ui` and `.tmp/docs` and is embedded by `assets.go`. `npm run build:docs` renders Markdown and Shiki HTML/CSS; `make assets` runs it before the Vite build. Run `make assets` before direct Go commands on a fresh checkout; Make targets do this automatically. Go scratch files use `.tmp`, and binaries use `.tmp/bin`. The live SDK test is opt-in through `CC_TEST_URL` and `CC_TEST_KEY`.
+Build output stays in ignored `.tmp/ui` and `.tmp/docs` and is embedded by `assets.go`. `npm run build:docs` renders Markdown and Shiki HTML/CSS; `make assets` runs it before the Vite build. Run `make assets` before direct Go commands on a fresh checkout; Make targets do this automatically. Go scratch files use `.tmp`, and binaries use `.tmp/bin`. The live SDK test is opt-in through `AC_TEST_URL` and `AC_TEST_KEY`.
 
 Type checking uses TypeScript 7 (`typescript-native`) for modules, tools and non-component tests. Vue template and component tests use `vue-tsc` with TypeScript 6 because Volar requires its JavaScript compiler API. Run both with `npm run typecheck`.
 
@@ -136,8 +136,8 @@ Type checking uses TypeScript 7 (`typescript-native`) for modules, tools and non
 Local development defaults to SQLite. To connect to MySQL, set:
 
 ```dotenv
-CC_DB_DRIVER=mysql
-CC_DB=user:password@tcp(mysql-host:3306)/configcenter?charset=utf8mb4&tls=true
+AC_DB_DRIVER=mysql
+AC_DB=user:password@tcp(mysql-host:3306)/authcenter?charset=utf8mb4&tls=true
 ```
 
 Create the database first (MySQL 8+, utf8mb4 with a case-sensitive collation such
@@ -155,20 +155,20 @@ that can reach MySQL. Configure secrets `TENCENT_SECRET_ID`,
 `TENCENT_SECRET_KEY`, and `SCF_RUNTIME_ENV`. The last secret is a dotenv file:
 
 ```dotenv
-CC_DB=user:password@tcp(mysql-host:3306)/configcenter?charset=utf8mb4
-CC_SESSION_SECRET=replace-with-a-long-random-secret
-CC_PUBLIC_URL=https://your-domain.example
-CC_OAUTH_ISSUER=https://your-identity-provider.example
-CC_OAUTH_CLIENT_ID=your-client-id
-CC_OAUTH_CLIENT_SECRET=your-client-secret
-CC_BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+AC_DB=user:password@tcp(mysql-host:3306)/authcenter?charset=utf8mb4
+AC_SESSION_SECRET=replace-with-a-long-random-secret
+AC_PUBLIC_URL=https://your-domain.example
+AC_OAUTH_ISSUER=https://your-identity-provider.example
+AC_OAUTH_CLIENT_ID=your-client-id
+AC_OAUTH_CLIENT_SECRET=your-client-secret
+AC_BOOTSTRAP_ADMIN_EMAIL=admin@example.com
 ```
 
 The workflow packages this file privately with the function code, removes the
 runner copy after deployment, and never uploads the package as a GitHub artifact.
 SCF forces MySQL, production mode and port 9000. The HTTP trigger exposes a
 function URL with public and private access. Cloud-level authentication is NONE;
-the application enforces OAuth sessions and API keys. Set CC_PUBLIC_URL to the
+the application enforces OAuth sessions and API keys. Set AC_PUBLIC_URL to the
 function URL or its custom domain and register its /oauth/callback URL at the
 identity provider. The VPC must also permit outbound access to the identity provider.
 The selected Tencent action runs serverless-cloud-framework; its source is pinned,

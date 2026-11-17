@@ -10,7 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/OXeu/configcenter/internal/auth"
+	"github.com/OXeu/authcenter/internal/auth"
 )
 
 const (
@@ -119,7 +119,7 @@ func (s *Server) dispatch(c *gin.Context, req rpcRequest) (any, *rpcError) {
 		return gin.H{
 			"protocolVersion": mcpProtocol,
 			"capabilities":    gin.H{"tools": gin.H{"listChanged": false}},
-			"serverInfo":      gin.H{"name": "configcenter", "version": "1.0.0"},
+			"serverInfo":      gin.H{"name": "authcenter", "version": "1.0.0"},
 		}, nil
 	case "ping":
 		return gin.H{}, nil

@@ -1,17 +1,17 @@
 # AGENTS.md
 
-Rules for anyone (human or model) changing configcenter. They are enforced where a tool exists; where a rule is judgement, it is listed as such.
+Rules for anyone (human or model) changing authcenter. They are enforced where a tool exists; where a rule is judgement, it is listed as such.
 
 ## Layout
 
-- `cmd/configcenter` — main, flags-free, environment driven. `internal/config` loads `.env.local` (or `CC_ENV_FILE`) with godotenv before reading variables; exported variables are never overridden. Never print secret values.
+- `cmd/authcenter` — main, flags-free, environment driven. `internal/config` loads `.env.local` (or `AC_ENV_FILE`) with godotenv before reading variables; exported variables are never overridden. Never print secret values.
 - `internal/config` — loads the env file and reads every environment variable here and nowhere else.
 - `internal/store` — gorm models and all queries; one `Store` method per query.
 - `internal/auth` — sessions, roles, CSRF, API-key and agent middleware, OAuth provider adapter.
 - `internal/oauth` — the RFC 6749 + OIDC client (discovery, PKCE, id_token verification, userinfo fallback).
 - `internal/server` — gin router, REST handlers, MCP endpoint, Go templates (`templates/shell/vue.html`), embedded static files.
 - `web/ui` — Vue 3 single-file components and Tailwind CSS; Vite Plus builds into `.tmp/ui`, embedded by root `assets.go`.
-- `sdk/configcenter` — separate module with the public Go client.
+- `sdk/authcenter` — separate module with the public Go client.
 - `docs/commits.md` — the commit message rules (Conventional Commits 1.0.0 plus this repository's constraints).
 
 ## Commits
@@ -55,7 +55,7 @@ Commit messages follow [`docs/commits.md`](docs/commits.md): Conventional Commit
    Dropdowns use `DropdownMenu` or `DropdownSelect`. Their panels use the shared `.dropdown-panel` fixed positioning and `useDropdownPosition`; opening a dropdown must not insert content into normal flow, resize surrounding content or change a parent's overflow. Template and CSS lint reject custom panels and position overrides, including responsive overrides.
 3. **Reuse styles.** Use the `.card`, `.btn`, `.field`, `.input`, `.table`, `.badge` and `.tabs-trigger` classes in `web/ui/theme.css`. Avoid decorative wrappers and duplicate state markup.
 4. **Messages are toasts.** Use `notify()` from `web/ui/src/toast.ts` or `page.report(err)`. No inline alerts, tooltips or popovers. Dialog validation remains inert `.field` text. Server flash text is already translated and delivered in the JSON payload. Ding receives the per-request CSP style nonce.
-5. **Vue owns the DOM.** Oxlint's `configcenter/no-page-dom-access` bans document calls and HTML sinks in scripts. Only `main.ts` reads `#page-data` once. Component template refs may call native dialog methods; do not query or rewrite page DOM.
+5. **Vue owns the DOM.** Oxlint's `authcenter/no-page-dom-access` bans document calls and HTML sinks in scripts. Only `main.ts` reads `#page-data` once. Component template refs may call native dialog methods; do not query or rewrite page DOM.
 6. **Template checks.** Oxlint JS plugins receive script ASTs, not Vue template nodes. `tools/oxlint/templates.ts`, exercised against every SFC by Vitest, checks dialog-only inputs, inline messages/icons, unsafe HTML/URLs, unprotected new-tab links, raw DOM expressions, control names and expression length. These checks are deliberately separate from Oxlint; they are not a full accessibility audit. Review keyboard behavior and labels as well.
 7. **Short templates.** Directive expressions are at most 50 characters. Move behavior and complex conditions to named functions or computed state. Component files stay below 400 nonblank lines.
 8. **Translations.** Components use `msg(id, vars)` from `web/ui/src/i18n.ts`. Both English and Chinese catalogs in `internal/i18n/locales` contain every ID; the same catalogs supply frontend fallbacks and Go page messages. Keep `/language?lang=` and the header language menu. Do not retranslate server flash text.
@@ -66,14 +66,14 @@ Commit messages follow [`docs/commits.md`](docs/commits.md): Conventional Commit
 ## Testing
 
 - `go test ./...` — OAuth login through a fake identity provider, project isolation, CSRF.
-- `go test ./...` in `sdk/configcenter`; the live test runs only with `CC_TEST_URL` and `CC_TEST_KEY`.
+- `go test ./...` in `sdk/authcenter`; the live test runs only with `AC_TEST_URL` and `AC_TEST_KEY`.
 - `npm test` — Vitest and Vue Test Utils with jsdom cover dialogs, requests, permissions, translations, toast setup and template rules.
 - `internal/server/e2e_test.go` renders every page, logs in through a fake IdP and proves a key of one project cannot reach another. Its `TestMain` (`scratch_test.go`) points `TMPDIR` at `.tmp/go-test` so `go test` run directly, without `make`, also keeps its scratch files in the workspace.
 - Relational test databases use `mode=memory`. SDK caches use isolated in-memory maps with TTL; dotenv test files live under the repository root `.tmp/` and are cleaned up. No database is written into a package directory.
 
 ## Definition of done
 
-`make check` passes: Vite Plus production build, Go lint and tests, Oxlint, strict Vue type checks, Vitest, and SDK lint and tests. `make build` produces `.tmp/bin/configcenter`. Commit working changes according to `docs/commits.md` and finish with a clean `git status`. Build artifacts remain ignored under `.tmp/`.
+`make check` passes: Vite Plus production build, Go lint and tests, Oxlint, strict Vue type checks, Vitest, and SDK lint and tests. `make build` produces `.tmp/bin/authcenter`. Commit working changes according to `docs/commits.md` and finish with a clean `git status`. Build artifacts remain ignored under `.tmp/`.
 
 ## Dangerous UI actions
 

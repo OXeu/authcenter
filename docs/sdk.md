@@ -9,10 +9,10 @@ SDK 使用只授权一个具体项目的 API Key，配置读取需要 `config:re
 SDK 是独立 Go 模块，需要 Go 1.26 或更高版本。缓存使用带 TTL 的内存 map，dotenv 文件使用 godotenv 解析，不依赖本地 KV 数据库。在调用方 Go 模块目录执行：
 
 ```sh
-go get github.com/OXeu/configcenter/sdk/configcenter
+go get github.com/OXeu/authcenter/sdk/authcenter
 ```
 
-生产项目在 go.mod 中固定并审查实际解析的版本。若使用尚未发布的本地修改，可在调用方模块中增加 `replace github.com/OXeu/configcenter/sdk/configcenter => /absolute/path/to/configcenter/sdk/configcenter`。
+生产项目在 go.mod 中固定并审查实际解析的版本。若使用尚未发布的本地修改，可在调用方模块中增加 `replace github.com/OXeu/authcenter/sdk/authcenter => /absolute/path/to/authcenter/sdk/authcenter`。
 
 ## 初始化和首次读取
 
@@ -26,11 +26,11 @@ import (
     "fmt"
     "time"
 
-    "github.com/OXeu/configcenter/sdk/configcenter"
+    "github.com/OXeu/authcenter/sdk/authcenter"
 )
 
 func LoadPool(ctx context.Context, baseURL, apiKey string) (int, error) {
-    client, err := configcenter.New(configcenter.Config{
+    client, err := authcenter.New(authcenter.Config{
         BaseURL: baseURL,
         APIKey: apiKey,
         Environment: "production",
@@ -53,14 +53,14 @@ func LoadPool(ctx context.Context, baseURL, apiKey string) (int, error) {
 SDK 按键合并数据源，优先级依次为：
 
 1. 尚未过期的内存缓存。
-2. ConfigCenter 当前返回的配置。
+2. AuthCenter 当前返回的配置。
 3. godotenv 解析的 dotenv 文件。
 4. `Config.Defaults`；仍不存在时使用 `GetDefault`、`Int`、`Bool` 的调用方默认值。
 
 空字符串是已配置的值，不会继续向下查找。`Int`、`Bool` 对选中的值解析失败时直接返回调用方默认值，不再尝试较低优先级的数据源。
 
 ```go
-client, err := configcenter.New(configcenter.Config{
+client, err := authcenter.New(authcenter.Config{
     BaseURL: baseURL,
     APIKey: apiKey,
     Environment: "production",
@@ -83,11 +83,11 @@ pool := client.Int("db.pool", 10)
 
 `CacheTTL` 为零时使用 `DefaultCacheTTL`（30 秒），也可指定正的 `time.Duration`，负值会在 `New` 时返回错误。TTL 从成功读取或写入开始计算，命中缓存不会续期。每个客户端持有独立的 map，缓存不落盘，不跨客户端或进程重启共享，也不需要 Close。
 
-`Load` / `LoadPrefix` 先检查请求范围是否有完整且有效的缓存；命中时跳过 ConfigCenter。缓存缺失或过期时请求远端，用返回值补齐缓存；已有的未过期值仍优先。完整快照可以覆盖更窄的前缀，前缀快照不能代替完整加载。成功返回的空快照也按 TTL 缓存，避免反复请求缺失的配置。更大范围的加载不会延长已有条目的 TTL。
+`Load` / `LoadPrefix` 先检查请求范围是否有完整且有效的缓存；命中时跳过 AuthCenter。缓存缺失或过期时请求远端，用返回值补齐缓存；已有的未过期值仍优先。完整快照可以覆盖更窄的前缀，前缀快照不能代替完整加载。成功返回的空快照也按 TTL 缓存，避免反复请求缺失的配置。更大范围的加载不会延长已有条目的 TTL。
 
 远程读取和 `Put` 成功后缓存空字符串及配置元数据；失败的写入不改动缓存。过期后远端已删除的键、远端不可用时的旧值均不会继续返回，而是使用 dotenv 或默认值。加载和写入会清理过期条目；`Get`、`GetDefault`、`Int`、`Bool` 和 `All` 也会检查有效期。
 
-dotenv 和 `Defaults` 仅作为读取 fallback，不会写入远程缓存。读取方法不发网络请求：缓存过期时使用最近一次加载的 fallback，需要调用 `Load` 或启用 `Watch` 获取最新远程值。原有 `LocalPath`、`LocalDefaults` 和 `DefaultLocalPath` 已移除；应用默认值改用 `Defaults`，持久化配置写入 ConfigCenter。
+dotenv 和 `Defaults` 仅作为读取 fallback，不会写入远程缓存。读取方法不发网络请求：缓存过期时使用最近一次加载的 fallback，需要调用 `Load` 或启用 `Watch` 获取最新远程值。原有 `LocalPath`、`LocalDefaults` 和 `DefaultLocalPath` 已移除；应用默认值改用 `Defaults`，持久化配置写入 AuthCenter。
 
 ### dotenv 文件
 
@@ -123,9 +123,9 @@ type DataSource interface {
 公开的 `Sources` 可组合任意实现该接口的数据源，按顺序为每个键选取第一个值，并聚合各来源错误。来源可以同时返回可用数据和错误。`MapSource` 提供静态内存配置（自身不带 TTL），`DotenvSource` 提供文件配置；SDK 内部使用它们组合 fallback，TTL 由客户端缓存管理。
 
 ```go
-var source configcenter.DataSource = configcenter.Sources{
-    configcenter.DotenvSource{Files: []string{".env"}},
-    configcenter.MapSource{"db.pool": "10"},
+var source authcenter.DataSource = authcenter.Sources{
+    authcenter.DotenvSource{Files: []string{".env"}},
+    authcenter.MapSource{"db.pool": "10"},
 }
 items, err := source.Read(ctx, "db.")
 ```
@@ -152,7 +152,7 @@ items, err := source.Read(ctx, "db.")
 ```go
 watchCtx, cancel := context.WithCancel(ctx)
 defer cancel()
-if err := client.Watch(watchCtx, configcenter.WatchOptions{
+if err := client.Watch(watchCtx, authcenter.WatchOptions{
     Interval: 30 * time.Second,
     OnError: func(err error) {
         logger.Error("refresh configuration", "error", err)
@@ -168,4 +168,4 @@ if err := client.Watch(watchCtx, configcenter.WatchOptions{
 
 ## 错误处理
 
-使用 `errors.Is(err, configcenter.ErrNotFound)` 判断 HTTP 404（例如环境不存在）。其他非 200 状态目前返回包含状态码的普通错误，没有导出的结构化 HTTP 错误类型。`Get` 通过 bool 表示缺失，并不返回 `ErrKeyNotFound`。为启动失败和后台刷新失败分别制定处理策略。
+使用 `errors.Is(err, authcenter.ErrNotFound)` 判断 HTTP 404（例如环境不存在）。其他非 200 状态目前返回包含状态码的普通错误，没有导出的结构化 HTTP 错误类型。`Get` 通过 bool 表示缺失，并不返回 `ErrKeyNotFound`。为启动失败和后台刷新失败分别制定处理策略。

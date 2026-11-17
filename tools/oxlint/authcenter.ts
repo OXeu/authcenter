@@ -94,7 +94,7 @@ const noInlineIcons = defineRule({
 })
 
 export default definePlugin({
-  meta: { name: 'configcenter' },
+  meta: { name: 'authcenter' },
   rules: {
     'no-page-dom-access': noPageDomAccess,
     'no-inline-icons': noInlineIcons,

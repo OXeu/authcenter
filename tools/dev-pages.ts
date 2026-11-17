@@ -56,7 +56,7 @@ async function serve(
 /** @returns {import('vite-plus').Plugin} */
 export function devPages() {
   return {
-    name: 'configcenter-pages',
+    name: 'authcenter-pages',
     configureServer(server: import('vite-plus').ViteDevServer) {
       server.middlewares.use((req, res, next) => {
         void serve(req, res, next)

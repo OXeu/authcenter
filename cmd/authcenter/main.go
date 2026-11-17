@@ -11,14 +11,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/OXeu/configcenter/internal/config"
-	"github.com/OXeu/configcenter/internal/server"
+	"github.com/OXeu/authcenter/internal/config"
+	"github.com/OXeu/authcenter/internal/server"
 )
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	if err := run(logger); err != nil {
-		logger.Error("configcenter stopped", "error", err)
+		logger.Error("authcenter stopped", "error", err)
 		os.Exit(1)
 	}
 }

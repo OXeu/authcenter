@@ -7,7 +7,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: configcenter-${{ github.ref }}
+  group: authcenter-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   check:
@@ -17,7 +17,7 @@ jobs:
         image: mysql:8.4
         env:
           MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
-          MYSQL_DATABASE: configcenter
+          MYSQL_DATABASE: authcenter
         ports:
           - 23306:3306
         options: >-
@@ -66,7 +66,7 @@ jobs:
       - name: Build Linux deployment package
         run: |
           mkdir -p .tmp/scf
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build BIN=.tmp/scf/configcenter
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build BIN=.tmp/scf/authcenter
           cp scf_bootstrap .tmp/scf/scf_bootstrap
           chmod +x .tmp/scf/scf_bootstrap
       - name: Prepare runtime configuration

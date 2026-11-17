@@ -14,7 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/OXeu/configcenter/internal/store"
+	"github.com/OXeu/authcenter/internal/store"
 )
 
 // Authenticator resolves browser sessions and API keys.
@@ -25,8 +25,8 @@ type Authenticator struct {
 }
 
 const (
-	sessionCookie = "cc_session"
-	stateCookie   = "cc_oauth_state"
+	sessionCookie = "ac_session"
+	stateCookie   = "ac_oauth_state"
 	csrfHeader    = "X-CSRF-Token"
 )
 
@@ -93,7 +93,7 @@ func WithIdentity(ctx context.Context, id Identity) context.Context {
 
 // CSRF returns the token issued with the current session.
 func CSRF(c *gin.Context) string {
-	tok, ok := c.Get("cc_csrf")
+	tok, ok := c.Get("ac_csrf")
 	if !ok {
 		return ""
 	}
@@ -159,7 +159,7 @@ func (a *Authenticator) BrowserMiddleware() gin.HandlerFunc {
 			sess, user, sessErr := a.store.SessionUser(c.Request.Context(), raw)
 			if sessErr == nil {
 				c.Request = c.Request.WithContext(WithIdentity(c.Request.Context(), Identity{User: &user, Role: user.Role}))
-				c.Set("cc_csrf", sess.CSRFToken)
+				c.Set("ac_csrf", sess.CSRFToken)
 			} else if errors.Is(sessErr, store.ErrNotFound) {
 				clearSessionCookie(c)
 			}
@@ -260,7 +260,7 @@ func (a *Authenticator) Login(c *gin.Context, userID uint) error {
 		SameSite: http.SameSiteLaxMode,
 		Expires:  sess.ExpiresAt,
 	})
-	c.Set("cc_csrf", csrf)
+	c.Set("ac_csrf", csrf)
 	return nil
 }
 

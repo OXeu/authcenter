@@ -19,11 +19,11 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
-	"github.com/OXeu/configcenter"
-	"github.com/OXeu/configcenter/internal/auth"
-	"github.com/OXeu/configcenter/internal/config"
-	"github.com/OXeu/configcenter/internal/i18n"
-	"github.com/OXeu/configcenter/internal/store"
+	"github.com/OXeu/authcenter"
+	"github.com/OXeu/authcenter/internal/auth"
+	"github.com/OXeu/authcenter/internal/config"
+	"github.com/OXeu/authcenter/internal/i18n"
+	"github.com/OXeu/authcenter/internal/store"
 )
 
 //go:embed templates/shell/vue.html
@@ -115,7 +115,7 @@ func sqliteDSN(dsn string) (string, error) {
 var errNoLanguage = errors.New("no enabled language has a locale file")
 
 func (s *Server) loadTemplates() error {
-	data, err := configcenter.Frontend.ReadFile(".tmp/ui/.vite/manifest.json")
+	data, err := authcenter.Frontend.ReadFile(".tmp/ui/.vite/manifest.json")
 	if err != nil {
 		return fmt.Errorf("read frontend manifest: %w", err)
 	}
@@ -226,11 +226,11 @@ func (s *Server) router() *gin.Engine {
 	r.Use(gin.Recovery(), s.requestLogger())
 	r.Use(securityHeaders())
 
-	frontend, frontendErr := fs.Sub(configcenter.Frontend, ".tmp/ui")
+	frontend, frontendErr := fs.Sub(authcenter.Frontend, ".tmp/ui")
 	if frontendErr != nil {
 		s.log.Error("mount frontend", "error", frontendErr)
 	}
-	brand, brandErr := fs.Sub(configcenter.Brand, "assets")
+	brand, brandErr := fs.Sub(authcenter.Brand, "assets")
 	if brandErr != nil {
 		s.log.Error("mount brand assets", "error", brandErr)
 	}

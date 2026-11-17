@@ -7,15 +7,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OXeu/configcenter/internal/config"
-	"github.com/OXeu/configcenter/internal/store"
+	"github.com/OXeu/authcenter/internal/config"
+	"github.com/OXeu/authcenter/internal/store"
 )
 
 func TestMySQLStore(t *testing.T) {
 	ctx := context.Background()
 	dialect, err := databaseDialector(config.Config{
 		DatabaseDriver: "mysql",
-		DatabaseDSN:    "root@tcp(127.0.0.1:23306)/configcenter?parseTime=true",
+		DatabaseDSN:    "root@tcp(127.0.0.1:23306)/authcenter?parseTime=true",
 	})
 	if err != nil {
 		t.Fatal(err)

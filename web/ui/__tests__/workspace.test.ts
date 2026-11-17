@@ -57,10 +57,10 @@ describe('workspace mutations', () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       status: 201,
-      json: async () => ({ token: 'cc_once' }),
+      json: async () => ({ token: 'ac_once' }),
     })
     await w.form.submit()
-    expect(w.form.token).toBe('cc_once')
+    expect(w.form.token).toBe('ac_once')
     expect(w.form.open).toBe(true)
   })
   it('keeps failed edits open with a translated error', async () => {
@@ -148,11 +148,11 @@ it('creates and rotates keys using the unified routes', async () => {
   fetchMock.mockResolvedValueOnce({
     ok: true,
     status: 201,
-    json: async () => ({ token: 'cc_global' }),
+    json: async () => ({ token: 'ac_global' }),
   })
   await w.form.submit()
   expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/keys')
-  expect(w.form.token).toBe('cc_global')
+  expect(w.form.token).toBe('ac_global')
   fetchMock.mockClear()
   w.actionsFor({ id: 42, name: 'Automation' })[0].request()
   expect(fetchMock).not.toHaveBeenCalled()

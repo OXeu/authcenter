@@ -16,10 +16,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/OXeu/configcenter/internal/auth"
-	"github.com/OXeu/configcenter/internal/config"
-	"github.com/OXeu/configcenter/internal/oauth"
-	"github.com/OXeu/configcenter/internal/store"
+	"github.com/OXeu/authcenter/internal/auth"
+	"github.com/OXeu/authcenter/internal/config"
+	"github.com/OXeu/authcenter/internal/oauth"
+	"github.com/OXeu/authcenter/internal/store"
 )
 
 func TestMain(m *testing.M) {
@@ -78,7 +78,7 @@ func newFlows(t *testing.T) *flows {
 		SessionTTL:  time.Hour,
 		Languages:   []string{"en", "zh-CN"},
 		Bootstrap:   config.Bootstrap{AdminEmail: "admin@localhost", AdminName: "admin"},
-		Groups:      auth.GroupPolicy{AdminGroups: []string{"configcenter-admin"}},
+		Groups:      auth.GroupPolicy{AdminGroups: []string{"authcenter-admin"}},
 		OAuth: auth.Config{
 			IssuerURL: idp.server.URL, ClientID: "client", ClientSecret: "secret",
 			RedirectURL: "http://cc.test/oauth/callback", GroupsClaim: "groups",
@@ -131,7 +131,7 @@ func TestWebAndAgentFlowsAreProjectScoped(t *testing.T) {
 		t.Fatalf("create key = %d", code)
 	}
 	token, _ := created["token"].(string)
-	if !strings.HasPrefix(token, "cc_") {
+	if !strings.HasPrefix(token, "ac_") {
 		t.Fatalf("token = %q", token)
 	}
 
@@ -192,7 +192,7 @@ func TestWebAndAgentFlowsAreProjectScoped(t *testing.T) {
 	}
 
 	withoutCSRF := httptest.NewRequest(http.MethodPost, "/api/v1/projects", strings.NewReader(`{"slug":"no-csrf","name":"x"}`))
-	withoutCSRF.Header.Set("Cookie", "cc_session="+f.cookies["cc_session"].Value)
+	withoutCSRF.Header.Set("Cookie", "ac_session="+f.cookies["ac_session"].Value)
 	rec := httptest.NewRecorder()
 	f.router.ServeHTTP(rec, withoutCSRF)
 	if rec.Code != http.StatusForbidden {
@@ -207,7 +207,7 @@ func TestPagesRenderForSignedInUser(t *testing.T) {
 	}
 	for _, path := range []string{"/projects", "/projects/billing", "/users"} {
 		req := httptest.NewRequest(http.MethodGet, path, http.NoBody)
-		req.Header.Set("Cookie", "cc_session="+f.cookies["cc_session"].Value)
+		req.Header.Set("Cookie", "ac_session="+f.cookies["ac_session"].Value)
 		w := httptest.NewRecorder()
 		f.router.ServeHTTP(w, req)
 		if w.Code != http.StatusOK {
@@ -223,7 +223,7 @@ func TestPagesRenderForSignedInUser(t *testing.T) {
 
 func TestLanguageSwitcherAndNegotiation(t *testing.T) {
 	f := newFlows(t)
-	session := "cc_session=" + f.cookies["cc_session"].Value
+	session := "ac_session=" + f.cookies["ac_session"].Value
 
 	page := func(header http.Header) string {
 		t.Helper()
@@ -245,7 +245,7 @@ func TestLanguageSwitcherAndNegotiation(t *testing.T) {
 		t.Fatal("default page is not English")
 	}
 
-	chinese := page(http.Header{"Cookie": {"cc_session=" + f.cookies["cc_session"].Value + "; cc_lang=zh-CN"}})
+	chinese := page(http.Header{"Cookie": {"ac_session=" + f.cookies["ac_session"].Value + "; ac_lang=zh-CN"}})
 	if !strings.Contains(chinese, "新建项目") || !strings.Contains(chinese, `lang="zh-CN"`) {
 		t.Fatal("cookie did not switch the page to Chinese")
 	}
@@ -253,7 +253,7 @@ func TestLanguageSwitcherAndNegotiation(t *testing.T) {
 		t.Fatal("language menu does not list every enabled language")
 	}
 
-	negotiated := page(http.Header{"Cookie": {"cc_session=" + f.cookies["cc_session"].Value}, "Accept-Language": {"zh-CN,zh;q=0.9,en;q=0.5"}})
+	negotiated := page(http.Header{"Cookie": {"ac_session=" + f.cookies["ac_session"].Value}, "Accept-Language": {"zh-CN,zh;q=0.9,en;q=0.5"}})
 	if !strings.Contains(negotiated, "新建项目") {
 		t.Fatal("Accept-Language was not negotiated")
 	}
@@ -265,7 +265,7 @@ func TestLanguageSwitcherAndNegotiation(t *testing.T) {
 	if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/projects/billing" {
 		t.Fatalf("switch = %d %q", rec.Code, rec.Header().Get("Location"))
 	}
-	if cookie := rec.Result().Cookies(); len(cookie) == 0 || cookie[0].Name != "cc_lang" || cookie[0].Value != "zh-CN" {
+	if cookie := rec.Result().Cookies(); len(cookie) == 0 || cookie[0].Name != "ac_lang" || cookie[0].Value != "zh-CN" {
 		t.Fatalf("switch did not store the language: %v", cookie)
 	}
 
@@ -288,7 +288,7 @@ func TestVuePageContractAndEscaping(t *testing.T) {
 		t.Fatalf("create = %d", code)
 	}
 	req := httptest.NewRequest(http.MethodGet, "/projects/escaped", http.NoBody)
-	req.Header.Set("Cookie", "cc_session="+f.cookies["cc_session"].Value)
+	req.Header.Set("Cookie", "ac_session="+f.cookies["ac_session"].Value)
 	w := httptest.NewRecorder()
 	f.router.ServeHTTP(w, req)
 	_, tail, found := strings.Cut(w.Body.String(), `<script id="page-data" type="application/json">`)

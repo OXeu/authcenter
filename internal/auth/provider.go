@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/OXeu/configcenter/internal/oauth"
-	"github.com/OXeu/configcenter/internal/store"
+	"github.com/OXeu/authcenter/internal/oauth"
+	"github.com/OXeu/authcenter/internal/store"
 )
 
 // Provider abstracts OIDC and plain OAuth 2.0 identity servers.

@@ -21,9 +21,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/OXeu/configcenter/internal/auth"
-	"github.com/OXeu/configcenter/internal/config"
-	"github.com/OXeu/configcenter/internal/store"
+	"github.com/OXeu/authcenter/internal/auth"
+	"github.com/OXeu/authcenter/internal/config"
+	"github.com/OXeu/authcenter/internal/store"
 )
 
 type fakeIdP struct {
@@ -90,7 +90,7 @@ func newFakeIdP(t *testing.T) *fakeIdP {
 			"nonce":          idp.lastNonce,
 			"iat":            time.Now().Unix(),
 			"exp":            time.Now().Add(5 * time.Minute).Unix(),
-			"groups":         []string{"configcenter-admin"},
+			"groups":         []string{"authcenter-admin"},
 		})})
 	})
 	idp.server = httptest.NewServer(mux)
@@ -124,7 +124,7 @@ func testServer(t *testing.T, withOAuth bool) (*Server, *gin.Engine, *fakeIdP) {
 		SessionTTL:  time.Hour,
 		Languages:   []string{"en", "zh-CN"},
 		Bootstrap:   config.Bootstrap{AdminEmail: "admin@localhost", AdminName: "admin"},
-		Groups:      auth.GroupPolicy{AdminGroups: []string{"configcenter-admin"}},
+		Groups:      auth.GroupPolicy{AdminGroups: []string{"authcenter-admin"}},
 	}
 	var idp *fakeIdP
 	if withOAuth {

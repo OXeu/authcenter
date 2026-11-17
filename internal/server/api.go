@@ -10,9 +10,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/OXeu/configcenter/internal/auth"
-	"github.com/OXeu/configcenter/internal/slug"
-	"github.com/OXeu/configcenter/internal/store"
+	"github.com/OXeu/authcenter/internal/auth"
+	"github.com/OXeu/authcenter/internal/slug"
+	"github.com/OXeu/authcenter/internal/store"
 )
 
 // MountAPI registers the JSON API used by the web UI and by operators.
@@ -54,7 +54,7 @@ func (s *Server) withProject(permission store.Permission, fn func(*gin.Context, 
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient api key scope"})
 			return
 		}
-		c.Set("cc_project", project)
+		c.Set("ac_project", project)
 		fn(c, project)
 	}
 }

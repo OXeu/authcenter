@@ -1,4 +1,4 @@
-package configcenter
+package authcenter
 
 import (
 	"bytes"
@@ -17,7 +17,7 @@ var keyPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/-]{0,190}$`)
 
 func validateKey(key string) error {
 	if !keyPattern.MatchString(key) {
-		return errors.New("configcenter: key must be 1-191 letters, digits or . _ : / - and start with a letter or digit")
+		return errors.New("authcenter: key must be 1-191 letters, digits or . _ : / - and start with a letter or digit")
 	}
 	return nil
 }
@@ -36,7 +36,7 @@ func (c *Client) Put(ctx context.Context, key, value string) error {
 
 func (c *Client) put(ctx context.Context, key, value string) error {
 	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("configcenter: write cancelled: %w", err)
+		return fmt.Errorf("authcenter: write cancelled: %w", err)
 	}
 	if err := validateKey(key); err != nil {
 		return err
@@ -51,24 +51,24 @@ func (c *Client) put(ctx context.Context, key, value string) error {
 	}
 	body, err := json.Marshal(map[string]string{"value": value})
 	if err != nil {
-		return fmt.Errorf("configcenter: encode value: %w", err)
+		return fmt.Errorf("authcenter: encode value: %w", err)
 	}
 	target := path + "/items/" + url.PathEscape(key)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, target, bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("configcenter: create write request: %w", err)
+		return fmt.Errorf("authcenter: create write request: %w", err)
 	}
 	req.Header.Set("Authorization", "ApiKey "+c.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("configcenter: write request: %w", err)
+		return fmt.Errorf("authcenter: write request: %w", err)
 	}
 	if err := resp.Body.Close(); err != nil {
-		return fmt.Errorf("configcenter: close write response: %w", err)
+		return fmt.Errorf("authcenter: close write response: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("configcenter: write status %d", resp.StatusCode)
+		return fmt.Errorf("authcenter: write status %d", resp.StatusCode)
 	}
 	item := Item{Key: key, Value: value, UpdatedAt: time.Now().UTC()}
 	c.cachePut(item)
@@ -85,7 +85,7 @@ func (c *Client) environmentPath(ctx context.Context) (string, error) {
 		return "", err
 	}
 	if scope.Project.Slug == "" {
-		return "", errors.New("configcenter: missing project scope")
+		return "", errors.New("authcenter: missing project scope")
 	}
 	return strings.TrimSuffix(c.endpoint, "/agent") + "/projects/" + url.PathEscape(scope.Project.Slug) + "/environments/" + url.PathEscape(c.env), nil
 }

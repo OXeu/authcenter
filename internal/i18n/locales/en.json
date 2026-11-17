@@ -22,7 +22,7 @@
   "error.conflict": "This record changed or conflicts with an existing record. Refresh and try again.",
   "confirm.ok": "OK",
   "language": "English",
-  "app.name": "configcenter",
+  "app.name": "authcenter",
   "nav.main": "Main",
   "nav.projects": "Projects",
   "nav.users": "Users",

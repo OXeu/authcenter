@@ -88,7 +88,7 @@ func TestStaticSkipsSessionMiddleware(t *testing.T) {
 	_, router, _ := testServer(t, false)
 	for _, url := range []string{"/static/docs/shiki.css", "/static/brand/icon-512.webp", "/login"} {
 		request := httptest.NewRequest(http.MethodGet, url, http.NoBody)
-		request.AddCookie(&http.Cookie{Name: "cc_session", Value: "invalid-session"})
+		request.AddCookie(&http.Cookie{Name: "ac_session", Value: "invalid-session"})
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, request)
 		cleared := response.Header().Get("Set-Cookie") != ""

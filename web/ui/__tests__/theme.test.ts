@@ -45,7 +45,7 @@ describe('theme preference', () => {
     await nextTick()
     expect(wrapper.attributes('data-theme')).toBe('dark')
     await wrapper.trigger('click')
-    expect(localStorage.getItem('cc_theme')).toBe('light')
+    expect(localStorage.getItem('ac_theme')).toBe('light')
     changed({ matches: true })
     await nextTick()
     expect(wrapper.attributes('data-theme')).toBe('light')
@@ -57,14 +57,14 @@ describe('theme preference', () => {
     expect(start().attributes('data-theme')).toBe('dark')
   })
   it('ignores invalid stored values and uses the initial system setting', () => {
-    localStorage.setItem('cc_theme', 'invalid')
+    localStorage.setItem('ac_theme', 'invalid')
     media.matches = true
     expect(start().attributes('data-theme')).toBe('dark')
   })
   it('syncs changes from other tabs and falls back to the system after clearing', async () => {
     const wrapper = start()
-    localStorage.setItem('cc_theme', 'dark')
-    window.dispatchEvent(new StorageEvent('storage', { key: 'cc_theme' }))
+    localStorage.setItem('ac_theme', 'dark')
+    window.dispatchEvent(new StorageEvent('storage', { key: 'ac_theme' }))
     await nextTick()
     expect(wrapper.attributes('data-theme')).toBe('dark')
     localStorage.clear()

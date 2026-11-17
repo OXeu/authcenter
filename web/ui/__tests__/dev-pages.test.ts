@@ -27,7 +27,7 @@ it.each(['/projects', '/docs/', '/docs/api', '/docs/sdk'])(
         {
           method: 'GET',
           url: path,
-          headers: { cookie: 'cc_session=test', 'accept-language': 'zh-CN' },
+          headers: { cookie: 'ac_session=test', 'accept-language': 'zh-CN' },
         } as import('node:http').IncomingMessage,
         {
           setHeader: (key: string, value: string) => headers.set(key, value),
@@ -39,7 +39,7 @@ it.each(['/projects', '/docs/', '/docs/api', '/docs/sdk'])(
     expect(fetchMock).toHaveBeenCalledWith(
       `http://127.0.0.1:8080${path}`,
       expect.objectContaining({
-        headers: { cookie: 'cc_session=test', 'accept-language': 'zh-CN' },
+        headers: { cookie: 'ac_session=test', 'accept-language': 'zh-CN' },
       }),
     )
     expect(body).toContain('/web/ui/src/main.ts')

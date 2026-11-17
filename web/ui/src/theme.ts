@@ -1,7 +1,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 export type Theme = 'light' | 'dark'
-const storageKey = 'cc_theme'
+const storageKey = 'ac_theme'
 
 function validTheme(value: string | null): Theme | null {
   return value === 'light' || value === 'dark' ? value : null

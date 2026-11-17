@@ -7,11 +7,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/OXeu/configcenter/internal/i18n"
+	"github.com/OXeu/authcenter/internal/i18n"
 )
 
 const (
-	languageCookie = "cc_lang"
+	languageCookie = "ac_lang"
 	languageQuery  = "lang"
 )
 
@@ -27,8 +27,8 @@ func (s *Server) languageMiddleware() gin.HandlerFunc {
 			}
 		}
 		tr := s.catalog.Translator(tag)
-		c.Set("cc_lang", tr.Lang())
-		c.Set("cc_t", tr)
+		c.Set("ac_lang", tr.Lang())
+		c.Set("ac_t", tr)
 		c.Next()
 	}
 }
@@ -44,7 +44,7 @@ func cookieValue(c *gin.Context, name string) string {
 // translator returns the request translator, falling back to negotiation for
 // handlers that run outside the middleware chain.
 func (s *Server) translator(c *gin.Context) *i18n.Translator {
-	if value, ok := c.Get("cc_t"); ok {
+	if value, ok := c.Get("ac_t"); ok {
 		if tr, isTranslator := value.(*i18n.Translator); isTranslator {
 			return tr
 		}

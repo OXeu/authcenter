@@ -1,4 +1,4 @@
-package configcenter
+package authcenter
 
 import (
 	"context"
@@ -26,11 +26,11 @@ func (s Sources) Read(ctx context.Context, prefix string) ([]Item, error) {
 	var failures []error
 	for i, source := range s {
 		if err := ctx.Err(); err != nil {
-			return nil, fmt.Errorf("configcenter: read sources: %w", err)
+			return nil, fmt.Errorf("authcenter: read sources: %w", err)
 		}
 		items, err := source.Read(ctx, prefix)
 		if err != nil {
-			failures = append(failures, fmt.Errorf("configcenter: source %d: %w", i, err))
+			failures = append(failures, fmt.Errorf("authcenter: source %d: %w", i, err))
 		}
 		for _, item := range items {
 			if _, exists := values[item.Key]; !exists && strings.HasPrefix(item.Key, prefix) {
@@ -39,7 +39,7 @@ func (s Sources) Read(ctx context.Context, prefix string) ([]Item, error) {
 		}
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, fmt.Errorf("configcenter: read sources: %w", err)
+		return nil, fmt.Errorf("authcenter: read sources: %w", err)
 	}
 	items := make([]Item, 0, len(values))
 	for _, item := range values {
@@ -56,7 +56,7 @@ type MapSource map[string]string
 // Read returns map entries matching prefix.
 func (s MapSource) Read(ctx context.Context, prefix string) ([]Item, error) {
 	if err := ctx.Err(); err != nil {
-		return nil, fmt.Errorf("configcenter: read map: %w", err)
+		return nil, fmt.Errorf("authcenter: read map: %w", err)
 	}
 	items := make([]Item, 0, len(s))
 	for key, value := range s {
@@ -86,7 +86,7 @@ func (s remoteSource) Read(ctx context.Context, prefix string) ([]Item, error) {
 	items := make([]Item, 0, len(body.Items))
 	for _, item := range body.Items {
 		if err := validateKey(item.Key); err != nil {
-			return nil, fmt.Errorf("configcenter: invalid remote key: %w", err)
+			return nil, fmt.Errorf("authcenter: invalid remote key: %w", err)
 		}
 		if strings.HasPrefix(item.Key, prefix) {
 			items = append(items, item)

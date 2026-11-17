@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OXeu/configcenter/internal/store"
+	"github.com/OXeu/authcenter/internal/store"
 )
 
 func TestBatchConfigurationPermissionsAndIsolation(t *testing.T) {

@@ -41,11 +41,11 @@ export default defineConfig(({ command }) => ({
     },
     env: { browser: true, es2024: true },
     ignorePatterns: ['internal/server/static/**', 'sdk/**', 'node_modules/**'],
-    jsPlugins: ['vite-plus/oxlint-plugin', './tools/oxlint/configcenter.ts'],
+    jsPlugins: ['vite-plus/oxlint-plugin', './tools/oxlint/authcenter.ts'],
 
     rules: {
-      'configcenter/no-page-dom-access': 'error',
-      'configcenter/no-inline-icons': 'error',
+      'authcenter/no-page-dom-access': 'error',
+      'authcenter/no-inline-icons': 'error',
       'vite-plus/prefer-vite-plus-imports': 'error',
       'no-var': 'error',
       'prefer-const': 'error',

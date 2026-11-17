@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OXeu/configcenter/internal/store"
+	"github.com/OXeu/authcenter/internal/store"
 )
 
 func keyRequest(t *testing.T, router http.Handler, token, method, path string, body any, want int) *httptest.ResponseRecorder {
@@ -36,7 +36,7 @@ func issueKey(t *testing.T, f *flows, path string, body map[string]any) (token s
 		t.Fatalf("issue key: status %d", status)
 	}
 	token, ok := response["token"].(string)
-	if !ok || !strings.HasPrefix(token, "cc_") {
+	if !ok || !strings.HasPrefix(token, "ac_") {
 		t.Fatal("missing issued credential")
 	}
 	key, ok := response["key"].(map[string]any)

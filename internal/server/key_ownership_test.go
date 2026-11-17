@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OXeu/configcenter/internal/apikey"
-	"github.com/OXeu/configcenter/internal/store"
+	"github.com/OXeu/authcenter/internal/apikey"
+	"github.com/OXeu/authcenter/internal/store"
 )
 
 func TestUsersManageTheirOwnScopedKeys(t *testing.T) {
@@ -21,7 +21,7 @@ func TestUsersManageTheirOwnScopedKeys(t *testing.T) {
 	if err := s.store.CreateSession(t.Context(), store.Session{ID: "regular-session", UserID: user.ID, CSRFToken: "csrf", ExpiresAt: time.Now().Add(time.Hour)}); err != nil {
 		t.Fatal(err)
 	}
-	f := &flows{t: t, router: router, csrf: "csrf", cookies: map[string]*http.Cookie{"cc_session": {Name: "cc_session", Value: "regular-session"}}}
+	f := &flows{t: t, router: router, csrf: "csrf", cookies: map[string]*http.Cookie{"ac_session": {Name: "ac_session", Value: "regular-session"}}}
 	createKeyProject(t, f, "owned")
 	status, _ := f.do(http.MethodGet, "/keys", nil)
 	if status != http.StatusOK {
@@ -29,7 +29,7 @@ func TestUsersManageTheirOwnScopedKeys(t *testing.T) {
 	}
 	token, id := issueKey(t, f, "/api/v1/keys", scopeBody("mine", keyScopeJSON{Project: "owned", Permissions: []store.Permission{store.ConfigRead}}))
 	keyRequest(t, router, token, http.MethodGet, "/api/v1/agent/environments/production/values", nil, http.StatusOK)
-	for _, project := range []string{"*", "configcenter"} {
+	for _, project := range []string{"*", "authcenter"} {
 		status, _ = f.do(http.MethodPost, "/api/v1/keys", scopeBody("escalate", keyScopeJSON{Project: project, Permissions: []store.Permission{store.ConfigRead}}))
 		if status != http.StatusForbidden {
 			t.Fatalf("user granted forbidden project: %d", status)
@@ -97,9 +97,9 @@ func TestScopedKeyAttributionAndExplicitAuthentication(t *testing.T) {
 	for _, tc := range []struct {
 		credential string
 		status     int
-	}{{token, http.StatusOK}, {"cc_invalid", http.StatusUnauthorized}} {
+	}{{token, http.StatusOK}, {"ac_invalid", http.StatusUnauthorized}} {
 		req := httptest.NewRequest(http.MethodPut, "/api/v1/projects/audit/environments/production/items/value", strings.NewReader(`{"value":"30"}`))
-		req.AddCookie(&http.Cookie{Name: "cc_session", Value: "admin-session"})
+		req.AddCookie(&http.Cookie{Name: "ac_session", Value: "admin-session"})
 		req.Header.Set("Authorization", "ApiKey "+tc.credential)
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, req)

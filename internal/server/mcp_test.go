@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OXeu/configcenter/internal/store"
+	"github.com/OXeu/authcenter/internal/store"
 )
 
 func mcpCall(t *testing.T, router http.Handler, token, name string, args map[string]any, want int) map[string]any {
@@ -50,7 +50,7 @@ func TestMCPCompleteAPI(t *testing.T) {
 	if err := s.store.CreateSession(t.Context(), store.Session{ID: "admin-mcp", UserID: admin.ID, CSRFToken: "csrf", ExpiresAt: time.Now().Add(time.Hour)}); err != nil {
 		t.Fatal(err)
 	}
-	f := &flows{t: t, router: router, csrf: "csrf", cookies: map[string]*http.Cookie{"cc_session": {Name: "cc_session", Value: "admin-mcp"}}}
+	f := &flows{t: t, router: router, csrf: "csrf", cookies: map[string]*http.Cookie{"ac_session": {Name: "ac_session", Value: "admin-mcp"}}}
 	token, _ := issueKey(t, f, "/api/v1/keys", scopeBody("operator", keyScopeJSON{Project: "*", Permissions: store.KeyPermissions()}))
 	seen := map[string]bool{}
 	call := func(name string, args map[string]any, want int) map[string]any {
@@ -222,7 +222,7 @@ func TestMCPValidationAndAuthentication(t *testing.T) {
 	}{
 		{"unknown_tool", nil},
 		{"get_config", map[string]any{"environment": "production", "key": "x"}},
-		{"set_config", map[string]any{"project": "configcenter", "environment": "production", "key": "x"}},
+		{"set_config", map[string]any{"project": "authcenter", "environment": "production", "key": "x"}},
 		{"delete_key", map[string]any{"id": "1"}},
 		{"delete_key", map[string]any{"id": 0}},
 		{"delete_key", map[string]any{"id": 1.5}},
@@ -238,7 +238,7 @@ func TestMCPValidationAndAuthentication(t *testing.T) {
 			t.Fatalf("%s accepted invalid arguments", tc.name)
 		}
 	}
-	mcpCall(t, f.router, token, "propose_config", map[string]any{"project": "configcenter", "environment": "production", "key": "x", "action": "set"}, http.StatusBadRequest)
+	mcpCall(t, f.router, token, "propose_config", map[string]any{"project": "authcenter", "environment": "production", "key": "x", "action": "set"}, http.StatusBadRequest)
 	notification := keyRequest(t, f.router, token, http.MethodPost, "/mcp", map[string]any{"jsonrpc": "2.0", "method": "notifications/initialized"}, http.StatusAccepted)
 	if notification.Body.Len() != 0 {
 		t.Fatal("notification returned a body")
@@ -262,13 +262,13 @@ func TestMCPValidationAndAuthentication(t *testing.T) {
 	if status, _ := f.do(http.MethodPost, "/mcp", body); status != http.StatusForbidden {
 		t.Fatal("session bypassed CSRF")
 	}
-	for _, credential := range []string{token, "cc_invalid"} {
+	for _, credential := range []string{token, "ac_invalid"} {
 		encoded, err := json.Marshal(body)
 		if err != nil {
 			t.Fatal(err)
 		}
 		req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(string(encoded)))
-		req.AddCookie(f.cookies["cc_session"])
+		req.AddCookie(f.cookies["ac_session"])
 		req.Header.Set("Authorization", "ApiKey "+credential)
 		rec := httptest.NewRecorder()
 		f.router.ServeHTTP(rec, req)
@@ -280,7 +280,7 @@ func TestMCPValidationAndAuthentication(t *testing.T) {
 			t.Fatal("explicit API key did not take precedence over session")
 		}
 	}
-	for _, path := range []string{"/mcp/configcenter", "/api/v1/projects/configcenter/keys", "/api/v1/ui/configcenter/items/production"} {
+	for _, path := range []string{"/mcp/authcenter", "/api/v1/projects/authcenter/keys", "/api/v1/ui/authcenter/items/production"} {
 		keyRequest(t, f.router, token, http.MethodPost, path, nil, http.StatusNotFound)
 	}
 }
@@ -321,7 +321,7 @@ func TestMCPSessionOwnership(t *testing.T) {
 	if err := s.store.CreateSession(t.Context(), store.Session{ID: "owner-session", UserID: user.ID, CSRFToken: "csrf", ExpiresAt: time.Now().Add(time.Hour)}); err != nil {
 		t.Fatal(err)
 	}
-	f := &flows{t: t, router: router, csrf: "csrf", cookies: map[string]*http.Cookie{"cc_session": {Name: "cc_session", Value: "owner-session"}}}
+	f := &flows{t: t, router: router, csrf: "csrf", cookies: map[string]*http.Cookie{"ac_session": {Name: "ac_session", Value: "owner-session"}}}
 	createKeyProject(t, f, "owned")
 	for _, tc := range []struct {
 		name      string
@@ -329,7 +329,7 @@ func TestMCPSessionOwnership(t *testing.T) {
 		forbidden bool
 	}{
 		{"set_config", map[string]any{"project": "owned", "environment": "production", "key": "x", "value": "1"}, false},
-		{"set_config", map[string]any{"project": "configcenter", "environment": "production", "key": "x", "value": "1"}, true},
+		{"set_config", map[string]any{"project": "authcenter", "environment": "production", "key": "x", "value": "1"}, true},
 		{"list_users", nil, true},
 		{"get_settings", nil, true},
 		{"create_key", scopeBody("forbidden", keyScopeJSON{Project: "*", Permissions: []store.Permission{store.SettingsWrite}}), true},

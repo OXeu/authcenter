@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/OXeu/configcenter/internal/auth"
-	"github.com/OXeu/configcenter/internal/store"
+	"github.com/OXeu/authcenter/internal/auth"
+	"github.com/OXeu/authcenter/internal/store"
 	"github.com/gin-gonic/gin"
 )
 

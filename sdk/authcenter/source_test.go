@@ -1,4 +1,4 @@
-package configcenter
+package authcenter
 
 import (
 	"context"
@@ -132,7 +132,7 @@ func TestRemotePutCachesOnlySuccessfulWrites(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	cfg := Config{BaseURL: server.URL, APIKey: "cc_test", DotenvFiles: []string{}}
+	cfg := Config{BaseURL: server.URL, APIKey: "ac_test", DotenvFiles: []string{}}
 	client := testClient(t, cfg)
 	if err := client.Put(t.Context(), "key", "written"); err != nil {
 		t.Fatal(err)
@@ -177,7 +177,7 @@ func TestConcurrentRemoteLoadsAndWrites(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	client := testClient(t, Config{BaseURL: server.URL, APIKey: "cc_test", DotenvFiles: []string{}})
+	client := testClient(t, Config{BaseURL: server.URL, APIKey: "ac_test", DotenvFiles: []string{}})
 	var wg sync.WaitGroup
 	for range 6 {
 		wg.Go(func() {

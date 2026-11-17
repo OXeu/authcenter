@@ -1,4 +1,4 @@
-package configcenter
+package authcenter
 
 import (
 	"strings"

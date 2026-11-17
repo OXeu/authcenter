@@ -10,11 +10,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/OXeu/configcenter/internal/auth"
-	"github.com/OXeu/configcenter/internal/store"
+	"github.com/OXeu/authcenter/internal/auth"
+	"github.com/OXeu/authcenter/internal/store"
 )
 
-const oauthStateCookie = "cc_oauth_state"
+const oauthStateCookie = "ac_oauth_state"
 
 // MountOAuth registers the login, callback and logout routes.
 func (s *Server) MountOAuth(r *gin.Engine) {

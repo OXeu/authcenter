@@ -11,7 +11,7 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 
-	"github.com/OXeu/configcenter/internal/auth"
+	"github.com/OXeu/authcenter/internal/auth"
 )
 
 // Config holds every runtime setting of the server.
@@ -36,15 +36,15 @@ type Bootstrap struct {
 	AdminName  string
 }
 
-// DefaultEnvFile is read by the binary unless CC_ENV_FILE points elsewhere.
+// DefaultEnvFile is read by the binary unless AC_ENV_FILE points elsewhere.
 const DefaultEnvFile = ".env.local"
 
 // Load reads configuration from the environment. It first loads the env file
-// (CC_ENV_FILE, default .env.local) with godotenv, which does not override
-// variables that are already set, so `CC_ADDR=… ./configcenter` and exported
+// (AC_ENV_FILE, default .env.local) with godotenv, which does not override
+// variables that are already set, so `AC_ADDR=… ./authcenter` and exported
 // variables still win. A missing file is not an error.
 func Load(lookup func(string) (string, bool)) (Config, error) {
-	envFile := lookupOr(lookup, "CC_ENV_FILE", DefaultEnvFile)
+	envFile := lookupOr(lookup, "AC_ENV_FILE", DefaultEnvFile)
 	if err := godotenv.Load(envFile); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return Config{}, fmt.Errorf("load env file %s: %w", envFile, err)
 	}
@@ -53,28 +53,28 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	}
 
 	cfg := Config{
-		Addr:           env("CC_ADDR", "127.0.0.1:8080"),
-		DatabaseDriver: env("CC_DB_DRIVER", "sqlite"),
-		DatabaseDSN:    env("CC_DB", "file:configcenter.db"),
-		PublicURL:      strings.TrimRight(env("CC_PUBLIC_URL", "http://127.0.0.1:8080"), "/"),
-		SessionSecret:  env("CC_SESSION_SECRET", ""),
+		Addr:           env("AC_ADDR", "127.0.0.1:8080"),
+		DatabaseDriver: env("AC_DB_DRIVER", "sqlite"),
+		DatabaseDSN:    env("AC_DB", "file:authcenter.db"),
+		PublicURL:      strings.TrimRight(env("AC_PUBLIC_URL", "http://127.0.0.1:8080"), "/"),
+		SessionSecret:  env("AC_SESSION_SECRET", ""),
 		SessionTTL:     24 * time.Hour,
-		Languages:      splitList(env("CC_LANGUAGES", "en,zh-CN")),
+		Languages:      splitList(env("AC_LANGUAGES", "en,zh-CN")),
 		OAuth: auth.Config{
-			IssuerURL:    strings.TrimRight(env("CC_OAUTH_ISSUER", ""), "/"),
-			ClientID:     env("CC_OAUTH_CLIENT_ID", ""),
-			ClientSecret: env("CC_OAUTH_CLIENT_SECRET", ""),
-			Scopes:       strings.Fields(env("CC_OAUTH_SCOPES", "openid profile email groups")),
-			RedirectURL:  env("CC_OAUTH_REDIRECT_URL", ""),
-			GroupsClaim:  env("CC_OAUTH_GROUPS_CLAIM", "groups"),
+			IssuerURL:    strings.TrimRight(env("AC_OAUTH_ISSUER", ""), "/"),
+			ClientID:     env("AC_OAUTH_CLIENT_ID", ""),
+			ClientSecret: env("AC_OAUTH_CLIENT_SECRET", ""),
+			Scopes:       strings.Fields(env("AC_OAUTH_SCOPES", "openid profile email groups")),
+			RedirectURL:  env("AC_OAUTH_REDIRECT_URL", ""),
+			GroupsClaim:  env("AC_OAUTH_GROUPS_CLAIM", "groups"),
 		},
 		Groups: auth.GroupPolicy{
-			AdminGroups: splitList(env("CC_OAUTH_ADMIN_GROUPS", "configcenter-admin")),
-			Mapping:     parseGroupMap(env("CC_OAUTH_GROUP_MAP", "")),
+			AdminGroups: splitList(env("AC_OAUTH_ADMIN_GROUPS", "authcenter-admin")),
+			Mapping:     parseGroupMap(env("AC_OAUTH_GROUP_MAP", "")),
 		},
 		Bootstrap: Bootstrap{
-			AdminEmail: env("CC_BOOTSTRAP_ADMIN_EMAIL", "admin@localhost"),
-			AdminName:  env("CC_BOOTSTRAP_ADMIN_NAME", "admin"),
+			AdminEmail: env("AC_BOOTSTRAP_ADMIN_EMAIL", "admin@localhost"),
+			AdminName:  env("AC_BOOTSTRAP_ADMIN_NAME", "admin"),
 		},
 	}
 
@@ -104,7 +104,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	if cfg.DatabaseDriver == "sqlite" && !strings.HasPrefix(cfg.DatabaseDSN, "file:") {
 		errs = append(errs, errors.New("cc db must be a sqlite dsn starting with file"))
 	}
-	if cfg.SessionSecret == "" && env("CC_ENV", "") == "production" {
+	if cfg.SessionSecret == "" && env("AC_ENV", "") == "production" {
 		errs = append(errs, errors.New("cc session secret is required in production mode"))
 	}
 	if len(errs) > 0 {

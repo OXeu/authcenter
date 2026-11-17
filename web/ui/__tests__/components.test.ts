@@ -135,7 +135,7 @@ describe('Vue pages', () => {
     wrapper.unmount()
   })
   it('switches page, dialog and toast themes from the header and restores the choice', async () => {
-    localStorage.setItem('cc_theme', 'dark')
+    localStorage.setItem('ac_theme', 'dark')
     const wrapper = mount(App, { props: { data } })
     await vi.dynamicImportSettled()
     await flushPromises()
@@ -144,7 +144,7 @@ describe('Vue pages', () => {
     await wrapper.get('button[aria-label="Light mode"]').trigger('click')
     expect(wrapper.attributes('data-theme')).toBe('light')
     expect(setToastTheme).toHaveBeenLastCalledWith('light')
-    expect(localStorage.getItem('cc_theme')).toBe('light')
+    expect(localStorage.getItem('ac_theme')).toBe('light')
     await wrapper
       .findAll('button')
       .find((b) => b.text() === 'Create')!
@@ -235,7 +235,7 @@ describe('Vue pages', () => {
     },
   )
   it('uses the shared header and saved theme on public docs without workspace requests', async () => {
-    localStorage.setItem('cc_theme', 'dark')
+    localStorage.setItem('ac_theme', 'dark')
     vi.mocked(notify).mockClear()
     const wrapper = mount(App, {
       props: {
@@ -264,7 +264,7 @@ describe('Vue pages', () => {
     expect(wrapper.find('dialog').exists()).toBe(false)
     expect(wrapper.classes()).not.toContain('min-h-screen')
     await wrapper.get('button[aria-label="Light mode"]').trigger('click')
-    expect(localStorage.getItem('cc_theme')).toBe('light')
+    expect(localStorage.getItem('ac_theme')).toBe('light')
     wrapper.unmount()
   })
   it('blocks repeated submit and escape while saving', async () => {

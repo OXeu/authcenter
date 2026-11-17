@@ -1,4 +1,4 @@
-module github.com/OXeu/configcenter
+module github.com/OXeu/authcenter
 
 go 1.26.10
 

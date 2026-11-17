@@ -7,7 +7,7 @@
 统一地址为 `POST /mcp`，接收 JSON-RPC 2.0。MCP 覆盖全部 28 项 HTTP API 操作：身份、scope 查询、项目、环境、配置、变更提案、API Key、用户和系统设置。项目由每次工具调用的 `project` 参数选择，可以在同一连接中管理多个项目。
 
 ```http
-Authorization: ApiKey cc_REPLACE_WITH_YOUR_KEY
+Authorization: ApiKey ac_REPLACE_WITH_YOUR_KEY
 Content-Type: application/json
 Accept: application/json, text/event-stream
 MCP-Protocol-Version: 2025-06-18
@@ -19,16 +19,16 @@ API Key 的每项 scope 绑定项目与操作权限，`project: "*"` 覆盖所�
 
 ## 连接与初始化
 
-服务采用无状态 HTTP POST，直接返回 JSON。没有 SSE 推送、会话 ID 或 JSON-RPC 批处理；GET 和 DELETE `/mcp` 返回 HTTP 405。协议版本为 `2025-06-18`，显式发送其他 `MCP-Protocol-Version` 返回 HTTP 400。带有 `Origin` 的请求必须匹配 `CC_PUBLIC_URL` 的源，否则返回 HTTP 403。传输和工具结构分别参考 [MCP 传输规范](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports) 和 [工具规范](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)。
+服务采用无状态 HTTP POST，直接返回 JSON。没有 SSE 推送、会话 ID 或 JSON-RPC 批处理；GET 和 DELETE `/mcp` 返回 HTTP 405。协议版本为 `2025-06-18`，显式发送其他 `MCP-Protocol-Version` 返回 HTTP 400。带有 `Origin` 的请求必须匹配 `AC_PUBLIC_URL` 的源，否则返回 HTTP 403。传输和工具结构分别参考 [MCP 传输规范](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports) 和 [工具规范](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)。
 
-示例中的 `CC_URL`（无尾部斜杠）和 `CC_KEY` 由调用方安全提供，不是服务端配置项：
+示例中的 `AC_URL`（无尾部斜杠）和 `AC_KEY` 由调用方安全提供，不是服务端配置项：
 
 ```sh
 curl --fail-with-body --silent --show-error \
-  -H "Authorization: ApiKey $CC_KEY" \
+  -H "Authorization: ApiKey $AC_KEY" \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
-  "$CC_URL/mcp" \
+  "$AC_URL/mcp" \
   --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"config-agent","version":"1.0.0"}}}'
 ```
 
@@ -41,7 +41,7 @@ curl --fail-with-body --silent --show-error \
   "result": {
     "protocolVersion": "2025-06-18",
     "capabilities": { "tools": { "listChanged": false } },
-    "serverInfo": { "name": "configcenter", "version": "1.0.0" }
+    "serverInfo": { "name": "authcenter", "version": "1.0.0" }
   }
 }
 ```

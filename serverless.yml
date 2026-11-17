@@ -1,9 +1,9 @@
-app: configcenter
+app: authcenter
 component: scf
-name: configcenter
+name: authcenter
 stage: production
 inputs:
-  name: configcenter
+  name: authcenter
   src: ./.tmp/scf
   type: web
   runtime: Go1
@@ -17,10 +17,10 @@ inputs:
     subnetId: ${env:SCF_SUBNET_ID}
   environment:
     variables:
-      CC_ADDR: '0.0.0.0:9000'
-      CC_DB_DRIVER: mysql
-      CC_ENV: production
-      CC_ENV_FILE: /var/user/.env.local
+      AC_ADDR: '0.0.0.0:9000'
+      AC_DB_DRIVER: mysql
+      AC_ENV: production
+      AC_ENV_FILE: /var/user/.env.local
   events:
     - http:
         parameters:

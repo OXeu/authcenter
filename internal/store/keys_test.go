@@ -60,7 +60,7 @@ func TestKeyMutationsRejectStaleAuthorization(t *testing.T) {
 	if err := s.UpdateAPIKey(t.Context(), key.ID, key.Revision, "expanded", []KeyScope{{Permissions: KeyPermissions()}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RotateAPIKey(t.Context(), key.ID, key.Revision, bytes.Repeat([]byte{2}, 32), "cc_new"); !errors.Is(err, ErrKeyChanged) {
+	if err := s.RotateAPIKey(t.Context(), key.ID, key.Revision, bytes.Repeat([]byte{2}, 32), "ac_new"); !errors.Is(err, ErrKeyChanged) {
 		t.Fatal("stale authorization rotated a broader credential")
 	}
 	if err := s.UpdateAPIKey(t.Context(), key.ID, key.Revision, "overwrite", []KeyScope{}); !errors.Is(err, ErrKeyChanged) {

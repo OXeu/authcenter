@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	prefix   = "cc_"
+	prefix   = "ac_"
 	keyBytes = 32
 )
 

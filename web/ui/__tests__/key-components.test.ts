@@ -47,13 +47,13 @@ beforeEach(() => {
             all_projects: false,
           }
         : options?.method === 'POST'
-          ? { token: 'cc_once' }
+          ? { token: 'ac_once' }
           : {
               keys: [
                 {
                   id: 7,
                   name: 'Service',
-                  prefix: 'cc_example',
+                  prefix: 'ac_example',
                   scopes: [{ project: 'billing', permissions: ['config:read'] }],
                 },
               ],
@@ -179,7 +179,7 @@ describe('API key scope editor', () => {
     await dialog.get('[role="checkbox"][value="config:read"]').trigger('click')
     await dialog.get('form').trigger('submit')
     await settled()
-    expect(dialog.text()).toContain('cc_once')
+    expect(dialog.text()).toContain('ac_once')
     expect(dialog.element.open).toBe(true)
     expect(dialog.findAll('[role="checkbox"]')).toHaveLength(0)
     wrapper.unmount()

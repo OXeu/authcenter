@@ -12,11 +12,11 @@ func (s *Store) ensureSystemProject(ctx context.Context) error {
 			return fmt.Errorf("find administrator: %w", err)
 		}
 		var count int64
-		if err := tx.db.Model(&Project{}).Where("slug = ?", "configcenter").Count(&count).Error; err != nil {
+		if err := tx.db.Model(&Project{}).Where("slug = ?", "authcenter").Count(&count).Error; err != nil {
 			return fmt.Errorf("find internal project: %w", err)
 		}
 		if count == 0 {
-			if _, err := tx.CreateProject(ctx, Project{Slug: "configcenter", Name: "Configcenter", OwnerID: admin.ID}, Environment{Slug: "production", Name: "Production"}); err != nil {
+			if _, err := tx.CreateProject(ctx, Project{Slug: "authcenter", Name: "Configcenter", OwnerID: admin.ID}, Environment{Slug: "production", Name: "Production"}); err != nil {
 				return err
 			}
 		}

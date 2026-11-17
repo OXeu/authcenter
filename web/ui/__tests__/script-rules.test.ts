@@ -1,5 +1,5 @@
 import { it, expect, vi } from 'vite-plus/test'
-import plugin from '../../../tools/oxlint/configcenter.ts'
+import plugin from '../../../tools/oxlint/authcenter.ts'
 
 it('rejects document queries outside the bootstrap and HTML sinks everywhere', () => {
   const report = vi.fn()

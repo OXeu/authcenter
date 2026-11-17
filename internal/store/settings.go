@@ -11,7 +11,7 @@ import (
 var ErrRegistrationClosed = errors.New("registration closed")
 
 func (s *Store) settingsEnvironment(ctx context.Context) (Project, Environment, error) {
-	p, err := s.ProjectBySlug(ctx, "configcenter")
+	p, err := s.ProjectBySlug(ctx, "authcenter")
 	if err != nil {
 		return Project{}, Environment{}, err
 	}

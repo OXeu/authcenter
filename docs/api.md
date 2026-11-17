@@ -23,7 +23,7 @@ MCP 的 `list_config` 和 `list_values` 接受 `keys` 字符串数组，`set_con
 
 ## 认证与 scope
 
-请求携带 `Authorization: ApiKey cc_…`。所有 API Key 使用 scope 权限模型。
+请求携带 `Authorization: ApiKey ac_…`。所有 API Key 使用 scope 权限模型。
 
 每把 Key 的 `scopes` 是一组“项目范围 + 操作权限”。同一把 Key 可以只读取项目 A，同时写入项目 B；`project: "*"` 表示所有项目（包括以后创建的项目）。权限需要逐项授权，写入不自动包含读取或删除。
 
@@ -74,16 +74,16 @@ MCP 的 `list_config` 和 `list_values` 接受 `keys` 字符串数组，`set_con
 
 ## 读取配置
 
-以下命令假设调用环境已安全提供 `CC_URL`（无尾部斜杠）和 `CC_KEY`（完整 token）。这些是调用方变量，不是服务端配置项。
+以下命令假设调用环境已安全提供 `AC_URL`（无尾部斜杠）和 `AC_KEY`（完整 token）。这些是调用方变量，不是服务端配置项。
 
 只授权一个具体项目的 Key 可省略项目参数；多项目 Key 或包含 `*` 的 Key 必须用 `?project=billing` 指定项目，否则返回 HTTP 400。
 
 ```sh
 curl --fail-with-body --silent --show-error --get \
-  -H "Authorization: ApiKey $CC_KEY" \
+  -H "Authorization: ApiKey $AC_KEY" \
   --data-urlencode 'project=billing' \
   --data-urlencode 'prefix=db.' \
-  "$CC_URL/api/v1/agent/environments/production/values"
+  "$AC_URL/api/v1/agent/environments/production/values"
 ```
 
 此请求需要 billing 项目的 `config:read`。响应示例：
@@ -132,9 +132,9 @@ curl --fail-with-body --silent --show-error --get \
 
 ```sh
 curl --fail-with-body --silent --show-error \
-  -H "Authorization: ApiKey $CC_KEY" \
+  -H "Authorization: ApiKey $AC_KEY" \
   -H 'Content-Type: application/json' \
-  -X PUT "$CC_URL/api/v1/projects/shipping/environments/production/items/db.pool" \
+  -X PUT "$AC_URL/api/v1/projects/shipping/environments/production/items/db.pool" \
   --data '{"value":"20","description":"数据库连接池大小"}'
 ```
 
@@ -158,17 +158,17 @@ API Key 查询 scope 选项时，`projects` 只包含具有 `projects:read` 的�
   "key": {
     "id": 42,
     "name": "billing-worker",
-    "prefix": "cc_exampl…",
+    "prefix": "ac_exampl…",
     "scopes": [{ "project": "billing", "permissions": ["config:read"] }],
     "created_at": "2026-01-01T00:00:00Z",
     "last_used_at": null,
     "expires_at": null
   },
-  "token": "cc_REPLACE_WITH_THE_ISSUED_TOKEN"
+  "token": "ac_REPLACE_WITH_THE_ISSUED_TOKEN"
 }
 ```
 
-列表返回 `{"keys":[...]}`；编辑返回 `{"key":{...}}`；轮换返回 `{"token":"cc_..."}`。完整 token 只在创建和轮换时显示，服务端仅保存摘要，列表和编辑响应不返回 token 或摘要。旧 token 在轮换或吊销后失效。并发修改导致授权检查过期时返回 HTTP 409，需要重新读取后重试。
+列表返回 `{"keys":[...]}`；编辑返回 `{"key":{...}}`；轮换返回 `{"token":"ac_..."}`。完整 token 只在创建和轮换时显示，服务端仅保存摘要，列表和编辑响应不返回 token 或摘要。旧 token 在轮换或吊销后失效。并发修改导致授权检查过期时返回 HTTP 409，需要重新读取后重试。
 
 浏览器普通用户的列表只包含自己创建的 Key；管理员可查看所有 Key。API Key 调用列表需要 `keys:read`，返回结果也会按目标 Key 的项目和权限过滤。删除用户账号会撤销该用户创建的全部 Key。
 

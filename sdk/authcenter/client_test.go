@@ -1,4 +1,4 @@
-package configcenter
+package authcenter
 
 import (
 	"context"
@@ -12,7 +12,7 @@ func TestLoadUsesEnvironmentPathAndKey(t *testing.T) {
 	t.Parallel()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/agent/environments/production/values", func(w http.ResponseWriter, r *http.Request) {
-		if got := r.Header.Get("Authorization"); got != "ApiKey cc_test" {
+		if got := r.Header.Get("Authorization"); got != "ApiKey ac_test" {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -28,7 +28,7 @@ func TestLoadUsesEnvironmentPathAndKey(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
-	client, err := New(Config{DotenvFiles: []string{}, BaseURL: srv.URL, APIKey: "cc_test"})
+	client, err := New(Config{DotenvFiles: []string{}, BaseURL: srv.URL, APIKey: "ac_test"})
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestMissingProjectIsNotFound(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	client, err := New(Config{DotenvFiles: []string{}, BaseURL: srv.URL, APIKey: "cc_test", Environment: "staging"})
+	client, err := New(Config{DotenvFiles: []string{}, BaseURL: srv.URL, APIKey: "ac_test", Environment: "staging"})
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestMissingProjectIsNotFound(t *testing.T) {
 func TestNewRejectsUnsafeConfig(t *testing.T) {
 	t.Parallel()
 	cases := []Config{
-		{APIKey: "cc_x"},
+		{APIKey: "ac_x"},
 		{BaseURL: "http://example.com"},
 		{BaseURL: "http://example.com", APIKey: "nope"},
 	}
