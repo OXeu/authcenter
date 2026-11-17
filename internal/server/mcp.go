@@ -87,11 +87,12 @@ func (s *Server) mcpChallenge(c *gin.Context, status int, code string) {
 
 func (s *Server) mcpServer(api http.Handler, admin bool) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{Name: "authcenter", Version: "1.0.0"}, nil)
+	outputSchema := objectSchema(map[string]any{"http_status": map[string]any{"type": "integer"}, "body": map[string]any{}}, "http_status")
 	for _, op := range s.apiOperations() {
 		if op.Permission.AdminOnly() && !admin {
 			continue
 		}
-		mcp.AddTool(server, &mcp.Tool{Name: op.Name, Description: op.Description, InputSchema: op.Schema, Annotations: &mcp.ToolAnnotations{ReadOnlyHint: op.Method == http.MethodGet}}, func(ctx context.Context, _ *mcp.CallToolRequest, input map[string]any) (*mcp.CallToolResult, apiToolResult, error) {
+		mcp.AddTool(server, &mcp.Tool{Name: op.Name, Description: op.Description, InputSchema: op.Schema, OutputSchema: outputSchema, Annotations: &mcp.ToolAnnotations{ReadOnlyHint: op.Method == http.MethodGet}}, func(ctx context.Context, _ *mcp.CallToolRequest, input map[string]any) (*mcp.CallToolResult, apiToolResult, error) {
 			result, err := executeAPITool(ctx, api, op, input)
 			return &mcp.CallToolResult{IsError: result.Status >= 400}, result, err
 		})

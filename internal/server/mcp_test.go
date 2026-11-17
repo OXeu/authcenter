@@ -231,6 +231,40 @@ func TestMCPToolParityAndPermissions(t *testing.T) {
 	}
 }
 
+func TestMCPToolSchemaClientCompatibility(t *testing.T) {
+	f := newFlows(t)
+	_, tokens := mcpTokens(t, f)
+	response := mcpRequest(t, f.router, tokens["access_token"].(string), "tools/list", nil)
+	if response.Code != http.StatusOK {
+		t.Fatal(response.Code, response.Body.String())
+	}
+	var listing struct {
+		Result struct {
+			Tools []struct {
+				Name         string `json:"name"`
+				OutputSchema struct {
+					Type       string                    `json:"type"`
+					Properties map[string]map[string]any `json:"properties"`
+					Required   []string                  `json:"required"`
+				} `json:"outputSchema"`
+			} `json:"tools"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &listing); err != nil {
+		t.Fatal("MCP clients require output schema properties to be JSON objects", err)
+	}
+	if len(listing.Result.Tools) != len(f.srv.apiOperations()) {
+		t.Fatal("tool discovery omitted API operations")
+	}
+	for _, tool := range listing.Result.Tools {
+		schema := tool.OutputSchema
+		body, ok := schema.Properties["body"]
+		if schema.Type != "object" || !ok || body == nil || len(body) != 0 || schema.Properties["http_status"]["type"] != "integer" || !slices.Equal(schema.Required, []string{"http_status"}) {
+			t.Fatalf("%s has an incompatible API result schema", tool.Name)
+		}
+	}
+}
+
 type mcpTransport struct {
 	token string
 	host  string
