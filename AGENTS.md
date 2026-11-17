@@ -69,7 +69,7 @@ Commit messages follow [`docs/commits.md`](docs/commits.md): Conventional Commit
 - `go test ./...` in `sdk/configcenter`; the live test runs only with `CC_TEST_URL` and `CC_TEST_KEY`.
 - `npm test` — Vitest and Vue Test Utils with jsdom cover dialogs, requests, permissions, translations, toast setup and template rules.
 - `internal/server/e2e_test.go` renders every page, logs in through a fake IdP and proves a key of one project cannot reach another. Its `TestMain` (`scratch_test.go`) points `TMPDIR` at `.tmp/go-test` so `go test` run directly, without `make`, also keeps its scratch files in the workspace.
-- Test databases are `mode=memory`; tests never open a file database, so a failing run leaves nothing behind in a package directory.
+- Relational test databases use `mode=memory`. SDK local KV tests use isolated bbolt files under the repository root `.tmp/` and clean them up; no database is written into a package directory.
 
 ## Definition of done
 

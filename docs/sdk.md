@@ -6,7 +6,7 @@ SDK 使用只授权一个具体项目的 API Key，配置读取需要 `config:re
 
 ## 安装
 
-SDK 是独立、无第三方依赖的 Go 模块，需要 Go 1.26 或更高版本。在调用方 Go 模块目录执行：
+SDK 是独立 Go 模块，需要 Go 1.26 或更高版本。本地存储使用 [bbolt](https://github.com/etcd-io/bbolt)。在调用方 Go 模块目录执行：
 
 ```sh
 go get github.com/OXeu/configcenter/sdk/configcenter
@@ -47,6 +47,28 @@ func LoadPool(ctx context.Context, baseURL, apiKey string) (int, error) {
 ```
 
 `BaseURL` 是服务根地址，不包含 `/api/v1/agent`。`New` 仅校验本地配置，不发请求，也不验证密钥是否有效。`Environment` 为空时使用 `production`。默认请求超时为 30 秒；提供 `HTTPClient` 时使用该客户端，`Timeout` 字段不再生效。
+
+## 未配置远端时使用本地 KV
+
+`BaseURL` 和 `APIKey` 同时为空时，SDK 自动选择 bbolt 本地存储；仅填其中一个仍报错。已配置远端时，请求失败会返回原错误，不会切换到本地或合并两份配置。
+
+```go
+client, err := configcenter.New(configcenter.Config{
+    LocalPath: ".tmp/app-config.kv",
+    Environment: "production",
+    LocalDefaults: map[string]string{"db.pool": "10"},
+})
+if err != nil { return fmt.Errorf("create local configuration client: %w", err) }
+if err := client.Load(ctx); err != nil { return fmt.Errorf("load local settings: %w", err) }
+if err := client.Put(ctx, "db.pool", "20"); err != nil { return fmt.Errorf("save setting: %w", err) }
+pool := client.Int("db.pool", 10)
+```
+
+此片段放在持有 `ctx` 的调用方函数中。`LocalPath` 为空时使用当前工作目录下 `.tmp/configcenter.kv`；可指定固定路径供生产持久化。文件首次读取或写入时创建，权限为 `0600`。每次操作使用 bbolt 事务并关闭文件，不需要额外调用 Close。并发进程竞争文件锁时最多等待一秒，context 截止时间更短则优先使用它。
+
+同一文件按 `Environment` 隔离，读取、前缀筛选、类型转换和 Watch 行为与远端相同。不同应用应使用不同 `LocalPath`。`LocalDefaults` 在同一事务中只初始化不存在的键；已有值不会在重启时被覆盖。默认项仅对本地模式生效。
+
+`Put(ctx, key, value)` 持久保存键值，并更新匹配当前加载前缀的快照。远端写入需要 `projects:read`、`environments:read` 和 `config:write`。`IsLocal()` 可用于显示当前存储方式。配置键遵循服务端的 1–191 字符规则。
 
 ## 快照读取
 

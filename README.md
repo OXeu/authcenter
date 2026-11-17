@@ -95,7 +95,7 @@ MCP exposes every API operation: project and environment management, configurati
 
 ## Go SDK
 
-`sdk/configcenter` is a separate module (`github.com/OXeu/configcenter/sdk/configcenter`), dependency-free:
+`sdk/configcenter` is a separate module (`github.com/OXeu/configcenter/sdk/configcenter`) with bbolt-backed local fallback:
 
 ```go
 client, err := configcenter.New(configcenter.Config{
@@ -108,6 +108,8 @@ if err := client.Watch(ctx, configcenter.WatchOptions{Interval: 30 * time.Second
 ```
 
 The key decides the project, so the SDK never takes a project name.
+
+When both `BaseURL` and `APIKey` are empty, reads and `Put(ctx, key, value)` use `.tmp/configcenter.kv`; set `LocalPath` to choose another file. Environments are isolated within the file. Optional `LocalDefaults` initializes missing keys atomically without replacing existing values. Partial remote configuration and remote request failures return errors; they never switch storage implicitly. See the [SDK guide](docs/sdk.md) for local and remote writes.
 
 ## Development
 
