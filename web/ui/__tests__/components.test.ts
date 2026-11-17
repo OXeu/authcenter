@@ -212,6 +212,7 @@ describe('Vue pages', () => {
     expect(menu.find(`.role-badge .${icon}`).exists()).toBe(true)
     expect(menu.find('a[href="/account"]').exists()).toBe(true)
     expect(menu.find('a[href="/users"]').exists()).toBe(role === 'admin')
+    expect(menu.find('a[href="/settings"]').exists()).toBe(role === 'admin')
     expect(menu.find('.dropdown').exists()).toBe(false)
     expect(menu.get('[data-danger-action="signOut"]').text()).toBe('Sign out')
     wrapper.unmount()

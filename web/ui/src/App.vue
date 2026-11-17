@@ -10,6 +10,7 @@ import { useTheme } from './theme.ts'
 import { mountToasts, notify, setToastTheme } from './toast.ts'
 
 const WorkspacePage = defineAsyncComponent(() => import('./WorkspacePage.vue'))
+const SettingsPage = defineAsyncComponent(() => import('./SettingsPage.vue'))
 
 const props = defineProps({ data: { type: Object, required: true } })
 const data = /** @type {import('./data.ts').PageData} */ (props.data)
@@ -20,6 +21,7 @@ const isWorkspace = computed(() => ['applications', 'users'].includes(data.page)
 const docsLinks = [
   { page: 'index', href: '/docs/', label: 'docs.overview' },
   { page: 'api', href: '/docs/api', label: 'docs.api' },
+  { page: 'mcp', href: '/docs/mcp', label: 'docs.mcp' },
   { page: 'configuration', href: '/docs/configuration', label: 'docs.configuration' },
   { page: 'security', href: '/docs/security', label: 'docs.security' },
 ]
@@ -55,6 +57,7 @@ onMounted(() => {
       <LoginPanel v-if="data.page === 'login'" :data="data" :page="page" />
       <ConsentPage v-if="data.page === 'consent'" :data="data" :page="page" />
       <AccountPage v-if="data.page === 'account'" :data="data" :page="page" />
+      <SettingsPage v-if="data.page === 'settings'" :page="page" />
       <WorkspacePage v-if="isWorkspace" :data="data" :page="page" :title="title" />
     </PageHeader>
     <nav

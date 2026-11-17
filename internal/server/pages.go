@@ -15,6 +15,7 @@ func (s *Server) MountUI(r *gin.Engine) {
 	ui.GET("/applications", auth.RequireUser(), s.applicationsPage)
 	ui.GET("/account", auth.RequireUser(), func(c *gin.Context) { s.render(c, 200, gin.H{"Page": "account", "Title": "title.account"}) })
 	ui.GET("/users", auth.RequireAdmin(), s.usersPage)
+	ui.GET("/settings", auth.RequireAdmin(), func(c *gin.Context) { s.render(c, 200, gin.H{"Page": "settings", "Title": "title.settings"}) })
 }
 
 func (s *Server) me(c *gin.Context) (store.User, bool) {

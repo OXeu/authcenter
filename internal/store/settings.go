@@ -15,3 +15,8 @@ func (s *Store) RegistrationAllowed(_ context.Context) (bool, error) {
 
 // ConfigureRegistration sets the startup policy from the configuration snapshot.
 func (s *Store) ConfigureRegistration(allowed bool) { s.registrationAllowed = allowed }
+
+// WithRegistration shares the database with an immutable registration policy snapshot.
+func (s *Store) WithRegistration(allowed bool) *Store {
+	return &Store{db: s.db, registrationAllowed: allowed}
+}

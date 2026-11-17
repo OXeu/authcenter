@@ -37,6 +37,8 @@ type Config struct {
 	ResendKey         string
 	ResendFrom        string
 	EncryptionKey     []byte
+	Source            *Manager          `json:"-"`
+	Values            map[string]string `json:"-"`
 }
 
 // Bootstrap is the first-run administrator created when no user exists yet.
@@ -69,10 +71,7 @@ func Load(ctx context.Context, lookup func(string) (string, bool)) (Config, erro
 	if client.IsLocal() {
 		return Config{}, errors.New("AC_CONFIGCENTER_URL and AC_CONFIGCENTER_API_KEY are required")
 	}
-	if err := client.Load(ctx); err != nil {
-		return Config{}, fmt.Errorf("load configcenter snapshot: %w", err)
-	}
-	return fromSnapshot(client.GetDefault)
+	return NewManager(client).Read(ctx)
 }
 
 func fromSnapshot(env func(string, string) string) (Config, error) {
@@ -116,7 +115,7 @@ func fromSnapshot(env func(string, string) string) (Config, error) {
 		errs = append(errs, errors.New("AC_PUBLIC_URL must be an HTTPS origin, or HTTP loopback origin"))
 	}
 
-	if cfg.LocalLogin {
+	if cfg.LocalLogin || env("AC_ENCRYPTION_KEY", "") != "" {
 		key, err := base64.StdEncoding.DecodeString(env("AC_ENCRYPTION_KEY", ""))
 		if err != nil || len(key) != 32 {
 			errs = append(errs, errors.New("AC_ENCRYPTION_KEY must be a base64-encoded 32-byte key"))
@@ -126,6 +125,14 @@ func fromSnapshot(env func(string, string) string) (Config, error) {
 	}
 	if env("AC_ENV", "") == "production" && public != nil && public.Scheme != "https" {
 		errs = append(errs, errors.New("production requires HTTPS"))
+	}
+	for _, language := range cfg.Languages {
+		if language != "en" && language != "zh-CN" {
+			errs = append(errs, errors.New("AC_LANGUAGES contains an unsupported language"))
+		}
+	}
+	if len(cfg.Languages) == 0 {
+		errs = append(errs, errors.New("AC_LANGUAGES must not be empty"))
 	}
 	if _, port, err := net.SplitHostPort(cfg.Addr); err != nil || port == "" {
 		errs = append(errs, fmt.Errorf("authcenter addr %q is not host:port", cfg.Addr))

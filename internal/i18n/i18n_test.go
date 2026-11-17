@@ -58,3 +58,16 @@ func TestEveryLocaleHasEveryKey(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveUsesFirstEnabledLanguage(t *testing.T) {
+	catalog, err := Shared()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := catalog.Resolve([]string{"zh-CN", "en"}); got != "zh-CN" {
+		t.Fatal(got)
+	}
+	if got := catalog.Resolve([]string{"zh-CN"}, "fr"); got != "zh-CN" {
+		t.Fatal(got)
+	}
+}

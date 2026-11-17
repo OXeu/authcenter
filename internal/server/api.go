@@ -33,6 +33,9 @@ func (s *Server) MountAPI(r *gin.Engine) {
 	admin.PUT("/users/:id/ban", s.apiBanUser)
 	admin.DELETE("/users/:id/ban", s.apiUnbanUser)
 	admin.DELETE("/users/:id", s.apiDeleteUser)
+	admin.GET("/settings", s.apiSettings)
+	admin.PUT("/settings", s.apiSaveSettings)
+	admin.POST("/settings/refresh", s.apiRefreshSettings)
 }
 
 func (s *Server) apiMe(c *gin.Context) {

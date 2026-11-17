@@ -230,7 +230,7 @@ func (s *Server) verifyLogin(c *gin.Context) {
 
 func (s *Server) securitySettings(c *gin.Context) {
 	user, _ := s.me(c)
-	c.JSON(200, gin.H{"email": user.Email, "totp_enabled": user.TOTPSecret != "", "password_enabled": user.PasswordHash != "", "local_login": s.cfg.LocalLogin, "email_available": s.cfg.ResendKey != "" && s.cfg.ResendFrom != ""})
+	c.JSON(200, gin.H{"email": user.Email, "totp_enabled": user.TOTPSecret != "", "password_enabled": user.PasswordHash != "", "local_login": s.cfg.LocalLogin, "email_available": s.cfg.ResendKey != "" && s.cfg.ResendFrom != "" && len(s.cfg.EncryptionKey) == 32})
 }
 
 func (s *Server) enrollTOTP(c *gin.Context) {

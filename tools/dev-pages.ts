@@ -12,7 +12,9 @@ async function serve(
   }
   if (
     req.method !== 'GET' ||
-    !/^\/(?:applications|account|users|login|docs(?:\/[^?]*)?)(?:\?|$)/u.test(req.url ?? '')
+    !/^\/(?:applications|account|users|settings|login|docs(?:\/[^?]*)?)(?:\?|$)/u.test(
+      req.url ?? '',
+    )
   )
     return next()
   try {

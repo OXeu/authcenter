@@ -158,6 +158,10 @@ async function logout() {
               <i class="ri-group-line" aria-hidden="true"></i>
               <span>{{ msg('nav.users') }}</span>
             </a>
+            <a v-if="data.isAdmin" class="btn-ghost w-full justify-start gap-2" href="/settings">
+              <i class="ri-settings-3-line" aria-hidden="true"></i>
+              <span>{{ msg('nav.settings') }}</span>
+            </a>
           </div>
           <div class="mt-1 border-t pt-1">
             <DangerActionButton :action="signOutAction" :disabled="form.busy" />

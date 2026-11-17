@@ -91,6 +91,11 @@ func (c *Catalog) Resolve(enabled []string, preferred ...string) string {
 			return tag
 		}
 	}
+	for _, tag := range enabled {
+		if c.Supported(tag, enabled) {
+			return tag
+		}
+	}
 	return Default
 }
 

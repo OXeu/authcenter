@@ -41,6 +41,8 @@ type Server struct {
 	catalog       *i18n.Catalog
 	log           *slog.Logger
 	template      *template.Template
+	runtime       *runtimeConfig
+	routes        *gin.Engine
 }
 
 // Engine builds the gin engine for the given configuration.
@@ -83,6 +85,7 @@ func newServer(ctx context.Context, cfg config.Config, log *slog.Logger) (*Serve
 		groupPolicy:   cfg.Groups,
 		catalog:       catalog,
 		log:           log,
+		runtime:       &runtimeConfig{},
 	}
 	if err := s.loadTemplates(); err != nil {
 		return nil, err
@@ -223,6 +226,7 @@ func (s *Server) render(c *gin.Context, status int, data gin.H) {
 func (s *Server) router() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
+	r.Use(s.routeSnapshot())
 	if err := r.SetTrustedProxies(nil); err != nil {
 		s.log.Error("configure proxies", "error", err)
 	}
@@ -282,6 +286,8 @@ func (s *Server) router() *gin.Engine {
 	s.MountUI(r)
 	s.MountAPI(r)
 	s.mountAuthorization(r)
+	s.routes = r
+	s.runtime.current.CompareAndSwap(nil, s)
 	return r
 }
 
