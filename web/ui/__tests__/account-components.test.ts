@@ -10,6 +10,7 @@ const security = {
   email: 'old@example.com',
   password_enabled: false,
   totp_enabled: false,
+  totp_devices: [],
   local_login: true,
   email_available: true,
 }
@@ -91,7 +92,7 @@ it('allows authenticator enrollment without a local password', async () => {
     .findAll('button')
     .find((button) => button.text() === 'Set up authenticator')!
     .trigger('click')
-  expect(wrapper.find('dialog input').exists()).toBe(false)
+  await wrapper.get('dialog input').setValue('Phone')
   vi.mocked(fetch).mockResolvedValueOnce(
     reply({
       request: 'totp-request',
@@ -115,5 +116,46 @@ it('allows authenticator enrollment without a local password', async () => {
     .trigger('click')
   expect(wrapper.find('dialog img').exists()).toBe(false)
   expect(wrapper.get('dialog').text()).not.toContain('SECRET')
+  wrapper.unmount()
+})
+it('adds another authenticator and removes only the selected device after confirmation', async () => {
+  const devices = [
+    { id: 1, name: 'Phone', created_at: '' },
+    { id: 2, name: 'Tablet', created_at: '' },
+  ]
+  vi.mocked(fetch).mockResolvedValue(
+    reply({ ...security, totp_enabled: true, totp_devices: devices }),
+  )
+  const wrapper = await account()
+  expect(wrapper.text()).toContain('Phone')
+  expect(wrapper.text()).toContain('Tablet')
+  await wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Set up authenticator')!
+    .trigger('click')
+  await wrapper.get('dialog input').setValue('Backup')
+  await wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Cancel')!
+    .trigger('click')
+  const tablet = wrapper.findAll('li').find((row) => row.text().includes('Tablet'))!
+  await tablet.get('button').trigger('click')
+  await tablet
+    .findAll('button')
+    .find((button) => button.text() === 'Remove device')!
+    .trigger('click')
+  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(wrapper.get('dialog').text()).toContain('Tablet')
+  await wrapper.get('dialog input').setValue('123456')
+  vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 204 }))
+  await wrapper.get('form').trigger('submit')
+  await flushPromises()
+  expect(fetch).toHaveBeenCalledWith(
+    '/api/v1/account/totp',
+    expect.objectContaining({
+      method: 'DELETE',
+      body: JSON.stringify({ password: '', code: '123456', id: 2 }),
+    }),
+  )
   wrapper.unmount()
 })

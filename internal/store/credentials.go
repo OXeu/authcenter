@@ -77,7 +77,7 @@ func (s *Store) SetChallengeEmail(ctx context.Context, id, hash string) error {
 }
 
 // VerifyLoginChallenge atomically checks attempts, replay state and account changes.
-func (s *Store) VerifyLoginChallenge(ctx context.Context, id, emailHash string, step int64, totpValid bool) (User, error) {
+func (s *Store) VerifyLoginChallenge(ctx context.Context, id, emailHash string, step int64, totpValid bool, deviceID uint) (User, error) {
 	var user User
 	rejected := false
 	err := s.Transaction(ctx, func(tx *Store) error {
@@ -119,15 +119,19 @@ func (s *Store) VerifyLoginChallenge(ctx context.Context, id, emailHash string, 
 			if !totpValid {
 				return ErrInvalidGrant
 			}
-			if err := tx.mustAffect(ctx, tx.db.WithContext(ctx).Model(&User{}).Where("id = ? AND totp_secret = ?", user.ID, "").Updates(map[string]any{"totp_secret": challenge.Secret, "totp_step": step}), "enable authenticator"); err != nil {
-				return err
+			if user.PasswordHash != challenge.PasswordHash {
+				return ErrInvalidGrant
+			}
+			device := TOTPDevice{UserID: user.ID, Name: challenge.Name, Secret: challenge.Secret, Step: step}
+			if err := tx.db.WithContext(ctx).Create(&device).Error; err != nil {
+				return queryErr("enroll authenticator", err)
 			}
 		case "login":
 			if user.PasswordHash != challenge.PasswordHash {
 				return ErrInvalidGrant
 			}
 			if totpValid {
-				result := tx.db.WithContext(ctx).Model(&User{}).Where("id = ? AND totp_step < ? AND totp_secret = ?", user.ID, step, challenge.Secret).Update("totp_step", step)
+				result := tx.db.WithContext(ctx).Model(&TOTPDevice{}).Where("id = ? AND user_id = ? AND step < ?", deviceID, user.ID, step).Update("step", step)
 				if err := tx.mustAffect(ctx, result, "consume TOTP step"); err != nil {
 					return err
 				}

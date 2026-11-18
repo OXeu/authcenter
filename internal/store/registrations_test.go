@@ -140,7 +140,11 @@ func TestOAuthRegistrationRevocationLifecycle(t *testing.T) {
 			case "password":
 				err = s.SetPassword(t.Context(), user, "changed", "")
 			case "totp":
-				err = s.DisableTOTP(t.Context(), user, 1, "")
+				devices, loadErr := s.TOTPDevices(t.Context(), user.ID)
+				if loadErr != nil {
+					t.Fatal(loadErr)
+				}
+				err = s.DisableTOTP(t.Context(), user, devices[0].ID, 1, "", true)
 			case "email":
 				challenge := LoginChallenge{ID: "email-change", UserID: user.ID, SessionHash: "session", EmailHash: "code", Purpose: "email_change", PreviousEmail: user.Email, Email: "changed@example.com", ExpiresAt: time.Now().Add(time.Hour)}
 				seedRegistrationRecords(t, s, &challenge)

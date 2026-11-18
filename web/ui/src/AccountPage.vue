@@ -46,15 +46,23 @@ onMounted(load)
         <h2 class="font-semibold">{{ msg('account.authenticator') }}</h2>
         <p>{{ msg(state.totp_enabled ? 'account.enabled' : 'account.disabled') }}</p>
         <p class="text-sm text-muted-foreground">{{ msg('account.help') }}</p>
-        <Button
-          v-if="state.local_login && !state.totp_enabled"
-          :disabled="state.busy"
-          @click="enroll"
-          variant="primary"
-        >
+        <Button v-if="state.local_login" :disabled="state.busy" @click="enroll" variant="primary">
           {{ msg('account.enable') }}
         </Button>
-        <DangerActions :actions="actions()" :label="msg('common.more')" :disabled="state.busy" />
+        <ul class="space-y-3">
+          <li
+            v-for="device in state.totp_devices"
+            :key="device.id"
+            class="flex items-center justify-between gap-3"
+          >
+            <span>{{ device.name }}</span>
+            <DangerActions
+              :actions="actions(device)"
+              :label="msg('common.more')"
+              :disabled="state.busy"
+            />
+          </li>
+        </ul>
       </section>
     </template>
   </div>

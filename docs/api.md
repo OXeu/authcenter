@@ -86,7 +86,7 @@ curl https://auth.example/oauth/revoke -u 'CLIENT_ID:CLIENT_SECRET' -d token=TOK
 | PUT            | `/api/v1/account/password`     | 设置密码：`current_password`、`password`                                         |
 | POST           | `/api/v1/account/email`        | 发起邮箱修改：`email`、`password`，返回 `request`                                |
 | POST           | `/api/v1/account/email/verify` | 确认邮箱修改：`request`、`code`                                                  |
-| DELETE         | `/api/v1/account/totp`         | 停用身份验证器：`password`、`code`                                               |
+| DELETE         | `/api/v1/account/totp`         | 移除身份验证器：设备 `id`、`password`、该设备的 `code`                                               |
 | GET / PUT      | `/api/v1/settings`             | 管理员读取脱敏配置 / 保存 `{"values":{"AC_ALLOW_REGISTRATION":"false"}}`         |
 | POST           | `/api/v1/settings/refresh`     | 管理员刷新当前实例配置，返回 `restart_required` 列表                             |
 

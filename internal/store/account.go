@@ -57,23 +57,6 @@ func (s *Store) SetPassword(ctx context.Context, expected User, hash, session st
 	})
 }
 
-// DisableTOTP consumes a fresh authenticator code and invalidates other credentials.
-func (s *Store) DisableTOTP(ctx context.Context, expected User, step int64, session string) error {
-	return s.Transaction(ctx, func(tx *Store) error {
-		user, err := tx.lockUser(ctx, expected.ID)
-		if err != nil {
-			return err
-		}
-		if !user.Active() || user.PasswordHash != expected.PasswordHash || user.TOTPSecret == "" || user.TOTPSecret != expected.TOTPSecret || user.TOTPStep >= step {
-			return ErrInvalidGrant
-		}
-		if err := tx.db.WithContext(ctx).Model(&user).Updates(map[string]any{"totp_secret": "", "totp_step": 0}).Error; err != nil {
-			return queryErr("disable authenticator", err)
-		}
-		return tx.invalidateUserCredentials(ctx, user.ID, session)
-	})
-}
-
 // VerifyEmailChange consumes a session-bound code and changes the account email atomically.
 func (s *Store) VerifyEmailChange(ctx context.Context, userID uint, id, sessionHash, codeHash, session string) error {
 	rejected := false

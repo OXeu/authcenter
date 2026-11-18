@@ -80,7 +80,11 @@ func TestPasswordEmailAndTOTPLogin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if user.TOTPSecret == secret || user.PasswordHash == "correct horse battery" || !user.EmailVerified {
+	devices, err := f.srv.store.TOTPDevices(t.Context(), user.ID)
+	if err != nil || len(devices) != 1 {
+		t.Fatal("missing encrypted device", err)
+	}
+	if devices[0].Secret == secret || user.PasswordHash == "correct horse battery" || !user.EmailVerified {
 		t.Fatal("credential storage is not protected")
 	}
 	f.cookies = map[string]*http.Cookie{}

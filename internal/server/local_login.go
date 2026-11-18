@@ -82,7 +82,7 @@ func (s *Server) passwordLogin(c *gin.Context) {
 		s.fail(c, userErr)
 		return
 	}
-	challenge := store.LoginChallenge{ID: rand.Text() + rand.Text(), Email: in.Email, UserID: user.ID, PasswordHash: user.PasswordHash, Secret: user.TOTPSecret, Purpose: "login", ExpiresAt: time.Now().UTC().Add(5 * time.Minute)}
+	challenge := store.LoginChallenge{ID: rand.Text() + rand.Text(), Email: in.Email, UserID: user.ID, PasswordHash: user.PasswordHash, Purpose: "login", ExpiresAt: time.Now().UTC().Add(5 * time.Minute)}
 	if userErr == nil && !user.Active() {
 		oauthError(c, 401, "invalid_credentials")
 		return
@@ -116,7 +116,12 @@ func (s *Server) passwordLogin(c *gin.Context) {
 			return
 		}
 	}
-	if challenge.Secret == "" && (s.cfg.ResendKey == "" || s.cfg.ResendFrom == "") {
+	devices, err := s.store.TOTPDevices(c.Request.Context(), user.ID)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	if len(devices) == 0 && (s.cfg.ResendKey == "" || s.cfg.ResendFrom == "") {
 		oauthError(c, 503, "second_factor_unavailable")
 		return
 	}
@@ -126,13 +131,13 @@ func (s *Server) passwordLogin(c *gin.Context) {
 	}
 	http.SetCookie(c.Writer, &http.Cookie{Name: loginChallengeCookie, Value: challenge.ID, Path: "/auth/local", HttpOnly: true, Secure: c.GetBool("secureCookies"), SameSite: http.SameSiteStrictMode, MaxAge: 300})
 	methods := []string{}
-	if challenge.Secret != "" {
+	if len(devices) > 0 {
 		methods = append(methods, "totp")
 	}
 	if s.cfg.ResendKey != "" && s.cfg.ResendFrom != "" {
 		methods = append(methods, "email")
 	}
-	if challenge.Secret == "" {
+	if len(devices) == 0 {
 		if !s.deliverChallenge(c, challenge) {
 			return
 		}
@@ -205,19 +210,22 @@ func (s *Server) verifyLogin(c *gin.Context) {
 	emailHash := ""
 	step := int64(0)
 	valid := false
+	deviceID := uint(0)
 	switch in.Method {
 	case "email":
 		emailHash = credentials.CodeHash(s.cfg.EncryptionKey, challenge.ID, in.Code)
 	case "totp":
-		secret, err := credentials.Open(s.cfg.EncryptionKey, challenge.Secret)
-		if err == nil {
-			step, valid = credentials.VerifyTOTP(secret, in.Code, time.Now().UTC())
+		devices, err := s.store.TOTPDevices(c.Request.Context(), challenge.UserID)
+		if err != nil {
+			s.fail(c, err)
+			return
 		}
+		deviceID, step, valid = s.matchTOTP(devices, in.Code)
 	default:
 		oauthError(c, 400, "invalid_request")
 		return
 	}
-	user, err := s.store.VerifyLoginChallenge(c.Request.Context(), challenge.ID, emailHash, step, valid)
+	user, err := s.store.VerifyLoginChallenge(c.Request.Context(), challenge.ID, emailHash, step, valid, deviceID)
 	if err != nil {
 		oauthError(c, 401, "invalid_code")
 		return
@@ -232,20 +240,22 @@ func (s *Server) verifyLogin(c *gin.Context) {
 
 func (s *Server) securitySettings(c *gin.Context) {
 	user, _ := s.me(c)
-	c.JSON(200, gin.H{"email": user.Email, "totp_enabled": user.TOTPSecret != "", "password_enabled": user.PasswordHash != "", "local_login": s.cfg.LocalLogin, "email_available": s.cfg.ResendKey != "" && s.cfg.ResendFrom != "" && len(s.cfg.EncryptionKey) == 32})
+	devices, err := s.store.TOTPDevices(c.Request.Context(), user.ID)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"email": user.Email, "totp_devices": devices, "totp_enabled": len(devices) > 0, "password_enabled": user.PasswordHash != "", "local_login": s.cfg.LocalLogin, "email_available": s.cfg.ResendKey != "" && s.cfg.ResendFrom != "" && len(s.cfg.EncryptionKey) == 32})
 }
 
 func (s *Server) enrollTOTP(c *gin.Context) {
 	user, _ := s.me(c)
-	if user.TOTPSecret != "" {
-		oauthError(c, 400, "enrollment_unavailable")
-		return
-	}
 	if !s.rateLimit(c, "enroll", strconv.FormatUint(uint64(user.ID), 10), 5, 900) {
 		return
 	}
 	var in struct {
 		Password string `json:"password"`
+		Name     string `json:"name"`
 	}
 	if err := bindJSON(c, &in); err != nil {
 		s.fail(c, err)
@@ -254,13 +264,21 @@ func (s *Server) enrollTOTP(c *gin.Context) {
 	if !s.verifyAccountPassword(c, user, in.Password) {
 		return
 	}
+	in.Name = strings.TrimSpace(in.Name)
+	if len(in.Name) > 100 {
+		oauthError(c, 400, "invalid_name")
+		return
+	}
+	if in.Name == "" {
+		in.Name = "Authenticator"
+	}
 	secret := credentials.NewSecret()
 	encrypted, err := credentials.Seal(s.cfg.EncryptionKey, secret)
 	if err != nil {
 		s.fail(c, err)
 		return
 	}
-	challenge := store.LoginChallenge{ID: rand.Text(), UserID: user.ID, Email: user.Email, Purpose: "enroll", Secret: encrypted, ExpiresAt: time.Now().UTC().Add(5 * time.Minute)}
+	challenge := store.LoginChallenge{ID: rand.Text(), UserID: user.ID, Email: user.Email, Purpose: "enroll", Name: in.Name, PasswordHash: user.PasswordHash, SessionHash: digest(sessionID(c)), Secret: encrypted, ExpiresAt: time.Now().UTC().Add(5 * time.Minute)}
 	uri := "otpauth://totp/" + url.PathEscape("AuthCenter:"+user.Email) + "?secret=" + secret + "&issuer=AuthCenter&algorithm=SHA1&digits=6&period=30"
 	qrCode, err := qrcode.Encode(uri, qrcode.Medium, 256)
 	if err != nil {
@@ -285,7 +303,7 @@ func (s *Server) verifyTOTPEnrollment(c *gin.Context) {
 		return
 	}
 	challenge, err := s.store.LoginChallengeByID(c.Request.Context(), in.Request)
-	if err != nil || challenge.UserID != user.ID || challenge.Purpose != "enroll" {
+	if err != nil || challenge.UserID != user.ID || challenge.Purpose != "enroll" || challenge.SessionHash != digest(sessionID(c)) {
 		oauthError(c, 401, "invalid_challenge")
 		return
 	}
@@ -295,7 +313,7 @@ func (s *Server) verifyTOTPEnrollment(c *gin.Context) {
 		return
 	}
 	step, valid := credentials.VerifyTOTP(secret, in.Code, time.Now().UTC())
-	if _, err := s.store.VerifyLoginChallenge(c.Request.Context(), challenge.ID, "", step, valid); err != nil {
+	if _, err := s.store.VerifyLoginChallenge(c.Request.Context(), challenge.ID, "", step, valid, 0); err != nil {
 		oauthError(c, 401, "invalid_code")
 		return
 	}

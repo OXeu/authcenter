@@ -133,6 +133,7 @@ func (s *Server) verifyEmailChange(c *gin.Context) {
 
 func (s *Server) disableTOTP(c *gin.Context) {
 	var in struct {
+		ID       uint   `json:"id"`
 		Password string `json:"password"`
 		Code     string `json:"code"`
 	}
@@ -144,23 +145,46 @@ func (s *Server) disableTOTP(c *gin.Context) {
 	if !s.verifyAccountPassword(c, user, in.Password) {
 		return
 	}
-	if user.OAuthSub == "" && (s.cfg.ResendKey == "" || s.cfg.ResendFrom == "") {
+	devices, err := s.store.TOTPDevices(c.Request.Context(), user.ID)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	fallback := s.cfg.ResendKey != "" && s.cfg.ResendFrom != ""
+	if len(devices) <= 1 && user.OAuthSub == "" && !fallback {
 		oauthError(c, 400, "second_factor_unavailable")
 		return
 	}
-	secret, err := credentials.Open(s.cfg.EncryptionKey, user.TOTPSecret)
-	if err != nil {
-		oauthError(c, 401, "invalid_code")
-		return
+	if in.ID == 0 && len(devices) == 1 {
+		in.ID = devices[0].ID
 	}
-	step, valid := credentials.VerifyTOTP(secret, in.Code, time.Now().UTC())
-	if !valid {
-		oauthError(c, 401, "invalid_code")
-		return
+	for _, device := range devices {
+		if device.ID != in.ID {
+			continue
+		}
+		id, step, valid := s.matchTOTP([]store.TOTPDevice{device}, in.Code)
+		if valid {
+			if err := s.store.DisableTOTP(c.Request.Context(), user, id, step, sessionID(c), fallback); err != nil {
+				oauthError(c, 401, "invalid_code")
+				return
+			}
+			c.Status(204)
+			return
+		}
 	}
-	if err := s.store.DisableTOTP(c.Request.Context(), user, step, sessionID(c)); err != nil {
-		oauthError(c, 401, "invalid_code")
-		return
+	oauthError(c, 401, "invalid_code")
+}
+
+func (s *Server) matchTOTP(devices []store.TOTPDevice, code string) (deviceID uint, matchedStep int64, validCode bool) {
+	for _, device := range devices {
+		secret, err := credentials.Open(s.cfg.EncryptionKey, device.Secret)
+		if err != nil {
+			continue
+		}
+		step, valid := credentials.VerifyTOTP(secret, code, time.Now().UTC())
+		if valid && step > device.Step {
+			return device.ID, step, true
+		}
 	}
-	c.Status(204)
+	return 0, 0, false
 }

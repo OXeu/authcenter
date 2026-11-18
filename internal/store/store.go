@@ -45,11 +45,14 @@ func Open(ctx context.Context, dialector gorm.Dialector, adminEmail, adminName s
 		pool.SetMaxOpenConns(1)
 	}
 	if err := db.WithContext(ctx).AutoMigrate(
-		&User{}, &Session{}, &APIKey{}, &LoginChallenge{}, &LoginLimit{}, &OAuthClient{}, &OAuthRegistration{}, &AuthorizationRequest{}, &OAuthGrant{}, &AuthorizationCode{}, &OAuthToken{},
+		&User{}, &TOTPDevice{}, &Session{}, &APIKey{}, &LoginChallenge{}, &LoginLimit{}, &OAuthClient{}, &OAuthRegistration{}, &AuthorizationRequest{}, &OAuthGrant{}, &AuthorizationCode{}, &OAuthToken{},
 	); err != nil {
 		return nil, fmt.Errorf("migrate schema: %w", err)
 	}
 	s := &Store{db: db, registrationAllowed: true}
+	if err := s.migrateTOTPDevices(ctx); err != nil {
+		return nil, err
+	}
 	if err := s.migrateOAuthRegistrations(ctx); err != nil {
 		return nil, err
 	}
@@ -171,8 +174,14 @@ func (s *Store) adoptByEmail(ctx context.Context, identity Identity) (User, erro
 
 // CreateUser inserts a user without an OAuth identity, for local accounts.
 func (s *Store) CreateUser(ctx context.Context, u User) (User, error) {
-	if err := s.db.WithContext(ctx).Create(&u).Error; err != nil {
-		return User{}, fmt.Errorf("create user: %w", err)
+	err := s.Transaction(ctx, func(tx *Store) error {
+		if err := tx.db.WithContext(ctx).Create(&u).Error; err != nil {
+			return queryErr("create user", err)
+		}
+		return tx.migrateUserTOTP(ctx, u)
+	})
+	if err != nil {
+		return User{}, err
 	}
 	return s.UserByID(ctx, u.ID)
 }

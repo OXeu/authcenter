@@ -80,6 +80,9 @@ func (s *Store) DeleteUser(ctx context.Context, actor, target uint) error {
 		if err := tx.db.WithContext(ctx).Where("owner_id = ?", target).Delete(&OAuthClient{}).Error; err != nil {
 			return queryErr("delete user applications", err)
 		}
+		if err := tx.db.WithContext(ctx).Where("user_id = ?", target).Delete(&TOTPDevice{}).Error; err != nil {
+			return queryErr("delete user authenticators", err)
+		}
 		return tx.mustAffect(ctx, tx.db.WithContext(ctx).Delete(&User{}, target), "delete user")
 	})
 }

@@ -5,7 +5,10 @@ import { dangerAction } from './danger.ts'
 import { notify } from './toast.ts'
 import type { PageContext } from './page.ts'
 
+type TOTPDevice = { id: number; name: string; created_at: string }
+
 type Security = {
+  totp_devices: TOTPDevice[]
   email: string
   password_enabled: boolean
   totp_enabled: boolean
@@ -20,6 +23,7 @@ export function createAccount(page: PageContext) {
     ready: false,
     busy: false,
     email: '',
+    totp_devices: [] as TOTPDevice[],
     password_enabled: false,
     totp_enabled: false,
     local_login: false,
@@ -116,47 +120,51 @@ export function createAccount(page: PageContext) {
     )
   }
   function enroll() {
-    form.show(msg('account.enable'), passwordFields(), { password: '' }, async () => {
-      const result = (await api('/auth/local/totp', {
-        method: 'POST',
-        csrf: page.csrf,
-        body: form.values,
-      })) as { request: string; secret: string; qr_code: string }
-      form.show(
-        msg('account.verify'),
-        [{ key: 'code', label: 'login.code', required: true, autocomplete: 'one-time-code' }],
-        { code: '' },
-        async () => {
-          await api('/auth/local/totp/verify', {
-            method: 'POST',
-            csrf: page.csrf,
-            body: { request: result.request, code: form.values.code },
-          })
-          await saved()
-        },
-      )
-      form.image = {
-        src: result.qr_code,
-        alt: msg('account.qrCode'),
-        caption: msg('account.scan'),
-      }
-      form.info = `${msg('account.secret')}: ${result.secret}`
-      form.keepOpen = true
-    })
+    form.show(
+      msg('account.enable'),
+      [...passwordFields(), { key: 'name', label: 'account.deviceName', required: true }],
+      { password: '', name: '' },
+      async () => {
+        const result = (await api('/auth/local/totp', {
+          method: 'POST',
+          csrf: page.csrf,
+          body: form.values,
+        })) as { request: string; secret: string; qr_code: string }
+        form.show(
+          msg('account.verify'),
+          [{ key: 'code', label: 'login.code', required: true, autocomplete: 'one-time-code' }],
+          { code: '' },
+          async () => {
+            await api('/auth/local/totp/verify', {
+              method: 'POST',
+              csrf: page.csrf,
+              body: { request: result.request, code: form.values.code },
+            })
+            await saved()
+          },
+        )
+        form.image = {
+          src: result.qr_code,
+          alt: msg('account.qrCode'),
+          caption: msg('account.scan'),
+        }
+        form.info = `${msg('account.secret')}: ${result.secret}`
+        form.keepOpen = true
+      },
+    )
   }
-  function actions() {
-    if (!state.totp_enabled) return []
+  function actions(device: TOTPDevice) {
     return [
       dangerAction(
         form,
         'disableTOTP',
         msg('account.disable'),
-        state.email,
+        device.name,
         async () => {
           await api('/api/v1/account/totp', {
             method: 'DELETE',
             csrf: page.csrf,
-            body: form.values,
+            body: { ...form.values, id: device.id },
           })
           await saved()
         },
