@@ -4,6 +4,7 @@ export const dangerOperations = {
   deleteClient: 'common.delete',
   revokeGrant: 'apps.revoke',
   disableTOTP: 'account.disable',
+  removeEmail: 'account.removeEmail',
   deleteUser: 'users.delete',
   banUser: 'users.ban',
   unbanUser: 'users.unban',

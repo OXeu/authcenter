@@ -8,7 +8,18 @@ import type { PageData } from './data.ts'
 import type { PageContext } from './page.ts'
 const props = defineProps<{ data: PageData; page: PageContext }>()
 const { msg } = props.page
-const { state, form, load, password, email, enroll, actions } = createAccount(props.page)
+const {
+  state,
+  form,
+  load,
+  password,
+  email,
+  enroll,
+  actions,
+  primaryEmail,
+  emailActions,
+  canSelectPrimary,
+} = createAccount(props.page)
 onMounted(load)
 </script>
 <template>
@@ -29,7 +40,32 @@ onMounted(load)
       </section>
       <section class="card space-y-3">
         <h2 class="font-semibold">{{ msg('users.email') }}</h2>
-        <p>{{ state.email }}</p>
+        <p class="text-sm text-muted-foreground">{{ msg('account.emailHelp') }}</p>
+        <ul class="space-y-3">
+          <li
+            v-for="address in state.emails"
+            :key="address.id"
+            class="flex flex-wrap items-center gap-3"
+          >
+            <span class="break-all">{{ address.email }}</span>
+            <span v-if="address.primary" class="badge">{{ msg('account.primaryEmail') }}</span>
+            <span v-if="!address.verified" class="badge">{{ msg('account.unverifiedEmail') }}</span>
+            <Button
+              v-if="canSelectPrimary(address)"
+              :disabled="state.busy"
+              variant="secondary"
+              size="sm"
+              @click="primaryEmail(address)"
+            >
+              {{ msg('account.makePrimary') }}
+            </Button>
+            <DangerActions
+              :actions="emailActions(address)"
+              :label="msg('common.more')"
+              :disabled="state.busy"
+            />
+          </li>
+        </ul>
         <p v-if="!state.email_available" class="text-sm text-muted-foreground">
           {{ msg('account.emailUnavailable') }}
         </p>
@@ -39,7 +75,7 @@ onMounted(load)
           @click="email"
           variant="primary"
         >
-          {{ msg('account.changeEmail') }}
+          {{ msg('account.addEmail') }}
         </Button>
       </section>
       <section class="card space-y-3">

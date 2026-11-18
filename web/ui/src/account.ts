@@ -7,7 +7,10 @@ import type { PageContext } from './page.ts'
 
 type TOTPDevice = { id: number; name: string; created_at: string }
 
+type AccountEmail = { id: number; email: string; primary: boolean; verified: boolean }
+
 type Security = {
+  emails: AccountEmail[]
   totp_devices: TOTPDevice[]
   email: string
   password_enabled: boolean
@@ -23,6 +26,7 @@ export function createAccount(page: PageContext) {
     ready: false,
     busy: false,
     email: '',
+    emails: [] as AccountEmail[],
     totp_devices: [] as TOTPDevice[],
     password_enabled: false,
     totp_enabled: false,
@@ -89,14 +93,14 @@ export function createAccount(page: PageContext) {
   }
   function email() {
     form.show(
-      msg('account.changeEmail'),
+      msg('account.addEmail'),
       [
         ...passwordFields(),
         { key: 'email', label: 'account.newEmail', email: true, required: true },
       ],
       { email: '', password: '' },
       async () => {
-        const result = (await api('/api/v1/account/email', {
+        const result = (await api('/api/v1/account/emails', {
           method: 'POST',
           csrf: page.csrf,
           body: form.values,
@@ -106,7 +110,7 @@ export function createAccount(page: PageContext) {
           [{ key: 'code', label: 'login.code', required: true, autocomplete: 'one-time-code' }],
           { code: '' },
           async () => {
-            await api('/api/v1/account/email/verify', {
+            await api('/api/v1/account/emails/verify', {
               method: 'POST',
               csrf: page.csrf,
               body: { request: result.request, code: form.values.code },
@@ -118,6 +122,46 @@ export function createAccount(page: PageContext) {
         notify('success', msg('login.codeSent'))
       },
     )
+  }
+  function canSelectPrimary(address: AccountEmail) {
+    return !address.primary && address.verified
+  }
+  function primaryEmail(address: AccountEmail) {
+    form.show(
+      `${msg('account.makePrimary')}: ${address.email}`,
+      passwordFields(),
+      { password: '' },
+      async () => {
+        await api(`/api/v1/account/emails/${address.id}/primary`, {
+          method: 'PUT',
+          csrf: page.csrf,
+          body: form.values,
+        })
+        await saved()
+      },
+    )
+    form.info = msg('account.emailHelp')
+  }
+  function emailActions(address: AccountEmail) {
+    if (address.primary) return []
+    return [
+      dangerAction(
+        form,
+        'removeEmail',
+        msg('account.removeEmail'),
+        address.email,
+        async () => {
+          await api(`/api/v1/account/emails/${address.id}`, {
+            method: 'DELETE',
+            csrf: page.csrf,
+            body: form.values,
+          })
+          await saved()
+        },
+        passwordFields(),
+        { password: '' },
+      ),
+    ]
   }
   function enroll() {
     form.show(
@@ -173,5 +217,16 @@ export function createAccount(page: PageContext) {
       ),
     ]
   }
-  return { state, form, load, password, email, enroll, actions }
+  return {
+    state,
+    form,
+    load,
+    password,
+    email,
+    enroll,
+    actions,
+    primaryEmail,
+    emailActions,
+    canSelectPrimary,
+  }
 }

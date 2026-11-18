@@ -45,11 +45,14 @@ func Open(ctx context.Context, dialector gorm.Dialector, adminEmail, adminName s
 		pool.SetMaxOpenConns(1)
 	}
 	if err := db.WithContext(ctx).AutoMigrate(
-		&User{}, &TOTPDevice{}, &Session{}, &APIKey{}, &LoginChallenge{}, &LoginLimit{}, &OAuthClient{}, &OAuthRegistration{}, &AuthorizationRequest{}, &OAuthGrant{}, &AuthorizationCode{}, &OAuthToken{},
+		&User{}, &UserEmail{}, &TOTPDevice{}, &Session{}, &APIKey{}, &LoginChallenge{}, &LoginLimit{}, &OAuthClient{}, &OAuthRegistration{}, &AuthorizationRequest{}, &OAuthGrant{}, &AuthorizationCode{}, &OAuthToken{},
 	); err != nil {
 		return nil, fmt.Errorf("migrate schema: %w", err)
 	}
 	s := &Store{db: db, registrationAllowed: true}
+	if err := s.migrateAccountEmails(ctx); err != nil {
+		return nil, err
+	}
 	if err := s.migrateTOTPDevices(ctx); err != nil {
 		return nil, err
 	}
@@ -74,7 +77,7 @@ func (s *Store) ensureAdmin(ctx context.Context, email, name string) error {
 		return nil
 	}
 	admin := User{Email: email, Name: name, Role: RoleAdmin}
-	if err := s.db.WithContext(ctx).Create(&admin).Error; err != nil {
+	if _, err := s.CreateUser(ctx, admin); err != nil {
 		return fmt.Errorf("create bootstrap admin: %w", err)
 	}
 	return nil
@@ -97,10 +100,10 @@ func (s *Store) UserByID(ctx context.Context, id uint) (User, error) {
 	return u, queryErr("load user", err)
 }
 
-// UserByEmail loads a user by email.
+// UserByEmail loads a user by any bound email address.
 func (s *Store) UserByEmail(ctx context.Context, email string) (User, error) {
 	var u User
-	err := s.db.WithContext(ctx).Where("email = ?", email).First(&u).Error
+	err := s.db.WithContext(ctx).Where("id IN (?)", s.db.WithContext(ctx).Model(&UserEmail{}).Select("user_id").Where("email = ?", email)).First(&u).Error
 	return u, queryErr("load user by email", err)
 }
 
@@ -127,18 +130,34 @@ func (s *Store) LinkOAuthUser(ctx context.Context, identity Identity) (User, err
 		return User{}, err
 	}
 	updates := map[string]any{
-		"oauth_issuer":   identity.Issuer,
-		"oauth_sub":      identity.Sub,
-		"name":           identity.Name,
-		"avatar_url":     identity.AvatarURL,
-		"email_verified": u.EmailVerified || (identity.Email == u.Email && identity.EmailVerified),
-		"last_login_at":  identity.Now,
+		"oauth_issuer":  identity.Issuer,
+		"oauth_sub":     identity.Sub,
+		"name":          identity.Name,
+		"avatar_url":    identity.AvatarURL,
+		"last_login_at": identity.Now,
 	}
 	if !u.Active() {
 		return User{}, ErrInvalidGrant
 	}
-	if err := s.db.WithContext(ctx).Model(&u).Updates(updates).Error; err != nil {
-		return User{}, fmt.Errorf("update oauth user: %w", err)
+	if err := s.Transaction(ctx, func(tx *Store) error {
+		locked, err := tx.lockUser(ctx, u.ID)
+		if err != nil {
+			return err
+		}
+		if !locked.Active() {
+			return ErrInvalidGrant
+		}
+		u = locked
+		updates["email_verified"] = u.EmailVerified || (identity.Email == u.Email && identity.EmailVerified)
+		if err := tx.db.WithContext(ctx).Model(&u).Updates(updates).Error; err != nil {
+			return queryErr("update oauth user", err)
+		}
+		if identity.Email == u.Email && identity.EmailVerified {
+			return tx.verifyAccountEmail(ctx, u.ID, u.Email)
+		}
+		return nil
+	}); err != nil {
+		return User{}, err
 	}
 	return s.UserByID(ctx, u.ID)
 }
@@ -163,10 +182,7 @@ func (s *Store) adoptByEmail(ctx context.Context, identity Identity) (User, erro
 		if u.Role != RoleAdmin {
 			u.Role = RoleUser
 		}
-		if err := s.db.WithContext(ctx).Create(&u).Error; err != nil {
-			return User{}, fmt.Errorf("create oauth user: %w", err)
-		}
-		return u, nil
+		return s.CreateUser(ctx, u)
 	default:
 		return User{}, err
 	}
@@ -177,6 +193,9 @@ func (s *Store) CreateUser(ctx context.Context, u User) (User, error) {
 	err := s.Transaction(ctx, func(tx *Store) error {
 		if err := tx.db.WithContext(ctx).Create(&u).Error; err != nil {
 			return queryErr("create user", err)
+		}
+		if err := tx.createAccountEmail(ctx, u.ID, u.Email, u.EmailVerified); err != nil {
+			return err
 		}
 		return tx.migrateUserTOTP(ctx, u)
 	})

@@ -8,6 +8,7 @@ vi.mock('../src/toast.ts', () => ({ notify: vi.fn() }))
 const data = { lang: 'en', csrf: 'csrf', messages: {} } as PageData
 const security = {
   email: 'old@example.com',
+  emails: [{ id: 1, email: 'old@example.com', primary: true, verified: true }],
   password_enabled: false,
   totp_enabled: false,
   totp_devices: [],
@@ -61,11 +62,11 @@ it('lets an OAuth user set a password and validates confirmation before sending'
   expect(notify).toHaveBeenCalledWith('success', 'Saved')
   wrapper.unmount()
 })
-it('verifies the new email before completing the change', async () => {
+it('verifies the new email before binding it without changing the primary', async () => {
   const wrapper = await account()
   await wrapper
     .findAll('button')
-    .find((button) => button.text() === 'Change email')!
+    .find((button) => button.text() === 'Add email')!
     .trigger('click')
   await wrapper.get('input[type=email]').setValue('new@example.com')
   vi.mocked(fetch).mockResolvedValueOnce(reply({ request: 'email-request' }))
@@ -75,11 +76,19 @@ it('verifies the new email before completing the change', async () => {
   await wrapper.get('dialog input').setValue('123456')
   vi.mocked(fetch)
     .mockResolvedValueOnce(new Response(null, { status: 204 }))
-    .mockResolvedValueOnce(reply({ ...security, email: 'new@example.com' }))
+    .mockResolvedValueOnce(
+      reply({
+        ...security,
+        emails: [
+          ...security.emails,
+          { id: 2, email: 'new@example.com', primary: false, verified: true },
+        ],
+      }),
+    )
   await wrapper.get('form').trigger('submit')
   await flushPromises()
   expect(fetch).toHaveBeenCalledWith(
-    '/api/v1/account/email/verify',
+    '/api/v1/account/emails/verify',
     expect.objectContaining({ body: JSON.stringify({ request: 'email-request', code: '123456' }) }),
   )
   expect(wrapper.text()).toContain('new@example.com')
@@ -156,6 +165,77 @@ it('adds another authenticator and removes only the selected device after confir
       method: 'DELETE',
       body: JSON.stringify({ password: '', code: '123456', id: 2 }),
     }),
+  )
+  wrapper.unmount()
+})
+it('selects a verified primary email in a dialog and protects the current primary from removal', async () => {
+  const emails = [
+    ...security.emails,
+    { id: 2, email: 'second@example.com', primary: false, verified: true },
+  ]
+  vi.mocked(fetch).mockResolvedValue(reply({ ...security, password_enabled: true, emails }))
+  const wrapper = await account()
+  const original = wrapper.findAll('li').find((row) => row.text().includes('old@example.com'))!
+  expect(original.find('button').exists()).toBe(false)
+  await wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Make primary')!
+    .trigger('click')
+  expect(wrapper.get('dialog').text()).toContain('second@example.com')
+  await wrapper.get('input[type=password]').setValue('current password')
+  vi.mocked(fetch)
+    .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    .mockResolvedValueOnce(
+      reply({
+        ...security,
+        emails: emails.map((address) => ({ ...address, primary: address.id === 2 })),
+      }),
+    )
+  await wrapper.get('form').trigger('submit')
+  await flushPromises()
+  expect(fetch).toHaveBeenCalledWith(
+    '/api/v1/account/emails/2/primary',
+    expect.objectContaining({
+      method: 'PUT',
+      body: JSON.stringify({ password: 'current password' }),
+    }),
+  )
+  expect(
+    wrapper
+      .findAll('li')
+      .find((row) => row.text().includes('second@example.com'))!
+      .text(),
+  ).toContain('Primary email')
+  wrapper.unmount()
+})
+it('defers removing an email until its confirmation dialog is submitted', async () => {
+  vi.mocked(fetch).mockResolvedValue(
+    reply({
+      ...security,
+      emails: [
+        ...security.emails,
+        { id: 2, email: 'second@example.com', primary: false, verified: true },
+      ],
+    }),
+  )
+  const wrapper = await account()
+  const row = wrapper.findAll('li').find((item) => item.text().includes('second@example.com'))!
+  await row
+    .findAll('button')
+    .find((button) => button.text() === 'More')!
+    .trigger('click')
+  await row
+    .findAll('button')
+    .find((button) => button.text() === 'Remove email')!
+    .trigger('click')
+  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(wrapper.get('dialog').text()).toContain('second@example.com')
+  vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 204 }))
+  await wrapper.get('form').trigger('submit')
+  await flushPromises()
+  expect(fetch).toHaveBeenCalledWith(
+    '/api/v1/account/emails/2',
+    expect.objectContaining({ method: 'DELETE' }),
   )
   wrapper.unmount()
 })

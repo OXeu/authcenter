@@ -65,18 +65,18 @@ curl https://auth.example/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_clients","arguments":{}}}'
 ```
 
-工具结果包含 `structuredContent.http_status` 和原 API JSON `structuredContent.body`，同时提供文本 JSON。HTTP 204 的结果没有 `body`。原 API 的 4xx/5xx 设置 `isError=true`；工具参数由 JSON Schema 校验。URL 路径中的 `id` 使用字符串参数，其他 JSON 字段直接作为工具参数传入。
+工具结果包含 `structuredContent.http_status` 和原 API JSON `structuredContent.body`，同时提供文本 JSON。HTTP 204 的结果没有 `body`。原 API 的 4xx/5xx 设置 `isError=true`；工具参数由 JSON Schema 校验。URL 路径中的 `id` 使用字符串参数，其他 JSON 字段直接作为工具参数传入。`disable_totp` 的 `id` 是 JSON 整数，表示账户安全结果中的设备 ID；绑定多台设备时必须提供。
 
-| 功能           | 工具                                                                                                                |
-| -------------- | ------------------------------------------------------------------------------------------------------------------- |
-| 账户           | `get_identity`、`get_account_security`、`set_password`、`start_email_change`、`verify_email_change`、`disable_totp` |
-| 应用           | `list_clients`、`create_client`、`update_client`、`delete_client`                                                   |
-| 授权           | `list_grants`、`revoke_grant`                                                                                       |
-| API Key        | `get_key_scopes`、`list_keys`、`create_key`、`update_key`、`delete_key`、`rotate_key`                               |
-| 用户（管理员） | `list_users`、`update_user_role`、`ban_user`、`unban_user`、`delete_user`                                           |
-| 设置（管理员） | `get_settings`、`update_settings`、`refresh_settings`                                                               |
+| 功能           | 工具                                                                                                                                                                                                    |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 账户           | `get_identity`、`get_account_security`、`set_password`、`start_email_change`、`verify_email_change`、`start_email_binding`、`verify_email_binding`、`set_primary_email`、`remove_email`、`disable_totp` |
+| 应用           | `list_clients`、`create_client`、`update_client`、`delete_client`                                                                                                                                       |
+| 授权           | `list_grants`、`revoke_grant`                                                                                                                                                                           |
+| API Key        | `get_key_scopes`、`list_keys`、`create_key`、`update_key`、`delete_key`、`rotate_key`                                                                                                                   |
+| 用户（管理员） | `list_users`、`update_user_role`、`ban_user`、`unban_user`、`delete_user`                                                                                                                               |
+| 设置（管理员） | `get_settings`、`update_settings`、`refresh_settings`                                                                                                                                                   |
 
-邮箱修改的发起和确认绑定同一 OAuth 授权；另一个客户端或同一用户的另一份授权不能确认。轮换访问令牌保留这项绑定。API Key 或客户端密钥仅在创建／轮换工具结果中返回一次，列表不包含密钥。
+新增邮箱绑定和邮箱修改的发起与确认绑定同一 OAuth 授权；另一个客户端或同一用户的另一份授权不能确认。轮换访问令牌保留这项绑定。API Key 或客户端密钥仅在创建／轮换工具结果中返回一次，列表不包含密钥。
 
 请求体上限 1 MiB。携带 Origin 时必须与 `AC_PUBLIC_URL` 相同。有效授权下 GET 和 DELETE 返回 405；没有服务器推送流或会话删除接口。服务无需额外启动进程，沿用 AuthCenter 的 HTTPS 地址和 configcenter 配置。
 

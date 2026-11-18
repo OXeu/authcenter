@@ -148,7 +148,7 @@ func TestOAuthRegistrationRevocationLifecycle(t *testing.T) {
 			case "email":
 				challenge := LoginChallenge{ID: "email-change", UserID: user.ID, SessionHash: "session", EmailHash: "code", Purpose: "email_change", PreviousEmail: user.Email, Email: "changed@example.com", ExpiresAt: time.Now().Add(time.Hour)}
 				seedRegistrationRecords(t, s, &challenge)
-				err = s.VerifyEmailChange(t.Context(), user.ID, challenge.ID, "session", "code", "")
+				err = s.VerifyEmailChange(t.Context(), user.ID, challenge.ID, "session", "code", "", "email_change")
 			case "ban":
 				until := time.Now().Add(time.Hour)
 				err = s.SetUserBan(t.Context(), admin.ID, user.ID, &until)

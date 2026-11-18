@@ -57,12 +57,12 @@ func (s *Store) SetPassword(ctx context.Context, expected User, hash, session st
 	})
 }
 
-// VerifyEmailChange consumes a session-bound code and changes the account email atomically.
-func (s *Store) VerifyEmailChange(ctx context.Context, userID uint, id, sessionHash, codeHash, session string) error {
+// VerifyEmailChange consumes a session-bound code and binds an address, optionally making it primary.
+func (s *Store) VerifyEmailChange(ctx context.Context, userID uint, id, sessionHash, codeHash, session, purpose string) error {
 	rejected := false
 	err := s.Transaction(ctx, func(tx *Store) error {
 		var challenge LoginChallenge
-		err := tx.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&challenge, "id = ? AND user_id = ? AND session_hash = ? AND purpose = ? AND used = ? AND attempts < ? AND expires_at > ?", id, userID, sessionHash, "email_change", false, 5, time.Now().UTC()).Error
+		err := tx.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&challenge, "id = ? AND user_id = ? AND session_hash = ? AND purpose = ? AND used = ? AND attempts < ? AND expires_at > ?", id, userID, sessionHash, purpose, false, 5, time.Now().UTC()).Error
 		if err != nil {
 			return queryErr("lock email change", err)
 		}
@@ -77,8 +77,16 @@ func (s *Store) VerifyEmailChange(ctx context.Context, userID uint, id, sessionH
 		if !user.Active() || user.PasswordHash != challenge.PasswordHash || user.Email != challenge.PreviousEmail {
 			return ErrInvalidGrant
 		}
-		if err := tx.db.WithContext(ctx).Model(&user).Updates(map[string]any{"email": challenge.Email, "email_verified": true}).Error; err != nil {
-			return queryErr("change email", err)
+		if purpose != "email_change" && purpose != "email_bind" {
+			return ErrInvalidGrant
+		}
+		if err := tx.createAccountEmail(ctx, userID, challenge.Email, true); err != nil {
+			return err
+		}
+		if purpose == "email_change" {
+			if err := tx.db.WithContext(ctx).Model(&user).Updates(map[string]any{"email": challenge.Email, "email_verified": true}).Error; err != nil {
+				return queryErr("change primary email", err)
+			}
 		}
 		return tx.invalidateUserCredentials(ctx, userID, session)
 	})

@@ -70,7 +70,10 @@ func (s *Server) setPassword(c *gin.Context) {
 	c.Status(204)
 }
 
-func (s *Server) startEmailChange(c *gin.Context) {
+func (s *Server) startEmailChange(c *gin.Context)  { s.startAccountEmail(c, "email_change") }
+func (s *Server) startEmailBinding(c *gin.Context) { s.startAccountEmail(c, "email_bind") }
+
+func (s *Server) startAccountEmail(c *gin.Context, purpose string) {
 	if s.cfg.ResendKey == "" || s.cfg.ResendFrom == "" || len(s.cfg.EncryptionKey) != 32 {
 		oauthError(c, 503, "email_unavailable")
 		return
@@ -100,7 +103,7 @@ func (s *Server) startEmailChange(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
-	challenge := store.LoginChallenge{ID: rand.Text(), UserID: user.ID, Email: in.Email, PreviousEmail: user.Email, PasswordHash: user.PasswordHash, SessionHash: digest(sessionID(c)), Purpose: "email_change", ExpiresAt: time.Now().UTC().Add(5 * time.Minute)}
+	challenge := store.LoginChallenge{ID: rand.Text(), UserID: user.ID, Email: in.Email, PreviousEmail: user.Email, PasswordHash: user.PasswordHash, SessionHash: digest(sessionID(c)), Purpose: purpose, ExpiresAt: time.Now().UTC().Add(5 * time.Minute)}
 	if err := s.store.CreateLoginChallenge(c.Request.Context(), challenge); err != nil {
 		s.fail(c, err)
 		return
@@ -110,7 +113,10 @@ func (s *Server) startEmailChange(c *gin.Context) {
 	}
 }
 
-func (s *Server) verifyEmailChange(c *gin.Context) {
+func (s *Server) verifyEmailChange(c *gin.Context)  { s.verifyAccountEmail(c, "email_change") }
+func (s *Server) verifyEmailBinding(c *gin.Context) { s.verifyAccountEmail(c, "email_bind") }
+
+func (s *Server) verifyAccountEmail(c *gin.Context, purpose string) {
 	var in struct {
 		Request string `json:"request"`
 		Code    string `json:"code"`
@@ -120,7 +126,7 @@ func (s *Server) verifyEmailChange(c *gin.Context) {
 		return
 	}
 	user, _ := s.me(c)
-	err := s.store.VerifyEmailChange(c.Request.Context(), user.ID, in.Request, digest(sessionID(c)), credentials.CodeHash(s.cfg.EncryptionKey, in.Request, in.Code), sessionID(c))
+	err := s.store.VerifyEmailChange(c.Request.Context(), user.ID, in.Request, digest(sessionID(c)), credentials.CodeHash(s.cfg.EncryptionKey, in.Request, in.Code), sessionID(c), purpose)
 	switch {
 	case errors.Is(err, gorm.ErrDuplicatedKey):
 		oauthError(c, 409, "email_in_use")

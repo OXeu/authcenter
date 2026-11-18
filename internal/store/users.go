@@ -83,6 +83,9 @@ func (s *Store) DeleteUser(ctx context.Context, actor, target uint) error {
 		if err := tx.db.WithContext(ctx).Where("user_id = ?", target).Delete(&TOTPDevice{}).Error; err != nil {
 			return queryErr("delete user authenticators", err)
 		}
+		if err := tx.db.WithContext(ctx).Where("user_id = ?", target).Delete(&UserEmail{}).Error; err != nil {
+			return queryErr("delete user emails", err)
+		}
 		return tx.mustAffect(ctx, tx.db.WithContext(ctx).Delete(&User{}, target), "delete user")
 	})
 }

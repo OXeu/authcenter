@@ -15,7 +15,7 @@ GET /oauth/authorize?client_id=CLIENT_ID&redirect_uri=https%3A%2F%2Fapp.example%
 `response_type` 可省略，默认 `code`。`redirect_uri` 可省略，使用第一个已登记回调；传入时必须与某个已登记地址完整匹配。`scope` 默认 `profile email`。`state` 原样返回，业务应用应生成随机值并核对，以防登录请求伪造。未登录用户在完成登录后自动继续原授权请求。
 
 - `profile`：姓名和头像。
-- `email`：邮箱。
+- `email`：用户选择的主邮箱及验证状态。
 - `offline_access`：签发刷新令牌，允许持续访问。
 
 不含 `openid` 的普通 OAuth 请求无需 `nonce`，也不返回 `id_token`。配置签名密钥后可使用 [OpenID Connect](oidc.md)，请求 `openid profile email` 并验证 ID Token 的签名、issuer、audience 和 nonce。机密客户端 PKCE 可选；提供 challenge 时必须完成验证。公开客户端必须附带 `code_challenge` 和 `code_challenge_method=S256`。challenge 为 `BASE64URL(SHA256(code_verifier))`，verifier 为 43–128 个合法字符。
@@ -70,25 +70,31 @@ curl https://auth.example/oauth/revoke -u 'CLIENT_ID:CLIENT_SECRET' -d token=TOK
 
 管理 API 接受浏览器登录会话或 `Authorization: Bearer ac_...` API Key。浏览器写请求需要 `/api/v1/me` 返回的 `csrf` 作为 `X-CSRF-Token`；API Key 请求按独立权限检查，无需 CSRF。显式 Authorization 优先于 Cookie，错误密钥不会回退到浏览器身份。OAuth 访问令牌不能直接调用管理 API；通过 [MCP](/docs/mcp) 使用 OAuth 授权。
 
-| 方法           | 路径                           | 作用                                                                             |
-| -------------- | ------------------------------ | -------------------------------------------------------------------------------- |
-| GET            | `/api/v1/me`                   | 当前用户与 CSRF                                                                  |
-| GET / POST     | `/api/v1/clients`              | 列出 / 注册应用                                                                  |
-| PATCH / DELETE | `/api/v1/clients/:id`          | 编辑 / 删除应用                                                                  |
-| GET            | `/applications/:id/logo`       | 应用 Logo                                                                        |
-| GET            | `/api/v1/grants`               | 当前用户的授权                                                                   |
-| DELETE         | `/api/v1/grants/:id`           | 撤销自己的授权                                                                   |
-| GET            | `/api/v1/users`                | 管理员列出用户                                                                   |
-| PATCH          | `/api/v1/users/:id`            | 管理员修改角色                                                                   |
-| DELETE         | `/api/v1/users/:id`            | 管理员删除用户及其应用                                                           |
-| PUT / DELETE   | `/api/v1/users/:id/ban`        | 封禁 / 解封用户；封禁 JSON 为 `{"until":"2026-12-01T00:00:00Z"}`，时间必须在未来 |
-| GET            | `/api/v1/account/security`     | 当前账号安全状态                                                                 |
-| PUT            | `/api/v1/account/password`     | 设置密码：`current_password`、`password`                                         |
-| POST           | `/api/v1/account/email`        | 发起邮箱修改：`email`、`password`，返回 `request`                                |
-| POST           | `/api/v1/account/email/verify` | 确认邮箱修改：`request`、`code`                                                  |
-| DELETE         | `/api/v1/account/totp`         | 移除身份验证器：设备 `id`、`password`、该设备的 `code`                                               |
-| GET / PUT      | `/api/v1/settings`             | 管理员读取脱敏配置 / 保存 `{"values":{"AC_ALLOW_REGISTRATION":"false"}}`         |
-| POST           | `/api/v1/settings/refresh`     | 管理员刷新当前实例配置，返回 `restart_required` 列表                             |
+| 方法           | 路径                                 | 作用                                                                             |
+| -------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
+| GET            | `/api/v1/me`                         | 当前用户与 CSRF                                                                  |
+| GET / POST     | `/api/v1/clients`                    | 列出 / 注册应用                                                                  |
+| PATCH / DELETE | `/api/v1/clients/:id`                | 编辑 / 删除应用                                                                  |
+| GET            | `/applications/:id/logo`             | 应用 Logo                                                                        |
+| GET            | `/api/v1/grants`                     | 当前用户的授权                                                                   |
+| DELETE         | `/api/v1/grants/:id`                 | 撤销自己的授权                                                                   |
+| GET            | `/api/v1/users`                      | 管理员列出用户                                                                   |
+| PATCH          | `/api/v1/users/:id`                  | 管理员修改角色                                                                   |
+| DELETE         | `/api/v1/users/:id`                  | 管理员删除用户及其应用                                                           |
+| PUT / DELETE   | `/api/v1/users/:id/ban`              | 封禁 / 解封用户；封禁 JSON 为 `{"until":"2026-12-01T00:00:00Z"}`，时间必须在未来 |
+| GET            | `/api/v1/account/security`           | 当前账号安全状态                                                                 |
+| PUT            | `/api/v1/account/password`           | 设置密码：`current_password`、`password`                                         |
+| POST           | `/api/v1/account/email`              | 发起邮箱修改：`email`、`password`，返回 `request`                                |
+| POST           | `/api/v1/account/email/verify`       | 确认邮箱修改：`request`、`code`                                                  |
+| POST           | `/api/v1/account/emails`             | 发起附加邮箱绑定：`email`、`password`，返回 `request`                            |
+| POST           | `/api/v1/account/emails/verify`      | 验证绑定：`request`、`code`，保留当前主邮箱                                      |
+| PUT            | `/api/v1/account/emails/:id/primary` | 选择已验证的主邮箱：`password`                                                   |
+| DELETE         | `/api/v1/account/emails/:id`         | 解绑非主邮箱：`password`                                                         |
+| DELETE         | `/api/v1/account/totp`               | 移除身份验证器：设备 `id`、`password`、该设备的 `code`                           |
+| GET / PUT      | `/api/v1/settings`                   | 管理员读取脱敏配置 / 保存 `{"values":{"AC_ALLOW_REGISTRATION":"false"}}`         |
+| POST           | `/api/v1/settings/refresh`           | 管理员刷新当前实例配置，返回 `restart_required` 列表                             |
+
+账户安全接口返回 `emails`（`id`、`email`、`verified`、`primary`、`created_at`）和 `totp_devices`（`id`、`name`、`created_at`），不返回已绑定设备的密钥。原 `/account/email` 和 `/account/email/verify` 仍可绑定新邮箱并直接设为主邮箱，同时保留旧邮箱。修改邮箱绑定、切换主邮箱或移除身份验证器会撤销其他会话、API Key 和应用授权，保留发起操作的浏览器会话。
 
 创建应用 JSON：
 

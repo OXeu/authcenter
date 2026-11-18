@@ -245,7 +245,12 @@ func (s *Server) securitySettings(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
-	c.JSON(200, gin.H{"email": user.Email, "totp_devices": devices, "totp_enabled": len(devices) > 0, "password_enabled": user.PasswordHash != "", "local_login": s.cfg.LocalLogin, "email_available": s.cfg.ResendKey != "" && s.cfg.ResendFrom != "" && len(s.cfg.EncryptionKey) == 32})
+	emails, err := s.store.AccountEmails(c.Request.Context(), user.ID)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"email": user.Email, "emails": emails, "totp_devices": devices, "totp_enabled": len(devices) > 0, "password_enabled": user.PasswordHash != "", "local_login": s.cfg.LocalLogin, "email_available": s.cfg.ResendKey != "" && s.cfg.ResendFrom != "" && len(s.cfg.EncryptionKey) == 32})
 }
 
 func (s *Server) enrollTOTP(c *gin.Context) {

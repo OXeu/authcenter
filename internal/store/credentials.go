@@ -59,6 +59,14 @@ func (s *Store) CreateLoginChallenge(ctx context.Context, c LoginChallenge) erro
 			if !user.Active() {
 				return ErrInvalidGrant
 			}
+			if c.Purpose == "login" {
+				if user.PasswordHash != c.PasswordHash {
+					return ErrInvalidGrant
+				}
+				if err := tx.requireAccountEmail(ctx, user.ID, c.Email); err != nil {
+					return err
+				}
+			}
 		}
 		return queryErr("create login challenge", tx.db.WithContext(ctx).Create(&c).Error)
 	})
@@ -107,12 +115,17 @@ func (s *Store) VerifyLoginChallenge(ctx context.Context, id, emailHash string, 
 			}
 			if user.ID == 0 {
 				user = User{Email: challenge.Email, Name: challenge.Name, Role: RoleUser}
-				if err := tx.db.WithContext(ctx).Create(&user).Error; err != nil {
-					return queryErr("register account", err)
+				var err error
+				user, err = tx.CreateUser(ctx, user)
+				if err != nil {
+					return err
 				}
 			}
 			result := tx.db.WithContext(ctx).Model(&User{}).Where("id = ? AND password_hash = ?", user.ID, "").Updates(map[string]any{"password_hash": challenge.PasswordHash, "email_verified": true})
 			if err := tx.mustAffect(ctx, result, "set initial password"); err != nil {
+				return err
+			}
+			if err := tx.verifyAccountEmail(ctx, user.ID, challenge.Email); err != nil {
 				return err
 			}
 		case "enroll":
@@ -127,6 +140,9 @@ func (s *Store) VerifyLoginChallenge(ctx context.Context, id, emailHash string, 
 				return queryErr("enroll authenticator", err)
 			}
 		case "login":
+			if err := tx.requireAccountEmail(ctx, user.ID, challenge.Email); err != nil {
+				return err
+			}
 			if user.PasswordHash != challenge.PasswordHash {
 				return ErrInvalidGrant
 			}
