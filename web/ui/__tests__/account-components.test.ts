@@ -148,7 +148,10 @@ it('adds another authenticator and removes only the selected device after confir
     .find((button) => button.text() === 'Cancel')!
     .trigger('click')
   const tablet = wrapper.findAll('li').find((row) => row.text().includes('Tablet'))!
-  await tablet.get('button').trigger('click')
+  await tablet
+    .findAll('button')
+    .find((button) => button.text() === 'More')!
+    .trigger('click')
   await tablet
     .findAll('button')
     .find((button) => button.text() === 'Remove device')!
@@ -237,5 +240,48 @@ it('defers removing an email until its confirmation dialog is submitted', async 
     '/api/v1/account/emails/2',
     expect.objectContaining({ method: 'DELETE' }),
   )
+  wrapper.unmount()
+})
+it('renames the selected authenticator in a prefilled dialog and refreshes its name', async () => {
+  const devices = [
+    { id: 1, name: 'Phone', created_at: '' },
+    { id: 2, name: 'Tablet', created_at: '' },
+  ]
+  vi.mocked(fetch).mockResolvedValue(
+    reply({ ...security, totp_enabled: true, totp_devices: devices }),
+  )
+  const wrapper = await account()
+  const row = wrapper.findAll('li').find((item) => item.text().includes('Tablet'))!
+  const rename = row.findAll('button').find((button) => button.text() === 'Rename device')!
+  await rename.trigger('click')
+  expect((wrapper.get('dialog input').element as HTMLInputElement).value).toBe('Tablet')
+  await wrapper.get('dialog input').setValue('Cancelled name')
+  await wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Cancel')!
+    .trigger('click')
+  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(row.text()).toContain('Tablet')
+  await rename.trigger('click')
+  await wrapper.get('dialog input').setValue('Backup tablet')
+  vi.mocked(fetch)
+    .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    .mockResolvedValueOnce(
+      reply({
+        ...security,
+        totp_enabled: true,
+        totp_devices: [devices[0], { ...devices[1], name: 'Backup tablet' }],
+      }),
+    )
+  await wrapper.get('form').trigger('submit')
+  await flushPromises()
+  expect(fetch).toHaveBeenCalledWith(
+    '/api/v1/account/totp/2',
+    expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ name: 'Backup tablet' }) }),
+  )
+  expect(wrapper.find('dialog').exists()).toBe(false)
+  expect(wrapper.text()).toContain('Backup tablet')
+  expect(wrapper.text()).toContain('Phone')
+  expect(notify).toHaveBeenCalledWith('success', 'Saved')
   wrapper.unmount()
 })

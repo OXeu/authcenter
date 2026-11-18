@@ -15,6 +15,7 @@ const {
   password,
   email,
   enroll,
+  renameDevice,
   actions,
   primaryEmail,
   emailActions,
@@ -89,9 +90,17 @@ onMounted(load)
           <li
             v-for="device in state.totp_devices"
             :key="device.id"
-            class="flex items-center justify-between gap-3"
+            class="flex flex-wrap items-center gap-3"
           >
-            <span>{{ device.name }}</span>
+            <span class="mr-auto break-all">{{ device.name }}</span>
+            <Button
+              :disabled="state.busy"
+              variant="secondary"
+              size="sm"
+              @click="renameDevice(device)"
+            >
+              {{ msg('account.renameDevice') }}
+            </Button>
             <DangerActions
               :actions="actions(device)"
               :label="msg('common.more')"

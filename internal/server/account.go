@@ -137,6 +137,36 @@ func (s *Server) verifyAccountEmail(c *gin.Context, purpose string) {
 	}
 }
 
+func (s *Server) renameTOTP(c *gin.Context) {
+	id, err := userID(c)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	var in struct {
+		Name string `json:"name"`
+	}
+	if err := bindJSON(c, &in); err != nil {
+		s.fail(c, err)
+		return
+	}
+	in.Name = strings.TrimSpace(in.Name)
+	if in.Name == "" || len(in.Name) > 100 {
+		oauthError(c, 400, "invalid_name")
+		return
+	}
+	user, _ := s.me(c)
+	err = s.store.RenameTOTPDevice(c.Request.Context(), user.ID, id, in.Name)
+	switch {
+	case errors.Is(err, store.ErrInvalidGrant):
+		oauthError(c, 401, "invalid_credentials")
+	case err != nil:
+		s.fail(c, err)
+	default:
+		c.Status(204)
+	}
+}
+
 func (s *Server) disableTOTP(c *gin.Context) {
 	var in struct {
 		ID       uint   `json:"id"`

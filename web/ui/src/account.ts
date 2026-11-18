@@ -197,6 +197,21 @@ export function createAccount(page: PageContext) {
       },
     )
   }
+  function renameDevice(device: TOTPDevice) {
+    form.show(
+      msg('account.renameDevice'),
+      [{ key: 'name', label: 'account.deviceName', required: true }],
+      { name: device.name },
+      async () => {
+        await api(`/api/v1/account/totp/${device.id}`, {
+          method: 'PATCH',
+          csrf: page.csrf,
+          body: form.values,
+        })
+        await saved()
+      },
+    )
+  }
   function actions(device: TOTPDevice) {
     return [
       dangerAction(
@@ -224,6 +239,7 @@ export function createAccount(page: PageContext) {
     password,
     email,
     enroll,
+    renameDevice,
     actions,
     primaryEmail,
     emailActions,

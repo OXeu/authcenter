@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -152,5 +153,109 @@ func TestMCPRemovesSelectedTOTPDevice(t *testing.T) {
 	devices, err = f.srv.store.TOTPDevices(t.Context(), user.ID)
 	if err != nil || len(devices) != 1 || devices[0].Name != "Phone" {
 		t.Fatal("wrong device removed by MCP", err)
+	}
+}
+
+func TestRenameTOTPDeviceValidatesOwnershipAndPreservesCredentials(t *testing.T) {
+	f, code := localFlows(t)
+	registerLocal(t, f, code)
+	enrollDevice(t, f, "Phone")
+	enrollDevice(t, f, "Tablet")
+	user, err := f.srv.store.UserByEmail(t.Context(), "alice@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := f.srv.store.TOTPDevices(t.Context(), user.ID)
+	if err != nil || len(before) != 2 {
+		t.Fatal("missing devices", err)
+	}
+	path := fmt.Sprintf("/api/v1/account/totp/%d", before[1].ID)
+	otherSession := signedInUser(t, f, user)
+	stranger, err := f.srv.store.CreateUser(t.Context(), store.User{Email: "stranger@example.com", Name: "Stranger", Role: store.RoleUser, OAuthSub: "stranger"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := signedInUser(t, f, stranger)
+	if other.request("PATCH", path, map[string]string{"name": "Stolen"}).Code != 404 {
+		t.Fatal("device rename crossed accounts")
+	}
+	anonymous := &flows{t: t, srv: f.srv, router: f.router, cookies: map[string]*http.Cookie{}}
+	if anonymous.request("PATCH", path, map[string]string{"name": "Anonymous"}).Code != 401 {
+		t.Fatal("anonymous device rename accepted")
+	}
+	csrf := f.csrf
+	f.csrf = ""
+	if f.request("PATCH", path, map[string]string{"name": "No CSRF"}).Code != 403 {
+		t.Fatal("rename accepted without CSRF")
+	}
+	f.csrf = csrf
+	for _, name := range []string{"", " \t\n ", strings.Repeat("a", 101), strings.Repeat("验", 34)} {
+		if response := f.request("PATCH", path, map[string]string{"name": name}); response.Code != 400 {
+			t.Fatal("invalid device name accepted", response.Code)
+		}
+	}
+	if f.request("PATCH", "/api/v1/account/totp/0", map[string]string{"name": "New"}).Code != 400 {
+		t.Fatal("invalid device ID accepted")
+	}
+	if f.request("PATCH", "/api/v1/account/totp/99999", map[string]string{"name": "New"}).Code != 404 {
+		t.Fatal("missing device rename accepted")
+	}
+	name := strings.Repeat("验", 33) + "A"
+	for range 2 {
+		if response := f.request("PATCH", path, map[string]string{"name": "  " + name + "  "}); response.Code != 204 {
+			t.Fatal("rename failed", response.Code, response.Body.String())
+		}
+	}
+	after, err := f.srv.store.TOTPDevices(t.Context(), user.ID)
+	if err != nil || len(after) != 2 {
+		t.Fatal("devices changed", err)
+	}
+	before[1].Name = name
+	if after[0] != before[0] || after[1] != before[1] {
+		t.Fatal("rename changed another device or its credentials")
+	}
+	if otherSession.request("GET", "/api/v1/me", nil).Code != 200 {
+		t.Fatal("rename revoked another session")
+	}
+	settings := responseJSON(t, f.request("GET", "/api/v1/account/security", nil))
+	devices := settings["totp_devices"].([]any)
+	if devices[1].(map[string]any)["name"] != name {
+		t.Fatal("new name missing from security settings")
+	}
+}
+
+func TestTOTPDeviceRenameRequiresWriteScopeAndSupportsMCP(t *testing.T) {
+	f, code := localFlows(t)
+	registerLocal(t, f, code)
+	enrollDevice(t, f, "Phone")
+	user, err := f.srv.store.UserByEmail(t.Context(), "alice@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	devices, err := f.srv.store.TOTPDevices(t.Context(), user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := fmt.Sprintf("/api/v1/account/totp/%d", devices[0].ID)
+	_, readKey := createKey(t, f, []string{"account:read"})
+	if keyRequest(t, f, readKey, "PATCH", path, map[string]string{"name": "Read key"}).Code != 403 {
+		t.Fatal("read-only key renamed device")
+	}
+	_, writeKey := createKey(t, f, []string{"account:write"})
+	if response := keyRequest(t, f, writeKey, "PATCH", path, map[string]string{"name": "Write key"}); response.Code != 204 {
+		t.Fatal("write key could not rename device", response.Code)
+	}
+	_, tokens := mcpTokens(t, f)
+	access := tokens["access_token"].(string)
+	result := mcpCall(t, f, access, "rename_totp", map[string]any{"id": fmt.Sprint(devices[0].ID), "name": "MCP name"})
+	if toolStatus(t, result) != 204 {
+		t.Fatal(result)
+	}
+	if mcpRequest(t, f.router, access, "tools/list", nil).Code != 200 {
+		t.Fatal("rename revoked MCP authorization")
+	}
+	devices, err = f.srv.store.TOTPDevices(t.Context(), user.ID)
+	if err != nil || devices[0].Name != "MCP name" {
+		t.Fatal("MCP rename not saved", err)
 	}
 }

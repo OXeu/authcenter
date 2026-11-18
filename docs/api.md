@@ -90,6 +90,7 @@ curl https://auth.example/oauth/revoke -u 'CLIENT_ID:CLIENT_SECRET' -d token=TOK
 | POST           | `/api/v1/account/emails/verify`      | 验证绑定：`request`、`code`，保留当前主邮箱                                      |
 | PUT            | `/api/v1/account/emails/:id/primary` | 选择已验证的主邮箱：`password`                                                   |
 | DELETE         | `/api/v1/account/emails/:id`         | 解绑非主邮箱：`password`                                                         |
+| PATCH          | `/api/v1/account/totp/:id`           | 重命名已绑定身份验证器：`name`，去除首尾空白后为 1–100 字节                      |
 | DELETE         | `/api/v1/account/totp`               | 移除身份验证器：设备 `id`、`password`、该设备的 `code`                           |
 | GET / PUT      | `/api/v1/settings`                   | 管理员读取脱敏配置 / 保存 `{"values":{"AC_ALLOW_REGISTRATION":"false"}}`         |
 | POST           | `/api/v1/settings/refresh`           | 管理员刷新当前实例配置，返回 `restart_required` 列表                             |

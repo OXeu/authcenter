@@ -22,6 +22,24 @@ func (s *Store) TOTPDevices(ctx context.Context, userID uint) ([]TOTPDevice, err
 	return devices, queryErr("list authenticators", err)
 }
 
+// RenameTOTPDevice changes the display name of an authenticator owned by an active account.
+func (s *Store) RenameTOTPDevice(ctx context.Context, userID, deviceID uint, name string) error {
+	return s.Transaction(ctx, func(tx *Store) error {
+		user, err := tx.lockUser(ctx, userID)
+		if err != nil {
+			return err
+		}
+		if !user.Active() {
+			return ErrInvalidGrant
+		}
+		var device TOTPDevice
+		if err := tx.db.WithContext(ctx).Where("id = ? AND user_id = ?", deviceID, userID).First(&device).Error; err != nil {
+			return queryErr("load authenticator", err)
+		}
+		return queryErr("rename authenticator", tx.db.WithContext(ctx).Model(&device).Update("name", name).Error)
+	})
+}
+
 func (s *Store) migrateTOTPDevices(ctx context.Context) error {
 	return s.Transaction(ctx, func(tx *Store) error {
 		var users []User

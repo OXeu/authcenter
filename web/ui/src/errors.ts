@@ -41,6 +41,7 @@ export function describeError(msg: (id: string) => string, err: unknown): string
     'configuration_failed',
     'configuration_unavailable',
     'invalid_email',
+    'invalid_name',
     'email_in_use',
     'primary_email_required',
     'local_login_disabled',

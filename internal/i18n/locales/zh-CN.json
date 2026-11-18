@@ -226,6 +226,8 @@
   "authError.primary_email_required": "请选择已验证的邮箱作为主邮箱，再解绑原主邮箱。",
   "account.newEmail": "新邮箱",
   "account.verifyEmail": "验证新邮箱",
+  "account.renameDevice": "重命名",
+  "authError.invalid_name": "名称去除首尾空白后须为 1–100 字节。",
   "account.deviceName": "设备名称",
   "account.authenticator": "身份验证器",
   "account.disable": "移除设备",

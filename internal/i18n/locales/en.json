@@ -226,6 +226,8 @@
   "authError.primary_email_required": "Choose a verified email as primary before removing the current primary email.",
   "account.newEmail": "New email",
   "account.verifyEmail": "Verify new email",
+  "account.renameDevice": "Rename device",
+  "authError.invalid_name": "Name must contain 1–100 bytes after trimming whitespace.",
   "account.deviceName": "Device name",
   "account.authenticator": "Authenticator",
   "account.disable": "Remove device",
