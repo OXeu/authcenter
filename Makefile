@@ -1,5 +1,4 @@
 PROJECT := authcenter
-SDK_DIR := sdk/configcenter
 COMMON_DIR ?= ../center-common
 .DEFAULT_GOAL := all
 .NOTPARALLEL:
@@ -16,8 +15,8 @@ bootstrap: common
 	npm ci
 
 all build assets lint test check sdk-lint sdk-test run fmt: common
-	$(MAKE) --no-print-directory -f .tmp/common/config/project.mk PROJECT=$(PROJECT) SDK_DIR=$(SDK_DIR) $@
+	$(MAKE) --no-print-directory -f .tmp/common/config/project.mk PROJECT=$(PROJECT) $@
 
 scf-package:
 	node tools/common.ts --locked
-	$(MAKE) --no-print-directory -f .tmp/common/config/project.mk PROJECT=$(PROJECT) SDK_DIR=$(SDK_DIR) $@
+	$(MAKE) --no-print-directory -f .tmp/common/config/project.mk PROJECT=$(PROJECT) $@

@@ -11,7 +11,6 @@ Rules for anyone (human or model) changing authcenter. They are enforced where a
 - `center-common/oauth` — the shared RFC 6749 + OIDC client (discovery, PKCE, id_token verification, userinfo fallback).
 - `internal/server` — gin router, OAuth provider and management REST handlers, Go templates (`templates/shell/vue.html`), embedded static files.
 - `web/ui` — Vue 3 single-file components and Tailwind CSS; Vite Plus builds into `.tmp/ui`, embedded by root `assets.go`.
-- `sdk/configcenter` — the original configcenter Go SDK, used as a local module dependency.
 - `docs/commits.md` — the commit message rules (Conventional Commits 1.0.0 plus this repository's constraints).
 
 ## Commits
@@ -110,14 +109,13 @@ Keep component-local state and readonly configuration local. Declare necessary a
 ## Testing
 
 - `go test ./...` — GitHub/OAuth login, password and second-factor login, application isolation, CSRF, token rotation and replay.
-- `go test ./...` in `sdk/configcenter`; the live test runs only with `CC_TEST_URL` and `CC_TEST_KEY`.
 - `npm test` — Vitest and Vue Test Utils with jsdom cover dialogs, requests, permissions, translations, toast setup and template rules.
 - `internal/server/e2e_test.go` logs in through a fake IdP; authorization tests prove client and user isolation. Its `TestMain` (`scratch_test.go`) points `TMPDIR` at `.tmp/go-test` so `go test` run directly, without `make`, also keeps its scratch files in the workspace.
 - Relational test databases use `mode=memory`. SDK caches use isolated in-memory maps with TTL; dotenv test files live under the repository root `.tmp/` and are cleaned up. No database is written into a package directory.
 
 ## Definition of done
 
-`make check` passes: Vite Plus production build, Go lint and tests, Oxlint, strict Vue type checks, Vitest, and SDK lint and tests. `make build` produces `.tmp/bin/authcenter`. Commit working changes according to `docs/commits.md` and finish with a clean `git status`. Build artifacts remain ignored under `.tmp/`.
+`make check` passes: Vite Plus production build, Go lint and tests, Oxlint, strict Vue type checks and Vitest. `make build` produces `.tmp/bin/authcenter`. Commit working changes according to `docs/commits.md` and finish with a clean `git status`. Build artifacts remain ignored under `.tmp/`.
 
 ## Dangerous UI actions
 

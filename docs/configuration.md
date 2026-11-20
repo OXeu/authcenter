@@ -1,6 +1,6 @@
 # configcenter SDK 配置
 
-AuthCenter 使用 `github.com/OXeu/configcenter/sdk/configcenter` 读取配置。SDK 源码随仓库保存在 `sdk/configcenter`，通过本地 Go module replace 引用，与原 configcenter SDK 的包名和协议一致，不依赖旁边的源码目录。
+AuthCenter 使用 `github.com/OXeu/configcenter/sdk/configcenter` 读取配置。该模块作为常规远程依赖固定在 `go.mod` 中，与 configcenter 发布链保持一致，仓库内不再保存副本。
 
 ## 引导配置
 
