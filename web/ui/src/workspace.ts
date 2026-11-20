@@ -46,27 +46,24 @@ export function createWorkspace(data: PageData, page: PageContext) {
     await refresh()
     return result
   }
+  function editChoices(row: Record<string, any>) {
+    return ['user', 'admin'].map((value) => ({
+      value,
+      label: page.msg(`role.${value}`),
+      selected: row.role === value,
+    }))
+  }
+  function choose(row: Record<string, any>, value: string) {
+    if (state.busy || data.page !== 'users') return
+    const choice = editChoices(row).find((option) => option.value === value)
+    if (!choice || choice.selected) return
+    form.show(`${page.msg('common.edit')}: ${choice.label}`, [], {}, async () => {
+      await mutate(`${path()}/${row.id}`, 'PATCH', { role: value })
+    })
+    form.info = row.email
+  }
   function edit(row?: Record<string, any>) {
-    if (data.page === 'users') {
-      form.show(
-        page.msg('common.edit'),
-        [
-          {
-            key: 'role',
-            label: 'dialog.role',
-            options: ['user', 'admin'].map((value) => ({
-              value,
-              label: page.msg(`role.${value}`),
-            })),
-          },
-        ],
-        { role: row!.role },
-        async () => {
-          await mutate(`${path()}/${row!.id}`, 'PATCH', form.values)
-        },
-      )
-      return
-    }
+    if (data.page === 'users') return
     const fields = [
       { key: 'name', label: 'common.name', required: true },
       { key: 'homepage', label: 'apps.homepage', required: true },
@@ -166,7 +163,7 @@ export function createWorkspace(data: PageData, page: PageContext) {
       ),
     ]
   }
-  return { state, form, refresh, select, edit, actionsFor }
+  return { state, form, refresh, select, edit, editChoices, choose, actionsFor }
 }
 
 export type APIKey = {

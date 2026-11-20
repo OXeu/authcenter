@@ -100,3 +100,23 @@ it('confirms user bans with a future expiry and offers unban and deletion', asyn
     expect.objectContaining({ method: 'DELETE' }),
   )
 })
+it('changes a user role through the row menu after confirmation', async () => {
+  const w = createWorkspace({ ...data, page: 'users', me: { id: 1 } } as PageData, createPage(data))
+  const row = { id: 2, name: 'User', email: 'user@example.com', role: 'user' }
+  const choices = w.editChoices(row)
+  expect(choices.map((choice) => choice.value)).toEqual(['user', 'admin'])
+  expect(choices[0].selected).toBe(true)
+  expect(choices[1].selected).toBe(false)
+  w.choose(row, 'user')
+  expect(fetch).not.toHaveBeenCalled()
+  expect(w.form.open).toBe(false)
+  w.choose(row, 'admin')
+  expect(fetch).not.toHaveBeenCalled()
+  expect(w.form.open).toBe(true)
+  expect(w.form.fields).toEqual([])
+  await w.form.submit()
+  expect(fetch).toHaveBeenCalledWith(
+    '/api/v1/users/2',
+    expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ role: 'admin' }) }),
+  )
+})

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Button from '@oxeu/center-common/ui/Button.vue'
+import DropdownMenu from '@oxeu/center-common/ui/DropdownMenu.vue'
 import { computed, onMounted } from 'vue'
 import DangerActions from './DangerActions.vue'
 import DialogPanel from './DialogPanel.vue'
@@ -9,7 +10,11 @@ import type { PageContext } from './page.ts'
 const props = defineProps<{ data: PageData; page: PageContext; title: string }>()
 const { data, page } = props
 const { msg } = page
-const { state, form, refresh, select, edit, actionsFor } = createWorkspace(data, page)
+const { state, form, refresh, select, edit, editChoices, choose, actionsFor } = createWorkspace(
+  data,
+  page,
+)
+const choiceEditor = computed(() => data.page === 'users')
 const applications = computed(() => data.page === 'applications')
 const clients = computed(() => applications.value && state.tab === 'clients')
 const columns = computed(() =>
@@ -103,7 +108,27 @@ onMounted(refresh)
             <span class="whitespace-pre-wrap break-all">{{ cell(row, column) }}</span>
           </td>
           <td :data-label="msg('common.actions')">
-            <Button v-if="canEdit(row)" :disabled="state.busy" @click="edit(row)" variant="ghost">
+            <DropdownMenu v-if="choiceEditor" :disabled="state.busy" :label="msg('common.edit')">
+              <Button
+                v-for="choice in editChoices(row)"
+                :key="choice.value"
+                :aria-pressed="choice.selected"
+                :data-active="choice.selected"
+                :disabled="state.busy"
+                @click="choose(row, choice.value)"
+                variant="ghost"
+                block
+                align="start"
+              >
+                {{ choice.label }}
+              </Button>
+            </DropdownMenu>
+            <Button
+              v-else-if="canEdit(row)"
+              :disabled="state.busy"
+              @click="edit(row)"
+              variant="ghost"
+            >
               {{ msg('common.edit') }}
             </Button>
             <DangerActions
