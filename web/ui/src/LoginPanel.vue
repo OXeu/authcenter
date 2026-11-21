@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import AuthCard from '@oxeu/center-common/ui/AuthCard.vue'
 import Button from '@oxeu/center-common/ui/Button.vue'
 import { navigateDocument } from '@oxeu/center-common/ui/navigation.ts'
 import DialogPanel from './DialogPanel.vue'
@@ -10,6 +12,8 @@ import type { PageContext } from './page.ts'
 const props = defineProps<{ data: PageData; page: PageContext }>()
 const { msg } = props.page
 const form = createForm(props.page)
+const oauthHref = computed(() => (props.data.oauthEnabled ? '/auth/login' : ''))
+const canRegister = computed(() => Boolean(props.data.registration && props.data.emailLogin))
 async function sendEmail() {
   try {
     await api('/auth/local/email', { method: 'POST', csrf: props.data.csrf })
@@ -70,16 +74,20 @@ function open(register: boolean) {
 }
 </script>
 <template>
-  <div class="mt-4 flex flex-wrap gap-2">
-    <Button v-if="data.oauthEnabled" href="/auth/login" variant="primary">{{
-      msg('login.github')
-    }}</Button>
+  <AuthCard
+    :title="msg('login.title')"
+    :subtitle="msg('apps.description')"
+    :oauth-href="oauthHref"
+    :oauth-label="msg('login.github')"
+  >
     <template v-if="data.localLogin">
       <Button @click="open(false)" variant="secondary">{{ msg('login.passwordLogin') }}</Button>
-      <Button v-if="data.registration && data.emailLogin" @click="open(true)" variant="ghost">
+      <Button v-if="canRegister" @click="open(true)" variant="ghost">
         {{ msg('login.register') }}
       </Button>
     </template>
-  </div>
-  <DialogPanel v-if="form.open" :form="form" :msg="msg" />
+    <template #footer>
+      <DialogPanel v-if="form.open" :form="form" :msg="msg" />
+    </template>
+  </AuthCard>
 </template>
