@@ -83,7 +83,7 @@ func fromSnapshot(env func(string, string) string) (Config, error) {
 		DatabaseDSN:    env("AC_DB", "file:.tmp/authcenter.db"),
 		PublicURL:      strings.TrimRight(env("AC_PUBLIC_URL", "http://127.0.0.1:8081"), "/"),
 
-		SessionTTL:        24 * time.Hour,
+		SessionTTL:        30 * 24 * time.Hour,
 		LocalLogin:        env("AC_LOCAL_LOGIN", "true") == "true",
 		AllowRegistration: env("AC_ALLOW_REGISTRATION", "true") == "true",
 		ResendKey:         env("AC_RESEND_API_KEY", ""),
