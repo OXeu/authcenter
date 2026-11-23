@@ -13,6 +13,9 @@ const props = defineProps<{ data: PageData; page: PageContext }>()
 const { msg } = props.page
 const form = createForm(props.page)
 const oauthHref = computed(() => (props.data.oauthEnabled ? '/auth/login' : ''))
+const oauthLabel = computed(() =>
+  msg('login.github', { ProviderName: props.data.providerName || msg('login.providerFallback') }),
+)
 const canRegister = computed(() => Boolean(props.data.registration && props.data.emailLogin))
 async function sendEmail() {
   try {
@@ -78,11 +81,14 @@ function open(register: boolean) {
     :title="msg('login.title')"
     :subtitle="msg('apps.description')"
     :oauth-href="oauthHref"
-    :oauth-label="msg('login.github')"
+    :oauth-label="oauthLabel"
   >
     <template v-if="data.localLogin">
-      <Button @click="open(false)" variant="secondary">{{ msg('login.passwordLogin') }}</Button>
-      <Button v-if="canRegister" @click="open(true)" variant="ghost">
+      <p v-if="data.oauthEnabled" class="auth-divider">{{ msg('login.or') }}</p>
+      <Button @click="open(false)" variant="secondary" block size="lg">
+        {{ msg('login.passwordLogin') }}
+      </Button>
+      <Button v-if="canRegister" @click="open(true)" variant="ghost" block size="lg">
         {{ msg('login.register') }}
       </Button>
     </template>

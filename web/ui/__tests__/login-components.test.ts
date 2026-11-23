@@ -178,3 +178,55 @@ it.each([
   expect(location.assign).toHaveBeenCalledWith(redirect)
   wrapper.unmount()
 })
+
+it('renders one centered auth card with a single primary action and secondary login choices', () => {
+  const wrapper = mount(LoginPanel, { props: { data, page: createPage(data) } })
+  expect(wrapper.findAll('.auth-card')).toHaveLength(1)
+  expect(wrapper.findAll('.auth-actions')).toHaveLength(1)
+  expect(wrapper.findAll('.auth-card h2')).toHaveLength(1)
+  expect(wrapper.get('.auth-divider').text()).toBe('or')
+  const link = wrapper.get('.auth-actions a')
+  expect(link.attributes('href')).toBe('/auth/login')
+  expect(link.classes()).toContain('btn-primary')
+  expect(link.classes()).toContain('btn-lg')
+  const buttons = wrapper.findAll('.auth-actions button')
+  expect(buttons.map((button) => button.text())).toEqual(['Password login', 'Create account'])
+  wrapper.unmount()
+})
+
+it('omits the divider and register action when only one login method is available', () => {
+  const localOnly = { ...data, oauthEnabled: false, registration: false } as PageData
+  const wrapper = mount(LoginPanel, { props: { data: localOnly, page: createPage(localOnly) } })
+  expect(wrapper.find('.auth-divider').exists()).toBe(false)
+  expect(wrapper.findAll('.auth-actions button')).toHaveLength(1)
+  expect(wrapper.find('.auth-actions a').exists()).toBe(false)
+  wrapper.unmount()
+})
+
+it('lays consent actions side by side with the safe choice first', () => {
+  const consent: PageData = {
+    ...data,
+    page: 'consent',
+    authorization: {
+      id: 'request',
+      client: {
+        id: 'app',
+        name: 'Example',
+        homepage: '',
+        public: false,
+        dynamic: false,
+        redirect_uris: [],
+        scopes: [],
+      },
+      scopes: ['profile'],
+      redirect_uri: 'https://app.example/callback',
+    },
+  }
+  const wrapper = mount(ConsentPage, { props: { data: consent, page: createPage(consent) } })
+  const actions = wrapper.get('.auth-actions')
+  expect(actions.classes()).toContain('auth-actions-row')
+  expect(actions.findAll('button').map((button) => button.text())).toEqual(['Decline', 'Authorize'])
+  expect(wrapper.text()).toContain('Callback URL')
+  expect(wrapper.text()).not.toContain('one per line')
+  wrapper.unmount()
+})

@@ -21,6 +21,7 @@ const props = defineProps({
   subtitle: { type: String, required: true },
   theme: { type: String, required: true },
   headerOnly: { type: Boolean, default: false },
+  centered: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['toggle-theme'])
@@ -205,9 +206,16 @@ async function logout(): Promise<void> {
     </template>
   </header>
   <DialogPanel v-if="form.open" :form="form" :msg="msg" />
-  <main v-if="!headerOnly" id="main" class="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-    <h1 class="break-words text-xl font-semibold">{{ title }}</h1>
-    <p v-if="subtitle" class="text-sm text-muted-foreground">{{ subtitle }}</p>
+  <main
+    v-if="!headerOnly"
+    id="main"
+    class="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8"
+    :class="centered ? 'auth-page mx-auto' : ''"
+  >
+    <template v-if="!centered">
+      <h1 class="break-words text-xl font-semibold">{{ title }}</h1>
+      <p v-if="subtitle" class="text-sm text-muted-foreground">{{ subtitle }}</p>
+    </template>
     <slot />
   </main>
 </template>

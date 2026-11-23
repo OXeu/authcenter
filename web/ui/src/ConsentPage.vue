@@ -17,7 +17,7 @@ const logo = computed(() =>
 const scopes = computed(() => authorization.scopes.map((scope) => msg(`oauth.scope.${scope}`)))
 const details = computed(() => [
   { label: msg('oauth.account'), value: props.data.me?.email ?? '' },
-  { label: msg('apps.callbacks'), value: authorization.redirect_uri },
+  { label: msg('oauth.callback'), value: authorization.redirect_uri },
 ])
 async function decide(approve: boolean) {
   if (busy.value) return

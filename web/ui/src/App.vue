@@ -20,6 +20,7 @@ const { theme, toggleTheme } = useTheme()
 watch(theme, (value) => setToastTheme(value))
 const isDocs = computed(() => data.page === 'docs')
 const isWorkspace = computed(() => ['applications', 'users'].includes(data.page))
+const isAuth = computed(() => ['login', 'consent'].includes(data.page))
 const docsLinks = [
   { page: 'index', href: '/docs/', label: 'docs.overview' },
   { page: 'api', href: '/docs/api', label: 'docs.api' },
@@ -53,6 +54,7 @@ onMounted(() => {
       :title="title"
       :theme="theme"
       :header-only="isDocs"
+      :centered="isAuth"
       subtitle=""
       @toggle-theme="toggleTheme"
     >
