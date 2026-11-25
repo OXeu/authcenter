@@ -6,15 +6,16 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 )
 
 func TestSDKLoadsAllRuntimeConfiguration(t *testing.T) {
 	key := base64.StdEncoding.EncodeToString(make([]byte, 32))
 	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "Bearer cc_test" || !strings.Contains(r.URL.Path, "/environments/staging/values") {
+		if r.Header.Get("Authorization") != "Bearer cc_test" || r.URL.Path != "/api/v1/agent/environments/staging/values/reveal" {
 			t.Errorf("unexpected configcenter request %s", r.URL.Path)
+			w.WriteHeader(http.StatusForbidden)
+			return
 		}
 		items := []map[string]string{}
 		for k, v := range map[string]string{"AC_ADDR": "127.0.0.1:9090", "AC_PUBLIC_URL": "https://auth.example", "AC_ENCRYPTION_KEY": key, "AC_RESEND_API_KEY": "test-mail-key", "AC_RESEND_FROM": "Auth <auth@example.com>", "AC_OAUTH_CLIENT_ID": "github-client", "AC_OAUTH_CLIENT_SECRET": "github-secret"} {

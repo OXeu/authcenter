@@ -14,7 +14,7 @@ AC_CONFIGCENTER_ENVIRONMENT=production
 
 SDK 的读取、单项写入和批量写入统一使用 `Authorization: Bearer <API_KEY>`；`AC_CONFIGCENTER_API_KEY` 仍填写原有 `cc_` 密钥值，无需添加 `Bearer` 前缀或更换密钥。
 
-配置中心 API 密钥至少需要目标项目的配置读取权限。请使用 authcenter 专属配置项目和权限。服务启动时读取快照，读取失败直接退出。现有应用数据存储在 authcenter 数据库中。
+AuthCenter 使用目标项目专属的 ConfigCenter API 密钥。密钥必须具有 `config:read-secrets` 权限，以读取加密密钥、OIDC 签名密钥等运行配置。服务通过 `/values/reveal` 读取配置快照，读取失败时退出。现有应用数据存储在 authcenter 数据库中。
 
 管理员可在用户菜单进入独立的“后台设置”页面 `/settings`。页面展示配置中心中的值、是否待应用及生效方式，支持逐项或批量编辑。写入需要连接密钥具有 `projects:read`、`environments:read` 和 `config:write` 权限。数据库连接、加密密钥和 API 密钥仅显示是否配置，不返回已有值；批量编辑时秘密字段留空保留原值，单独编辑秘密字段时留空表示清除。
 

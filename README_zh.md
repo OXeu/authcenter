@@ -34,7 +34,7 @@
 
 ## 快速开始
 
-需要 Git、Make、带 npm 的 Node.js 24.15+、Go 1.26.10，以及锁定的 center-common 仓库的读取权限。先部署 ConfigCenter，创建独立项目、`production` 环境和具有配置读取权限的密钥。
+需要 Git、Make、带 npm 的 Node.js 24.15+、Go 1.26.10，以及锁定的 center-common 仓库的读取权限。先部署 ConfigCenter，并创建独立项目、`production` 环境和具有 `config:read-secrets` 权限的 API 密钥。
 
 1. 在该项目中设置 `AC_LOCAL_LOGIN=false`，使用最小的 GitHub 登录配置。
 2. 填写 `AC_OAUTH_CLIENT_ID`、`AC_OAUTH_CLIENT_SECRET` 和目标管理员的 `AC_BOOTSTRAP_ADMIN_EMAIL`。

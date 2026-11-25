@@ -62,10 +62,11 @@ func Load(ctx context.Context, lookup func(string) (string, bool)) (Config, erro
 	}
 
 	client, err := configcenter.New(configcenter.Config{
-		BaseURL:     lookupOr(lookup, "AC_CONFIGCENTER_URL", ""),
-		APIKey:      lookupOr(lookup, "AC_CONFIGCENTER_API_KEY", lookupOr(lookup, "AC_CONFIGCENTER_KEY", "")),
-		Environment: lookupOr(lookup, "AC_CONFIGCENTER_ENVIRONMENT", "production"),
-		DotenvFiles: []string{},
+		BaseURL:       lookupOr(lookup, "AC_CONFIGCENTER_URL", ""),
+		APIKey:        lookupOr(lookup, "AC_CONFIGCENTER_API_KEY", lookupOr(lookup, "AC_CONFIGCENTER_KEY", "")),
+		Environment:   lookupOr(lookup, "AC_CONFIGCENTER_ENVIRONMENT", "production"),
+		RevealSecrets: true,
+		DotenvFiles:   []string{},
 	})
 	if err != nil {
 		return Config{}, fmt.Errorf("configure configcenter SDK: %w", err)

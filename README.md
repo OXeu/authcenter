@@ -34,7 +34,7 @@ Application management in the actual web UI, rendered with synthetic example dat
 
 ## Quick Start
 
-Install Git, Make, Node.js 24.15+ with npm, and Go 1.26.10, with Git access to the pinned center-common repository. A running ConfigCenter is required: create a dedicated project, its `production` environment and a key with configuration-read permission.
+Install Git, Make, Node.js 24.15+ with npm, and Go 1.26.10, with Git access to the pinned center-common repository. In ConfigCenter, create a dedicated project, its `production` environment, and an API key with `config:read-secrets` permission.
 
 1. In that project, set `AC_LOCAL_LOGIN=false` for a minimal GitHub-only setup.
 2. Configure `AC_OAUTH_CLIENT_ID`, `AC_OAUTH_CLIENT_SECRET` and the intended `AC_BOOTSTRAP_ADMIN_EMAIL`.
