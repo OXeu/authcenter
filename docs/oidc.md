@@ -38,7 +38,7 @@ GET /oauth/authorize?response_type=code&client_id=CLIENT_ID&redirect_uri=https%3
 ```
 
 - 授权端点接受 GET 查询参数和 POST 表单参数；用户确认仍通过受会话及 CSRF 保护的授权页面完成。
-- `response_type=code` 和 `redirect_uri` 必须明确提供，回调必须完整匹配登记值。OIDC 回调接受 HTTPS、本机 HTTP，以及公开客户端的绝对自定义协议 URI；不接受 fragment、用户凭据或相对地址。
+- `response_type=code` 和 `redirect_uri` 必须明确提供，回调必须完整匹配登记值。OIDC 回调接受 HTTPS、本机回环地址和局域网私有 IP 的 HTTP 地址。公开客户端也可使用绝对自定义协议 URI。回调地址须为绝对 URI，且不得包含片段或用户凭据。
 - `nonce` 可选，建议使用随机值；传入时必须是非空字符串且不超过 1024 字节。它绑定到授权请求，并原样出现在对应 ID Token 中。
 - 公开客户端必须使用 S256 PKCE。机密客户端可选用；一旦发送 challenge，兑换时必须提供匹配的 verifier。
 - 换码时必须再次提供原始 `redirect_uri`。授权码为单次使用，客户端、回调、PKCE 或资源不匹配时不能兑换。

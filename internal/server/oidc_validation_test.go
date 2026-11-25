@@ -17,6 +17,13 @@ func TestOpenIDRedirectPolicy(t *testing.T) {
 		{"https://app.example/callback", false, true},
 		{"http://localhost:3000/callback", false, true},
 		{"http://127.0.0.1:3000/callback", true, true},
+		{"http://10.0.0.63:5174/auth/oauth/callback", false, true},
+		{"http://172.16.0.20/callback", false, true},
+		{"http://192.168.1.20/callback", true, true},
+		{"http://[fd00::20]:5174/callback", false, true},
+		{"http://1.1.1.1/callback", false, false},
+		{"http://10.0.0.63.example/callback", false, false},
+		{"http://169.254.169.254/callback", false, false},
 		{"cursor://app/callback", true, true},
 		{"cursor:/callback", true, true},
 		{"cursor:/callback", false, false},
@@ -91,7 +98,19 @@ func TestOpenIDCodeBindingsAndReplay(t *testing.T) {
 	id, secret := createClient(t, f, false)
 	other, otherSecret := createClient(t, f, false)
 	verifier := strings.Repeat("a", 43)
+	const callback = "http://10.0.0.63:5174/auth/oauth/callback"
+	body := clientBody(t)
+	body["homepage"] = "http://10.0.0.63:5174"
+	body["redirect_uris"] = []string{callback}
+	if response := f.request("PATCH", "/api/v1/clients/"+id, body); response.Code != http.StatusOK {
+		t.Fatalf("register LAN callback: %d %s", response.Code, response.Body.String())
+	}
 	query := openIDQuery(id, "openid", "stored-nonce")
+	query.Set("redirect_uri", callback+"/other")
+	if response := f.request("GET", "/oauth/authorize?"+query.Encode(), nil); response.Code != http.StatusBadRequest {
+		t.Fatal("accepted an unregistered LAN callback", response.Code)
+	}
+	query.Set("redirect_uri", callback)
 	query.Set("code_challenge", challengeFor(verifier))
 	query.Set("code_challenge_method", "S256")
 	code := approveOpenID(t, f, query)
